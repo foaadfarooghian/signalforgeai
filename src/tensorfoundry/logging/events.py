@@ -58,6 +58,7 @@ def _sanitize_value(value: Any, max_string: int = 500, max_items: int = 50) -> A
 
 
 def sanitize_payload(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Return a bounded, JSON-safe payload preserving keys where possible."""
     if not payload:
         return {}
     sanitized = _sanitize_value(payload)
@@ -67,11 +68,14 @@ def sanitize_payload(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def sha256_text(text: str) -> str:
+    """Hash a string payload to avoid logging raw sensitive text."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 @dataclass
 class Event:
+    """Structured log event conforming to the TensorFoundry schema."""
+
     trace_id: str
     span_id: str
     parent_span_id: Optional[str]
@@ -84,6 +88,7 @@ class Event:
     outcome: Dict[str, Any]
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to a JSON-serializable dictionary with sanitized fields."""
         return {
             "trace_id": self.trace_id,
             "span_id": self.span_id,

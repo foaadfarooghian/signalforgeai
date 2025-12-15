@@ -26,12 +26,15 @@ class JsonlEmitter:
         self._active_trace_id: Optional[str] = None
 
     def new_trace_id(self) -> str:
+        """Generate a fresh trace ID (does not mutate active trace)."""
         return new_trace_id()
 
     def new_span_id(self) -> str:
+        """Generate a fresh span ID."""
         return new_span_id()
     
     def start_trace(self) -> str:
+        """Start and remember a new active trace."""
         self._active_trace_id = self.new_trace_id()
         return self._active_trace_id
 
@@ -72,11 +75,13 @@ class JsonlEmitter:
         return event
     
     def __enter__(self):
+        """Open the JSONL file for streaming writes."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         self._fp = self.file_path.open("a", encoding="utf-8")
         return self
     
     def __exit__(self, exc_type, exc, tb):
+        """Close any open file handle."""
         if getattr(self, "_fp", None):
             self._fp.close()
             self._fp = None
