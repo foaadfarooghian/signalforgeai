@@ -1,41 +1,40 @@
-"""Skeleton research agent workflow using TensorFoundry primitives.
-
-This example sketches how a research-oriented agent could be wired once
-TensorFoundry modules are implemented. Replace TODOs with real hooks.
-"""
+"""Runner for the ResearchAgent example."""
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import sys
+from pathlib import Path
 
+# Allow running the example without installing the package
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.append(str(SRC_PATH))
 
-class ResearchAgent:
-    """Placeholder research agent that records actions."""
-
-    def __init__(self) -> None:
-        self.journal: List[str] = []
-
-    def search(self, query: str) -> List[str]:
-        # TODO: replace with real tool integrations (e.g., search APIs)
-        self.journal.append(f"searched: {query}")
-        return [f"result for {query} (placeholder)"]
-
-    def summarize(self, findings: List[str]) -> str:
-        # TODO: plug into LLM-backed summarization
-        summary = " | ".join(findings)
-        self.journal.append(f"summarized: {summary}")
-        return summary
-
-    def run(self, query: str) -> Dict[str, Any]:
-        findings = self.search(query)
-        summary = self.summarize(findings)
-        return {"query": query, "findings": findings, "summary": summary, "journal": self.journal}
+from tensorfoundry.agents import ResearchAgent
+from tensorfoundry.logging import JsonlEmitter
 
 
 def main() -> None:
-    agent = ResearchAgent()
-    result = agent.run("state of the art in agentic workflows")
+    """Instantiate the research agent and run a single query."""
+    logs_dir = PROJECT_ROOT / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
 
-    print("Summary:\n", result["summary"])
+    emitter = JsonlEmitter(
+        logs_dir / "temp.jsonl",
+        agent_name="research_agent",
+        agent_version="0.1.0",
+        default_stage="executor",
+    )
+
+    trace_id = emitter.start_trace()
+    emitter.file_path = logs_dir / f"{trace_id}.jsonl"
+
+    with emitter:
+        agent = ResearchAgent(emitter=emitter)
+        result = agent.run("state of the art in agentic workflows")
+
+    print("Trace:", result["trace_id"])
+    print("\nSummary:\n", result["summary"])
     print("\nJournal:")
     for entry in result["journal"]:
         print("-", entry)
