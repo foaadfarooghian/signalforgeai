@@ -1,7 +1,11 @@
-# Logging and Observability
+# Logging
 
-Logging, tracing, and metrics to keep agentic workflows inspectable:
+This module defines how TensorFoundry agents emit structured execution traces.
 
-- Structured logging helpers for tools and agents
-- Trace contexts to follow multi-agent workflows end-to-end
-- Metrics surfaces for latency, cost, and reliability
+Logs are:
+- Append-only
+- Structured
+- Model-agnostic
+- Learning-ready
+
+See `schema.md` for the canonical execution trace format.
