@@ -1,6 +1,7 @@
 """Runner for the ResearchAgent example."""
 from __future__ import annotations
-
+from tensorfoundry.agents import ResearchAgent
+from tensorfoundry.logging import JsonlEmitter
 import sys
 from pathlib import Path
 
@@ -10,8 +11,6 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.append(str(SRC_PATH))
 
-from tensorfoundry.agents import ResearchAgent
-from tensorfoundry.logging import JsonlEmitter
 
 
 def main() -> None:

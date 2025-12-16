@@ -1,10 +1,7 @@
 """Simple research-style agent with logging hooks."""
 from __future__ import annotations
-
-from pathlib import Path
-from typing import Any, Dict, List
-
 from tensorfoundry.logging import JsonlEmitter
+from typing import Any, Dict, List
 
 
 class ResearchAgent:
