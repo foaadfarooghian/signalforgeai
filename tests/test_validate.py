@@ -1,12 +1,8 @@
 from __future__ import annotations
-
-import json
-from pathlib import Path
-
-import pytest
-
 from tensorfoundry.logging.events import make_event, new_span_id, new_trace_id
 from tensorfoundry.logging.validate import validate_trace_file
+import json
+from pathlib import Path
 
 
 def _write_jsonl(path: Path, objs: list[dict]) -> None:
