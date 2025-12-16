@@ -15,13 +15,13 @@ authors = [
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "License :: Other/Proprietary License",
+  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
 ]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff", "mypy"]
+dev = ["pytest>=7.0", "ruff>=0.5.0", "mypy>=1.7.0"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -31,3 +31,9 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+no_implicit_optional = true

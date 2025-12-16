@@ -30,3 +30,6 @@ TensorFoundry is an opinionated platform for composing agentic workflows instead
 - CI: lint/test on every PR; promotion jobs handle versioning, artifacts, and deploys
 
 See `roadmap.md` for the initial milestones.
+
+## Licence
+Apache License 2.0
