@@ -134,6 +134,8 @@ python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/resea
 See manifesto.md for the full philosophy and roadmap.md for what’s coming next.
 
 ## Repository layout
+
+```text
 src/tensorfoundry/
 ├── agents/          # Agent templates
 ├── orchestration/   # Planner–Executor–Critic patterns
@@ -141,7 +143,7 @@ src/tensorfoundry/
 ├── evaluation/      # Harness, suites, results diff
 ├── examples/        # Runnable examples
 └── docs/            # Design notes
-
+```
 # Branching & releases
 - prod — protected, stable release branch
 - dev — integration branch for ongoing work
