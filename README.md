@@ -131,7 +131,7 @@ python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/resea
 - Evaluation > clever prompts
 - Orchestration is the product
 
-See manifesto.md for the full philosophy and roadmap.md￼ for what’s coming next.
+See manifesto.md for the full philosophy and roadmap.md for what’s coming next.
 
 ## Repository layout
 src/tensorfoundry/
@@ -139,8 +139,8 @@ src/tensorfoundry/
 ├── orchestration/   # Planner–Executor–Critic patterns
 ├── logging/         # Schema, emitter, validate, inspect, diff
 ├── evaluation/      # Harness, suites, results diff
-examples/            # Runnable examples
-docs/                # Design notes
+├── examples/        # Runnable examples
+└── docs/            # Design notes
 
 # Branching & releases
 - prod — protected, stable release branch
