@@ -42,3 +42,8 @@ jobs:
         run: |
           python examples/quick_research_agent.py
           python -m tensorfoundry.logging.validate logs/$(ls -t logs | head -n 1)
+
+      - name: Run evaluation suites
+        run: |
+          python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quickstart.json
+          python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json
