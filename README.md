@@ -147,4 +147,3 @@ src/tensorfoundry/
 # Branching & releases
 - prod — protected, stable release branch
 - dev — integration branch for ongoing work
-- exp — experimental spikes and prototypes
