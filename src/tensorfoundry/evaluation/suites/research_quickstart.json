@@ -1,0 +1,24 @@
+{
+  "suite_name": "research_quickstart",
+  "agent": "research_agent",
+  "cases": [
+    {
+      "id": "res_001",
+      "task": "Explain what an agentic workflow is in one sentence.",
+      "inputs": {},
+      "expect": {
+        "status": "success",
+        "contains_any": ["agent", "workflow", "tools", "state", "plan"]
+      }
+    },
+    {
+      "id": "res_002",
+      "task": "Summarise why logging matters for agent systems.",
+      "inputs": {},
+      "expect": {
+        "status": "success",
+        "contains_any": ["logs", "trace", "evaluate", "debug", "improve"]
+      }
+    }
+  ]
+}
