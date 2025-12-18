@@ -43,6 +43,10 @@ htmlcov/
 *.local
 .python-version
 
+# Runtime outputs
+logs/
+results/
+
 # Caches and tooling
 .cache/
 .mypy_cache/
