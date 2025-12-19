@@ -13,7 +13,7 @@
   <!-- Project status badges -->
   <img alt="status" src="https://img.shields.io/badge/status-active_development-blue" />
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue" />
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
+  <img alt="license" src="https://img.shields.io/badge/License-Apache%202.0-green.svg" />
   <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/<your-username>/tensorfoundry/ci.yml?branch=dev" />
 </p>
 
