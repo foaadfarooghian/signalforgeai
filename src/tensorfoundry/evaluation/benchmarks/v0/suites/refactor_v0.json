@@ -1,0 +1,42 @@
+{
+  "suite_name": "benchmark_v0_refactor",
+  "agent": "refactor_agent",
+  "cases": [
+    {
+      "id": "ref_v0_001",
+      "task": "Dry-run: replace a placeholder string in a specific file.",
+      "inputs": {
+        "repo_root": ".",
+        "target_file": "src/tensorfoundry/agents/research_agent.py",
+        "find": "Summarise findings",
+        "replace": "Summarize findings",
+        "dry_run": true
+      },
+      "expect": { "status": "success", "contains_any": ["replace", "occurrence", "dry"] }
+    },
+    {
+      "id": "ref_v0_002",
+      "task": "Dry-run: attempt to replace a non-existent string (should fail safely).",
+      "inputs": {
+        "repo_root": ".",
+        "target_file": "src/tensorfoundry/agents/research_agent.py",
+        "find": "__THIS_SHOULD_NOT_EXIST__",
+        "replace": "__REPLACED__",
+        "dry_run": true
+      },
+      "expect": { "status": "failure", "contains_any": ["not_found", "find", "reason"] }
+    },
+    {
+      "id": "ref_v0_003",
+      "task": "Dry-run: replace a simple token in a file in-place (still dry-run).",
+      "inputs": {
+        "repo_root": ".",
+        "target_file": "src/tensorfoundry/logging/schema.md",
+        "find": "ISO-8601",
+        "replace": "ISO 8601",
+        "dry_run": true
+      },
+      "expect": { "status": "success", "contains_any": ["replace", "occurrence", "would"] }
+    }
+  ]
+}

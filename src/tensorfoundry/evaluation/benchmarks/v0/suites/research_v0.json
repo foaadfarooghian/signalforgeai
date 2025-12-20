@@ -1,0 +1,36 @@
+{
+  "suite_name": "benchmark_v0_research",
+  "agent": "research_agent",
+  "cases": [
+    {
+      "id": "res_v0_001",
+      "task": "Explain what an agentic workflow is in one sentence.",
+      "inputs": {},
+      "expect": { "status": "success", "contains_any": ["agent", "workflow", "tools", "state", "plan"] }
+    },
+    {
+      "id": "res_v0_002",
+      "task": "Summarise why structured logging matters for agents.",
+      "inputs": {},
+      "expect": { "status": "success", "contains_any": ["log", "trace", "debug", "evaluate", "improve"] }
+    },
+    {
+      "id": "res_v0_003",
+      "task": "What does 'Planner → Executor → Critic' mean in agent orchestration?",
+      "inputs": {},
+      "expect": { "status": "success", "contains_any": ["planner", "executor", "critic", "retry", "validate"] }
+    },
+    {
+      "id": "res_v0_004",
+      "task": "Name two reasons evaluation is essential for agent systems.",
+      "inputs": {},
+      "expect": { "status": "success", "contains_any": ["success", "cost", "latency", "regression", "robust"] }
+    },
+    {
+      "id": "res_v0_005",
+      "task": "What is meant by 'logs are the dataset' for agents?",
+      "inputs": {},
+      "expect": { "status": "success", "contains_any": ["logs", "dataset", "traces", "learning", "improve"] }
+    }
+  ]
+}
