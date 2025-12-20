@@ -225,6 +225,12 @@ def _extract_result_text(agent_name: str, result_obj: Dict[str, Any]) -> str:
             return str(memo.get("recommendation", "")) + " " + " ".join(memo.get("next_steps", []) or [])
     if agent_name == "research_agent":
         return str(result_obj.get("summary", "")) or str(result_obj.get("result", ""))
+    
+    if agent_name == "refactor_agent":
+        pr = result_obj.get("patch_result", {})
+        if isinstance(pr, dict):
+            return str(pr.get("diff_summary", "")) + " " + str(pr.get("reason", ""))
+
     return str(result_obj)
 
 
@@ -235,6 +241,8 @@ def get_agent_runner(agent_name: str):
         return _run_decision_agent
     if agent_name == "research_agent":
         return _run_research_agent
+    if agent_name == "refactor_agent":
+        return _run_refactor_agent
     raise ValueError(f"Unknown agent: {agent_name!r}")
 
 
@@ -254,3 +262,17 @@ def _run_research_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter
 
     agent = ResearchAgent(emitter=emitter)
     return agent.run(task)
+
+def _run_refactor_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter) -> Dict[str, Any]:
+    from pathlib import Path
+    from tensorfoundry.agents.refactor_agent import RefactorAgent
+
+    agent = RefactorAgent(emitter=emitter)
+    return agent.run(
+        task,
+        repo_root=inputs.get("repo_root", "."),
+        target_file=inputs.get("target_file"),
+        find=inputs.get("find", ""),
+        replace=inputs.get("replace", ""),
+        dry_run=bool(inputs.get("dry_run", True)),
+    )
