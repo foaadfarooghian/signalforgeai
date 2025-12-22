@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from typing import List, Optional
-
+import os
+import json
 from tensorfoundry.evaluation.harness import run_suite
+from tensorfoundry.learning.routing_policy import load_policy_if_present
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -14,8 +16,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("suite", type=str, help="Path to suite JSON (e.g. src/.../suites/quickstart.json)")
     parser.add_argument("--output-dir", type=str, default="results", help="Directory for results outputs")
     parser.add_argument("--logs-dir", type=str, default="logs", help="Directory for trace logs")
+    parser.add_argument("--policy", type=str, default="", help="Path to routing policy JSON (optional)")
     args = parser.parse_args(argv)
 
+    suite_obj = json.loads(Path(args.suite).read_text(encoding="utf-8"))
+    suite_name = suite_obj["suite_name"]
+
+    policy = load_policy_if_present(args.policy)
+    if policy:
+        chosen_model = policy.pick_model(suite_name)
+        os.environ["TENSORFOUNDRY_MODEL_ID"] = chosen_model
+        print(f"Model (policy): {chosen_model}")
+    else:
+        print(f"Model (env/default): {os.getenv('TENSORFOUNDRY_MODEL_ID') or 'unknown'}")
+        
     result = run_suite(
         suite_path=Path(args.suite),
         output_dir=Path(args.output_dir),
