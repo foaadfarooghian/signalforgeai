@@ -23,6 +23,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     print(f"Suite {result.suite_name!r} finished: pass_rate={result.pass_rate:.2%} ({result.passed}/{result.num_cases})")
+    print(f"Run logs: {result.run_logs_dir}")
     print(f"Results: {Path(args.output_dir) / (result.suite_name + '.results.json')}")
     print(f"Summary:  {Path(args.output_dir) / (result.suite_name + '.summary.md')}")
     return 0 if result.failed == 0 else 1
