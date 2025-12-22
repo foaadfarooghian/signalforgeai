@@ -38,12 +38,19 @@ jobs:
         run: |
           pytest -q
 
-      - name: Smoke test example + validate trace
+      - name: Smoke test example + validate run logs
         run: |
           python examples/quick_research_agent.py
-          python -m tensorfoundry.logging.validate logs/$(ls -t logs | head -n 1)
+          LATEST_RUN_DIR="$(ls -td logs/* | head -n 1)"
+          echo "Validating: ${LATEST_RUN_DIR}"
+          python -m tensorfoundry.logging.validate "${LATEST_RUN_DIR}"
 
-      - name: Run evaluation suites
+      - name: Run evaluation suites + validate run logs
         run: |
-          python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quickstart.json
-          python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json
+          RUN_LOGS="$(python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quickstart.json | tee /dev/stderr | sed -n 's/^Run logs: //p' | tail -n 1)"
+          echo "Validating: ${RUN_LOGS}"
+          python -m tensorfoundry.logging.validate "${RUN_LOGS}"
+
+          RUN_LOGS="$(python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json | tee /dev/stderr | sed -n 's/^Run logs: //p' | tail -n 1)"
+          echo "Validating: ${RUN_LOGS}"
+          python -m tensorfoundry.logging.validate "${RUN_LOGS}"
