@@ -4,8 +4,9 @@ Runs a suite of task cases, captures traces, validates them, and scores outcomes
 """
 
 from __future__ import annotations
-
+import os
 import json
+from datetime import datetime
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -13,7 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from tensorfoundry.logging.emitter import JsonlEmitter
 from tensorfoundry.logging.inspect import summarise_trace, read_jsonl
 from tensorfoundry.logging.validate import validate_trace_file
-
+from tensorfoundry.evaluation.reward_schema import RewardV0
+from tensorfoundry.evaluation.reward_writer import write_rewards_jsonl
 
 @dataclass(frozen=True)
 class CaseResult:
@@ -31,11 +33,26 @@ class CaseResult:
 class SuiteResult:
     suite_name: str
     agent: str
+    run_id : str
+    run_logs_dir: Path
     num_cases: int
     passed: int
     failed: int
     pass_rate: float
     results: List[CaseResult]
+
+def _get_commit_sha() -> str:
+    # Prefer CI env if present; fall back to "unknown"
+    return (
+        os.getenv("GITHUB_SHA")
+        or os.getenv("CI_COMMIT_SHA")
+        or os.getenv("COMMIT_SHA")
+        or "unknown"
+    )
+
+def _get_model_id() -> str:
+    # If you route models elsewhere, replace this later.
+    return os.getenv("TENSORFOUNDRY_MODEL_ID") or "unknown"
 
 
 def _load_suite(path: Path) -> Dict[str, Any]:
@@ -90,13 +107,20 @@ def run_suite(
     suite_name: str = suite["suite_name"]
     agent_name: str = suite["agent"]
     cases: List[Dict[str, Any]] = suite["cases"]
+    run_id = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    run_logs_dir = logs_dir / run_id
 
+    commit_sha = _get_commit_sha()
+    model_id = _get_model_id()
+
+    _ensure_dir(run_logs_dir)
     _ensure_dir(output_dir)
     _ensure_dir(logs_dir)
 
     runner = get_agent_runner(agent_name)
 
     case_results: List[CaseResult] = []
+    rewards: List[RewardV0] = []
 
     for case in cases:
         case_id = case["id"]
@@ -112,7 +136,7 @@ def run_suite(
             default_stage="system",
         )
         trace_id = emitter.start_trace()
-        trace_path = logs_dir / f"{trace_id}.jsonl"
+        trace_path = run_logs_dir / f"{trace_id}.jsonl"
         emitter.file_path = trace_path
 
         # Run
@@ -135,6 +159,30 @@ def run_suite(
                     notes=notes,
                 )
             )
+
+            violations = [f"trace_invalid:{i.code}" for i in issues]
+            rationale = "; ".join([f"{i.code} {i.message}" for i in issues])[:300]  # short
+
+            rewards.append(
+                RewardV0(
+                    version="reward.v0",
+                    trace_id=trace_id,
+                    run_id=run_id,
+                    suite_id=suite_name,
+                    case_id=case_id,
+                    agent_id=agent_name,
+                    model_id=model_id,
+                    commit_sha=commit_sha,
+                    success=False,
+                    overall_score=0.0,
+                    subscores={},
+                    violations=violations,
+                    terminal_status=None,
+                    terminal_reason=None,
+                    rationale=rationale,
+                )
+            )
+
             continue
 
         # Inspect terminal outcome
@@ -151,6 +199,40 @@ def run_suite(
             expect=expect,
             terminal_outcome=terminal,
             result_text=result_text,
+        )
+
+        violations = []
+        # make evaluation reasons machine-readable
+        for n in notes:
+            if n.startswith("status mismatch"):
+                violations.append("expectation:status_mismatch")
+            if n.startswith("result missing any of"):
+                violations.append("expectation:contains_any_missing")
+
+        rewards.append(
+            RewardV0(
+                version="reward.v0",
+                trace_id=trace_id,
+                run_id=run_id,
+                suite_id=suite_name,
+                case_id=case_id,
+                agent_id=agent_name,
+                model_id=model_id,
+                commit_sha=commit_sha,
+                success=passed,
+                overall_score=score,
+                subscores={
+                    # optional decomposition now, can refine later
+                    "status": 1.0 if expect.get("status") is None or terminal_status == expect.get("status") else 0.0,
+                    "contains_any": 1.0 if not expect.get("contains_any") or any(
+                        t.lower() in (result_text or "").lower() for t in (expect.get("contains_any") or [])
+                    ) else 0.0,
+                },
+                violations=violations,
+                terminal_status=str(terminal_status) if terminal_status is not None else None,
+                terminal_reason=str(terminal_reason) if terminal_reason is not None else None,
+                rationale=("; ".join(notes)[:300] if notes else None),
+            )
         )
 
         case_results.append(
@@ -173,6 +255,8 @@ def run_suite(
     suite_result = SuiteResult(
         suite_name=suite_name,
         agent=agent_name,
+        run_id=run_id,
+        run_logs_dir=str(run_logs_dir),
         num_cases=len(case_results),
         passed=passed_n,
         failed=failed_n,
@@ -189,6 +273,25 @@ def run_suite(
         _render_summary_md(suite_result),
         encoding="utf-8",
     )
+
+    (run_logs_dir / "reward.summary.json").write_text(
+    json.dumps(
+        {
+            "run_id": run_id,
+            "suite_id": suite_name,
+            "agent_id": agent_name,
+            "model_id": model_id,
+            "commit_sha": commit_sha,
+            "num_cases": len(rewards),
+            "mean_score": sum(r.overall_score for r in rewards) / len(rewards) if rewards else 0.0,
+            "success_rate": sum(1 for r in rewards if r.success) / len(rewards) if rewards else 0.0,
+        },
+        indent=2,
+    ),
+    encoding="utf-8",
+)
+
+    write_rewards_jsonl(run_logs_dir / "reward.jsonl", rewards)
 
     return suite_result
 
