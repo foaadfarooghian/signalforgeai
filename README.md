@@ -1,8 +1,10 @@
 <p align="center" style="margin: 0 0 1px 0;">
-  <img src="docs/assets/logo.svg" alt="TensorFoundry logo" width="160">
+  <img src="docs/assets/logo.svg" alt="TensorFoundry logo" width="200">
 </p>
 
-<h1 align="center" style="margin: 0 0 10px 0;">TensorFoundry</h1>
+<h1 align="center" style="margin: 0 0 10px 0;">
+  <span style="color:#FF7A18;">Tensor</span><span style="color:#1F6FEB;">Foundry</span>
+</h1>
 
 <p align="center">
   <strong>An opinionated open-source platform for engineered AI agents</strong><br/>
