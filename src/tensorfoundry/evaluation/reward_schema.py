@@ -16,7 +16,7 @@ class RewardV0:
     trace_id: str
     run_id: str
     suite_id: str
-    task_id: str
+    case_id: str
 
     # --- what was evaluated
     agent_id: str
@@ -40,6 +40,9 @@ class RewardV0:
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+
+    terminal_status: Optional[str] = None
+    terminal_reason: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
