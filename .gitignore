@@ -47,6 +47,14 @@ htmlcov/
 logs/
 results/
 
+# Learning outputs
+learning/bandits/
+learning/datasets/
+learning/experiments/
+
+# Keep policies committed (for now)
+!learning/policies/
+
 # Caches and tooling
 .cache/
 .mypy_cache/
