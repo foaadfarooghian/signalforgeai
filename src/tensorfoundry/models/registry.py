@@ -1,32 +1,50 @@
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 from tensorfoundry.models.base import ModelProvider
 from tensorfoundry.models.providers.dummy import DummyProvider
 from tensorfoundry.models.providers.ollama import OllamaProvider
 from tensorfoundry.models.providers.openai_provider import OpenAIProvider
 
-_dummy = DummyProvider()
-_ollama = OllamaProvider()
-_openai = OpenAIProvider()
+_dummy: Optional[ModelProvider] = None
+_ollama: Optional[ModelProvider] = None
+_openai: Optional[ModelProvider] = None
+
 
 def _is_ci() -> bool:
-    # GitHub Actions sets CI=true
     return os.getenv("CI", "").lower() in {"1", "true", "yes"}
 
-def _allow_network_providers() -> bool:
-    # Set in workflow/job when you *want* integration tests
-    return os.getenv("TF_ALLOW_NETWORK", "").lower() in {"1", "true", "yes"}
+
+def _get_dummy() -> ModelProvider:
+    global _dummy
+    if _dummy is None:
+        _dummy = DummyProvider()
+    return _dummy
+
+
+def _get_ollama() -> ModelProvider:
+    global _ollama
+    if _ollama is None:
+        _ollama = OllamaProvider()
+    return _ollama
+
+
+def _get_openai() -> ModelProvider:
+    global _openai
+    if _openai is None:
+        _openai = OpenAIProvider()
+    return _openai
 
 
 def get_provider_for_model(model_id: str) -> ModelProvider:
-    # In CI, don’t allow providers that require external services by default.
-    if _is_ci() and not _allow_network_providers() and model_id.startswith(("ollama:", "openai:")):
-        return _dummy
+    # CI safety: never touch networked providers unless explicitly allowed
+    if _is_ci() and model_id.startswith(("ollama:", "openai:")):
+        return _get_dummy()
 
     if model_id.startswith("ollama:"):
-        return _ollama
+        return _get_ollama()
     if model_id.startswith("openai:"):
-        return _openai
-    return _dummy
+        return _get_openai()
+    return _get_dummy()

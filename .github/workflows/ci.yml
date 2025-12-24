@@ -36,6 +36,7 @@ jobs:
 
       - name: Run tests
         env:
+          TF_ALLOW_NETWORK: "true"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           pytest -q
