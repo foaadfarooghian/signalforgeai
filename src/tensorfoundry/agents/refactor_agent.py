@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from tensorfoundry.logging.emitter import JsonlEmitter
-from tensorfoundry.models.registry import get_provider
+from tensorfoundry.models.registry import get_provider_for_model
 
 
 @dataclass(frozen=True)
@@ -251,8 +251,8 @@ class RefactorAgent:
             parent_span_id=root_span,
         )
 
-        provider = get_provider()
         model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
+        provider = get_provider_for_model(model_id)
 
         prompt = f"""Task: {task}
         Repo root: {repo_root_path}
@@ -261,6 +261,19 @@ class RefactorAgent:
         Replace: {replace!r}
         Explain the proposed deterministic patch in 1-2 sentences."""
         out = provider.generate(prompt=prompt, model_id=model_id, task_type="refactor")
+
+        usage = (out.metrics.extra or {}).get("usage") if out.metrics else None
+
+        metrics = {
+            "latency_ms": out.metrics.latency_ms,
+            "cost_usd": out.metrics.cost_usd,
+        }
+
+        if isinstance(usage, dict):
+            for k in ("input_tokens", "output_tokens", "total_tokens"):
+                v = usage.get(k)
+                if isinstance(v, int):
+                    metrics[k] = v
 
         self.emitter.emit(
             event_type="model_called",
@@ -273,10 +286,7 @@ class RefactorAgent:
                 "output_summary": "Selected file + find/replace patch",
                 "content_policy": {"raw_input_logged": False, "raw_output_logged": False},
             },
-            metrics={
-                "latency_ms": out.metrics.latency_ms,
-                "cost_usd": out.metrics.cost_usd,
-            },
+            metrics=metrics,
             outcome={"patch": {"file": patch.file}},
         )
 
