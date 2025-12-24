@@ -2,7 +2,7 @@
 from __future__ import annotations
 from tensorfoundry.logging import JsonlEmitter
 from typing import Any, Dict, List
-from tensorfoundry.models import get_provider
+from tensorfoundry.models import get_provider_for_model
 import os
 
 class ResearchAgent:
@@ -59,14 +59,27 @@ class ResearchAgent:
 
     def summarize(self, findings: List[str], trace_id: str, parent_span_id: str) -> str:
         """Summarize findings using a placeholder model call."""
-        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
-        provider = get_provider()
+        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "ollama:ministral-3:8b")
+        provider = get_provider_for_model(model_id)
 
         prompt = f"Summarise: {findings[0] if findings else ''}"
         out = provider.generate(prompt=prompt, model_id=model_id, task_type="research")
         summary = out.text
         # summary = " | ".join(findings)
         self.journal.append("summarized findings")
+
+        usage = (out.metrics.extra or {}).get("usage") if out.metrics else None
+        metrics = {
+            "latency_ms": out.metrics.latency_ms,
+            "cost_usd": out.metrics.cost_usd,
+        }
+
+        if isinstance(usage, dict):
+            for k in ("input_tokens", "output_tokens", "total_tokens"):
+                v = usage.get(k)
+                if isinstance(v, int):
+                    metrics[k] = v
+
 
         self.emitter.emit(
             event_type="model_called",
@@ -79,10 +92,7 @@ class ResearchAgent:
                 "output_summary": "Produced summary",
                 "content_policy": {"raw_input_logged": False, "raw_output_logged": False},
             },
-            metrics={
-                "latency_ms": out.metrics.latency_ms,
-                "cost_usd": out.metrics.cost_usd,
-            },
+            metrics=metrics,
             outcome={"summary": summary},
         )
         return summary

@@ -5,8 +5,8 @@ import os
 from typing import Any, Dict, List, Optional
 
 from tensorfoundry.logging.emitter import JsonlEmitter
-from tensorfoundry.models import get_provider
 from tensorfoundry.models.types import ModelMetrics
+from tensorfoundry.models.registry import get_provider_for_model
 
 class DecisionAgent:
     """A simple decision agent producing structured recommendations.
@@ -75,8 +75,8 @@ class DecisionAgent:
             "Risk: evaluation missing means regressions go unnoticed",
         ]
         
-        provider = get_provider()
-        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
+        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "ollama:ministral-3:8b")
+        provider = get_provider_for_model(model_id)
 
         prompt = f"""Task: {task}
         Constraints: {constraints}
@@ -98,6 +98,19 @@ class DecisionAgent:
             "next_steps": next_steps,
         }
 
+        usage = (out.metrics.extra or {}).get("usage") if out.metrics else None
+
+        metrics = {
+            "latency_ms": out.metrics.latency_ms,
+            "cost_usd": out.metrics.cost_usd,
+        }
+
+        if isinstance(usage, dict):
+            for k in ("input_tokens", "output_tokens", "total_tokens"):
+                v = usage.get(k)
+                if isinstance(v, int):
+                    metrics[k] = v
+
         self.emitter.emit(
             event_type="model_called",
             stage="executor",
@@ -109,10 +122,7 @@ class DecisionAgent:
                 "output_summary": "Structured recommendation",
                 "content_policy": {"raw_input_logged": False, "raw_output_logged": False},
             },
-            metrics={
-                "latency_ms": out.metrics.latency_ms,
-                "cost_usd": out.metrics.cost_usd,
-            },
+            metrics=metrics,
             outcome={"result": {"recommendation": recommendation}},
         )
 
