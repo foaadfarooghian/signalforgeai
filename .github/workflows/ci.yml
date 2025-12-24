@@ -39,18 +39,27 @@ jobs:
           pytest -q
 
       - name: Smoke test example + validate run logs
+        env:
+          TENSORFOUNDRY_PROVIDER: dummy
         run: |
           python examples/quick_research_agent.py
           LATEST_RUN_DIR="$(ls -td logs/* | head -n 1)"
           echo "Validating: ${LATEST_RUN_DIR}"
           python -m tensorfoundry.logging.validate "${LATEST_RUN_DIR}"
 
-      - name: Run evaluation suites + validate run logs
+      - name: Run Benchmark v0 suites + validate run logs
+        env:
+          TENSORFOUNDRY_PROVIDER: dummy
+          TENSORFOUNDRY_CANDIDATE_MODELS: dummy_good,dummy_mid,dummy_bad
+          TENSORFOUNDRY_BANDIT_MIN_PULLS: "5"
         run: |
-          RUN_LOGS="$(python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quickstart.json | tee /dev/stderr | sed -n 's/^Run logs: //p' | tail -n 1)"
-          echo "Validating: ${RUN_LOGS}"
-          python -m tensorfoundry.logging.validate "${RUN_LOGS}"
+          run_and_validate () {
+            SUITE_PATH="$1"
+            RUN_LOGS="$(python -m tensorfoundry.evaluation.run "${SUITE_PATH}" | tee /dev/stderr | sed -n 's/^Run logs: //p' | tail -n 1)"
+            echo "Validating: ${RUN_LOGS}"
+            python -m tensorfoundry.logging.validate "${RUN_LOGS}"
+          }
 
-          RUN_LOGS="$(python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json | tee /dev/stderr | sed -n 's/^Run logs: //p' | tail -n 1)"
-          echo "Validating: ${RUN_LOGS}"
-          python -m tensorfoundry.logging.validate "${RUN_LOGS}"
+          run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json"
+          run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/research_v0.json"
+          run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/refactor_v0.json"
