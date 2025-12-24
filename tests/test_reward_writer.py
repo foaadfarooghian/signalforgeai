@@ -10,7 +10,7 @@ def test_write_and_validate(tmp_path):
             trace_id="t1",
             run_id="r1",
             suite_id="s1",
-            task_id="task1",
+            case_id="task1",
             agent_id="decision",
             model_id="m1",
             commit_sha="abc",
