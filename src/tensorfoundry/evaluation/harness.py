@@ -6,7 +6,7 @@ Runs a suite of task cases, captures traces, validates them, and scores outcomes
 from __future__ import annotations
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -137,7 +137,7 @@ def run_suite(
     suite_name: str = suite["suite_name"]
     agent_name: str = suite["agent"]
     cases: List[Dict[str, Any]] = suite["cases"]
-    run_id = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_logs_dir = logs_dir / run_id
 
     commit_sha = _get_commit_sha()
@@ -145,7 +145,6 @@ def run_suite(
 
     _ensure_dir(run_logs_dir)
     _ensure_dir(output_dir)
-    _ensure_dir(logs_dir)
 
     runner = get_agent_runner(agent_name)
 
