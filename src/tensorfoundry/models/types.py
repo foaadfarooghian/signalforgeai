@@ -1,12 +1,12 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
 @dataclass(frozen=True)
 class ModelMetrics:
     latency_ms: Optional[int] = None
     cost_usd: Optional[float] = None
-    extra: Dict[str, Any] = None  # optional extensibility
+    extra: Dict[str, Any] = field(default_factory=dict)  # optional extensibility
 
 @dataclass(frozen=True)
 class ModelOutput:

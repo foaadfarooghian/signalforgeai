@@ -1,11 +1,12 @@
 """Decision-style agent that produces a structured recommendation with logging hooks."""
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Optional
 
 from tensorfoundry.logging.emitter import JsonlEmitter
 from tensorfoundry.models import get_provider
-import os
+from tensorfoundry.models.types import ModelMetrics
 
 class DecisionAgent:
     """A simple decision agent producing structured recommendations.
@@ -40,7 +41,7 @@ class DecisionAgent:
         options: Optional[List[str]],
         trace_id: str,
         parent_span_id: str,
-    ) -> Dict[str, Any]:
+    ) -> tuple[Dict[str, Any], ModelMetrics]:
         """Produce a structured decision memo (placeholder logic)."""
         constraints = constraints or []
         options = options or []
@@ -85,7 +86,7 @@ class DecisionAgent:
         # Use provider output to populate next_steps (so benchmark learns without hardcoding)
         next_steps = [out.text]
 
-        memo = {
+        memo: Dict[str, Any] = {
             "task": task,
             "constraints": constraints,
             "assumptions": assumptions,
@@ -144,7 +145,7 @@ class DecisionAgent:
             trace_id=root.trace_id,
             parent_span_id=root.span_id,
             payload={"result_summary": memo.get("recommendation", ""), "plan": plan_steps},
-                metrics={
+            metrics={
                 "latency_ms": model_metrics.latency_ms,
                 "cost_usd": model_metrics.cost_usd,
             },

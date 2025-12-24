@@ -93,7 +93,7 @@ def validate_reward_events(events: Iterable[Dict[str, Any]]) -> List[ValidationI
 
         # subscores dict of numbers 0..1
         subs = ev.get("subscores")
-        if not _is_dict(subs):
+        if not isinstance(subs, dict):
             issues.append(ValidationIssue(i, "reward_bad_type", "`subscores` must be an object."))
         else:
             for k, v in subs.items():

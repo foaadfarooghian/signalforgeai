@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 
-REQUIRED = {
+ClassInfo: TypeAlias = type[Any] | tuple[type[Any], ...]
+
+REQUIRED: dict[str, ClassInfo] = {
     "version": str,
     "trace_id": str,
     "run_id": str,

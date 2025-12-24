@@ -12,7 +12,7 @@ import json
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 
 TERMINAL_EVENT_TYPES = {"task_completed", "task_failed"}
@@ -67,7 +67,8 @@ def _find_terminal(events: List[Dict[str, Any]]) -> Tuple[Optional[str], Dict[st
     for ev in reversed(events):
         et = ev.get("event_type")
         if et in TERMINAL_EVENT_TYPES:
-            outcome = ev.get("outcome") if isinstance(ev.get("outcome"), dict) else {}
+            outcome_raw = ev.get("outcome")
+            outcome = cast(Dict[str, Any], outcome_raw) if isinstance(outcome_raw, dict) else {}
             return str(et), outcome
     return None, {}
 
