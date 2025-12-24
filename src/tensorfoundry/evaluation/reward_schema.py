@@ -11,38 +11,35 @@ RewardVersion = Literal["reward.v0"]
 
 @dataclass(frozen=True)
 class RewardV0:
-    # --- identity / join keys
+    # --- identity / join keys (required)
     version: RewardVersion
     trace_id: str
     run_id: str
     suite_id: str
     case_id: str
 
-    # --- what was evaluated
+    # --- what was evaluated (required)
     agent_id: str
     model_id: str
     commit_sha: str
 
-    # --- scores
+    # --- scores (required)
     success: bool
     overall_score: float  # 0..1
-    subscores: dict[str, float] = field(default_factory=dict)  # each 0..1
 
-    # --- constraints / penalties
+    # --- optional fields (defaults)
+    subscores: dict[str, float] = field(default_factory=dict)
     violations: list[str] = field(default_factory=list)
     cost_usd: Optional[float] = None
     latency_ms: Optional[int] = None
-
-    # --- optional short explanation (non-sensitive)
-    rationale: Optional[str] = None
-
-    # --- timestamp
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
-
     terminal_status: Optional[str] = None
     terminal_reason: Optional[str] = None
+    rationale: Optional[str] = None
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    def __post_init__(self) -> None:
+        if self.case_id is None:
+            object.__setattr__(self, "case_id", self.task_id)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
