@@ -11,13 +11,13 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.append(str(SRC_PATH))
 
-from tensorfoundry.agents.research_agent import ResearchAgent
-from tensorfoundry.logging.emitter import JsonlEmitter
-from tensorfoundry.orchestration.adapters import ResearchExecutor, ResearchPlanner, SimpleCritic
-from tensorfoundry.orchestration.pec import PECOrchestrator
-
 
 def main() -> None:
+    from tensorfoundry.agents.research_agent import ResearchAgent
+    from tensorfoundry.logging.emitter import JsonlEmitter
+    from tensorfoundry.orchestration.adapters import ResearchExecutor, ResearchPlanner, SimpleCritic
+    from tensorfoundry.orchestration.pec import PECOrchestrator
+
     logs_dir = PROJECT_ROOT / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
 

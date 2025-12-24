@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from tensorfoundry.logging.inspect import read_jsonl, summarise_trace
 

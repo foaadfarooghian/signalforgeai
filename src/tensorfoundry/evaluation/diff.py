@@ -48,15 +48,15 @@ def diff_results(left_path: Path, right_path: Path) -> ResultsDiff:
     improved: List[str] = []
 
     for cid in all_ids:
-        l = left_cases.get(cid)
-        r = right_cases.get(cid)
-        if l is None or r is None:
+        left_case = left_cases.get(cid)
+        right_case = right_cases.get(cid)
+        if left_case is None or right_case is None:
             changed.append(cid)
             continue
 
-        lp = bool(l["passed"])
-        rp = bool(r["passed"])
-        if lp != rp or float(l.get("score", 0.0)) != float(r.get("score", 0.0)):
+        lp = bool(left_case["passed"])
+        rp = bool(right_case["passed"])
+        if lp != rp or float(left_case.get("score", 0.0)) != float(right_case.get("score", 0.0)):
             changed.append(cid)
         if lp and not rp:
             regressed.append(cid)

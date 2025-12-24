@@ -101,11 +101,11 @@ def _extract_cost_latency(events: List[Dict[str, Any]]) -> tuple[Optional[float]
         if ev.get("event_type") == "model_called":
             m = ev.get("metrics") or {}
             c = m.get("cost_usd")
-            l = m.get("latency_ms")
+            latency_value = m.get("latency_ms")
             if isinstance(c, (int, float)):
                 cost_usd = float(c)
-            if isinstance(l, int):
-                latency_ms = l
+            if isinstance(latency_value, int):
+                latency_ms = latency_value
             if cost_usd is not None or latency_ms is not None:
                 return cost_usd, latency_ms
 
@@ -114,11 +114,11 @@ def _extract_cost_latency(events: List[Dict[str, Any]]) -> tuple[Optional[float]
         if ev.get("event_type") in ("task_completed", "task_failed"):
             m = ev.get("metrics") or {}
             c = m.get("cost_usd")
-            l = m.get("latency_ms")
+            latency_value = m.get("latency_ms")
             if isinstance(c, (int, float)):
                 cost_usd = float(c)
-            if isinstance(l, int):
-                latency_ms = l
+            if isinstance(latency_value, int):
+                latency_ms = latency_value
             return cost_usd, latency_ms
 
     return cost_usd, latency_ms
@@ -157,6 +157,8 @@ def run_suite(
         task = case["task"]
         inputs = case.get("inputs", {})
         expect = case.get("expect", {})
+        cost_usd = None
+        latency_ms = None
 
         # Create per-case trace file
         emitter = JsonlEmitter(
@@ -402,7 +404,6 @@ def _run_research_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter
     return agent.run(task)
 
 def _run_refactor_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter) -> Dict[str, Any]:
-    from pathlib import Path
     from tensorfoundry.agents.refactor_agent import RefactorAgent
 
     agent = RefactorAgent(emitter=emitter)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import List
 
 from tensorfoundry.agents.research_agent import ResearchAgent
 from tensorfoundry.orchestration.pec import CritiqueResult, State

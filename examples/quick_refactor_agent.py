@@ -10,11 +10,11 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.append(str(SRC_PATH))
 
-from tensorfoundry.agents.refactor_agent import RefactorAgent
-from tensorfoundry.logging.emitter import JsonlEmitter
-
 
 def main() -> None:
+    from tensorfoundry.agents.refactor_agent import RefactorAgent
+    from tensorfoundry.logging.emitter import JsonlEmitter
+
     logs_dir = PROJECT_ROOT / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
 
