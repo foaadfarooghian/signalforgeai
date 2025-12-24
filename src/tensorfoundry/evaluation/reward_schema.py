@@ -1,3 +1,4 @@
+"""Reward schema for evaluation output logs."""
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict, field
@@ -11,6 +12,7 @@ RewardVersion = Literal["reward.v0"]
 
 @dataclass(frozen=True)
 class RewardV0:
+    """Schema for per-case rewards emitted by the evaluation harness."""
     # --- identity / join keys (required)
     version: RewardVersion
     trace_id: str
@@ -38,10 +40,12 @@ class RewardV0:
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def __post_init__(self) -> None:
+        """Backfill case_id from task_id for older consumers."""
         if self.case_id is None:
             object.__setattr__(self, "case_id", self.task_id)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable dictionary with clamped scores."""
         d = asdict(self)
         # hard clamp (defensive)
         d["overall_score"] = float(max(0.0, min(1.0, d["overall_score"])))
@@ -50,4 +54,5 @@ class RewardV0:
         return d
 
     def to_jsonl(self) -> str:
+        """Serialize the reward as a single JSONL line."""
         return json.dumps(self.to_dict(), ensure_ascii=False)

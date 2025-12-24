@@ -18,6 +18,7 @@ from tensorfoundry.logging.inspect import read_jsonl, summarise_trace
 
 @dataclass(frozen=True)
 class TraceDiff:
+    """Summary of differences between two trace files."""
     left: str
     right: str
     left_events: int
@@ -30,11 +31,13 @@ class TraceDiff:
 
 
 def _counter_delta(a: Dict[str, int], b: Dict[str, int]) -> Dict[str, int]:
+    """Return per-key deltas for two counters (b - a), excluding zeros."""
     keys = set(a) | set(b)
     return {k: int(b.get(k, 0)) - int(a.get(k, 0)) for k in sorted(keys) if (b.get(k, 0) - a.get(k, 0)) != 0}
 
 
 def diff_traces(left_path: Path, right_path: Path) -> TraceDiff:
+    """Compute a TraceDiff summary between two JSONL trace files."""
     left_events = read_jsonl(left_path)
     right_events = read_jsonl(right_path)
 
@@ -69,6 +72,7 @@ def diff_traces(left_path: Path, right_path: Path) -> TraceDiff:
 
 
 def format_diff(d: TraceDiff) -> str:
+    """Render a TraceDiff as a human-readable report."""
     lines: List[str] = []
     lines.append(f"Left:  {d.left}")
     lines.append(f"Right: {d.right}")
@@ -101,6 +105,7 @@ def format_diff(d: TraceDiff) -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for diffing two trace files."""
     p = argparse.ArgumentParser(description="Diff two TensorFoundry JSONL traces.")
     p.add_argument("left", type=str)
     p.add_argument("right", type=str)

@@ -1,3 +1,4 @@
+"""Standalone validator for reward.jsonl files."""
 from __future__ import annotations
 
 import json
@@ -25,6 +26,7 @@ REQUIRED: dict[str, ClassInfo] = {
 
 
 def validate_reward_obj(obj: dict[str, Any]) -> None:
+    """Validate a single reward object, raising on schema violations."""
     for key, typ in REQUIRED.items():
         if key not in obj:
             raise ValueError(f"Missing key: {key}")
@@ -45,6 +47,7 @@ def validate_reward_obj(obj: dict[str, Any]) -> None:
 
 
 def validate_reward_jsonl(path: str | Path) -> None:
+    """Validate every JSONL row in a reward file."""
     path = Path(path)
     with path.open("r", encoding="utf-8") as f:
         for i, line in enumerate(f, start=1):

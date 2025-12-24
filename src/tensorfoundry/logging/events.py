@@ -28,6 +28,7 @@ def utc_now_iso() -> str:
 
 
 def _truncate_str(value: str, max_length: int) -> str:
+    """Truncate a string to max_length with ellipsis."""
     if len(value) <= max_length:
         return value
     return value[: max_length - 3] + "..."

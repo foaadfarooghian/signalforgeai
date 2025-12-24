@@ -29,6 +29,7 @@ class Patch:
 
 
 class RefactorAgent:
+    """Minimal refactor agent that proposes deterministic patches and logs traces."""
     def __init__(self, *, emitter: JsonlEmitter) -> None:
         self.emitter = emitter
 
@@ -54,6 +55,7 @@ class RefactorAgent:
     # -------- Tooling (filesystem) --------
 
     def _tool_read_text(self, file_path: Path, *, trace_id: str, parent_span_id: str) -> str:
+        """Read a file with tracing to the tool stage."""
         self.emitter.emit(
             event_type="tool_called",
             stage="tool",
@@ -76,6 +78,7 @@ class RefactorAgent:
         return text
 
     def _tool_write_text(self, file_path: Path, content: str, *, trace_id: str, parent_span_id: str) -> None:
+        """Write a file with tracing to the tool stage."""
         self.emitter.emit(
             event_type="tool_called",
             stage="tool",
@@ -93,6 +96,7 @@ class RefactorAgent:
         )
 
     def _tool_list_py_files(self, root: Path, *, trace_id: str, parent_span_id: str, max_files: int = 200) -> List[str]:
+        """List Python files under a repo root with tracing."""
         self.emitter.emit(
             event_type="tool_called",
             stage="tool",
@@ -221,6 +225,7 @@ class RefactorAgent:
         replace: str,
         dry_run: bool = True,
     ) -> Dict[str, Any]:
+        """Execute plan, propose/apply patch, and emit terminal outcome."""
         root = self.emitter.emit(
             event_type="task_received",
             stage="system",

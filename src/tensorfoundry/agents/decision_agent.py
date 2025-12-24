@@ -18,6 +18,7 @@ class DecisionAgent:
         self.emitter = emitter
 
     def plan(self, task: str, trace_id: str, parent_span_id: str) -> List[str]:
+        """Create a simple plan and emit a planning event."""
         plan_steps = [
             "Extract constraints and objectives",
             "Generate options",
@@ -124,6 +125,7 @@ class DecisionAgent:
         constraints: Optional[List[str]] = None,
         options: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        """Run the full decision workflow and return a memo plus trace metadata."""
         root = self.emitter.emit(
             event_type="task_received",
             stage="system",

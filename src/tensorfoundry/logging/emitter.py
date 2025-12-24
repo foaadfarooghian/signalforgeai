@@ -87,6 +87,7 @@ class JsonlEmitter:
             self._fp = None
 
     def _write(self, event: Event) -> None:
+        """Append a single event line to the JSONL file (streaming-safe)."""
         fp = getattr(self, "_fp", None)
         if fp is None:
             self.file_path.parent.mkdir(parents=True, exist_ok=True)

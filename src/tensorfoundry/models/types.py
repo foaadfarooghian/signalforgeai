@@ -4,11 +4,13 @@ from typing import Any, Dict, Optional
 
 @dataclass(frozen=True)
 class ModelMetrics:
+    """Captured latency/cost metadata for a model invocation."""
     latency_ms: Optional[int] = None
     cost_usd: Optional[float] = None
     extra: Dict[str, Any] = field(default_factory=dict)  # optional extensibility
 
 @dataclass(frozen=True)
 class ModelOutput:
+    """Model response text with attached metrics."""
     text: str
     metrics: ModelMetrics

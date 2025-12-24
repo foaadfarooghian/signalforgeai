@@ -47,6 +47,7 @@ REWARD_REQUIRED_KEYS: Set[str] = {
 }
 
 def validate_reward_events(events: Iterable[Dict[str, Any]]) -> List[ValidationIssue]:
+    """Validate reward JSONL rows against the reward schema."""
     issues: List[ValidationIssue] = []
 
     for i, ev in enumerate(events, start=1):
@@ -121,6 +122,7 @@ def validate_reward_events(events: Iterable[Dict[str, Any]]) -> List[ValidationI
     return issues
 
 def _detect_kind(events: List[Dict[str, Any]]) -> str:
+    """Detect whether a JSONL file looks like a trace or reward log."""
     # very lightweight heuristics
     if not events:
         return "unknown"
@@ -133,6 +135,7 @@ def _detect_kind(events: List[Dict[str, Any]]) -> str:
 
 @dataclass(frozen=True)
 class ValidationIssue:
+    """A single validation error with location and message."""
     line_no: int
     code: str
     message: str
@@ -142,14 +145,17 @@ class ValidationIssue:
 
 
 def _is_dict(x: Any) -> bool:
+    """Type guard for mapping-like JSON objects."""
     return isinstance(x, dict)
 
 
 def _is_str(x: Any) -> bool:
+    """Type guard for strings."""
     return isinstance(x, str)
 
 
 def _read_jsonl(path: Path) -> Tuple[List[Dict[str, Any]], List[ValidationIssue]]:
+    """Read JSONL file into events, returning parse issues if any."""
     issues: List[ValidationIssue] = []
     events: List[Dict[str, Any]] = []
 
@@ -189,6 +195,7 @@ def validate_events(
     *,
     require_single_trace_id: bool = True,
 ) -> List[ValidationIssue]:
+    """Validate trace events for required keys, types, and terminal events."""
     issues: List[ValidationIssue] = []
 
     trace_ids: Set[str] = set()
@@ -301,6 +308,7 @@ def validate_jsonl_file(
     *,
     require_single_trace_id: bool = True,
 ) -> List[ValidationIssue]:
+    """Validate a JSONL file and return any issues found."""
     p = Path(path)
     events, parse_issues = _read_jsonl(p)
     if parse_issues:
@@ -319,10 +327,12 @@ def validate_trace_file(
     *,
     require_single_trace_id: bool = True,
 ) -> List[ValidationIssue]:
+    """Backward-compatible alias for validating trace JSONL files."""
     return validate_jsonl_file(path, require_single_trace_id=require_single_trace_id)
 
 
 def _format_issues(issues: List[ValidationIssue]) -> str:
+    """Render validation issues for console output."""
     if not issues:
         return "OK: trace is valid.\n"
     lines = ["INVALID: trace has issues:"]
@@ -331,6 +341,7 @@ def _format_issues(issues: List[ValidationIssue]) -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for validating trace or reward JSONL files."""
     parser = argparse.ArgumentParser(description="Validate a TensorFoundry JSONL trace.")
     parser.add_argument("path", type=str, help="Path to a .jsonl file OR a directory containing .jsonl files")
     parser.add_argument(

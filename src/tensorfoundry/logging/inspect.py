@@ -20,6 +20,7 @@ TERMINAL_EVENT_TYPES = {"task_completed", "task_failed"}
 
 @dataclass(frozen=True)
 class TraceSummary:
+    """Aggregated statistics and terminal outcome for a trace file."""
     path: str
     trace_ids: List[str]
     num_events: int
@@ -33,6 +34,7 @@ class TraceSummary:
 
 
 def read_jsonl(path: Path) -> List[Dict[str, Any]]:
+    """Read a JSONL file into a list of event dictionaries."""
     events: List[Dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -44,6 +46,7 @@ def read_jsonl(path: Path) -> List[Dict[str, Any]]:
 
 
 def _extract_timeline(events: Iterable[Dict[str, Any]], *, max_lines: int = 25) -> List[Dict[str, str]]:
+    """Build a compact timeline view for display."""
     timeline: List[Dict[str, str]] = []
     for ev in events:
         timeline.append(
@@ -63,6 +66,7 @@ def _extract_timeline(events: Iterable[Dict[str, Any]], *, max_lines: int = 25) 
 
 
 def _find_terminal(events: List[Dict[str, Any]]) -> Tuple[Optional[str], Dict[str, Any]]:
+    """Return the terminal event type and outcome, if present."""
     # Search from end, terminal event is most likely near the end
     for ev in reversed(events):
         et = ev.get("event_type")
@@ -74,6 +78,7 @@ def _find_terminal(events: List[Dict[str, Any]]) -> Tuple[Optional[str], Dict[st
 
 
 def summarise_trace(events: List[Dict[str, Any]], *, path: Path) -> TraceSummary:
+    """Summarise a trace by counts, time range, and terminal outcome."""
     trace_ids = sorted({str(e.get("trace_id")) for e in events if e.get("trace_id") is not None})
     event_type_counts = Counter(str(e.get("event_type")) for e in events)
     stage_counts = Counter(str(e.get("stage")) for e in events)
@@ -101,6 +106,7 @@ def summarise_trace(events: List[Dict[str, Any]], *, path: Path) -> TraceSummary
 
 
 def format_summary(summary: TraceSummary) -> str:
+    """Format a TraceSummary as human-readable text."""
     lines: List[str] = []
     lines.append(f"Trace file: {summary.path}")
     lines.append(f"Events: {summary.num_events}")
@@ -144,6 +150,7 @@ def format_summary(summary: TraceSummary) -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for trace inspection."""
     parser = argparse.ArgumentParser(description="Inspect a TensorFoundry JSONL trace.")
     parser.add_argument("path", type=str, help="Path to a .jsonl trace file")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")

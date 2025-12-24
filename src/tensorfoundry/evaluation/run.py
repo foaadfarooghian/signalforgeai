@@ -16,6 +16,7 @@ from tensorfoundry.learning.bandits import (
 )
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for running an evaluation suite."""
     parser = argparse.ArgumentParser(description="Run a TensorFoundry evaluation suite.")
     parser.add_argument("suite", type=str, help="Path to suite JSON (e.g. src/.../suites/quickstart.json)")
     parser.add_argument("--output-dir", type=str, default="results", help="Directory for results outputs")

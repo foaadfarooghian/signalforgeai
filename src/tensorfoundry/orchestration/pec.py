@@ -18,6 +18,7 @@ State = Dict[str, Any]
 
 @dataclass(frozen=True)
 class CritiqueResult:
+    """Critic output describing whether to stop, retry, or fail."""
     done: bool
     status: Literal["success", "partial", "failure"]
     reason: str
@@ -27,14 +28,17 @@ class CritiqueResult:
 
 
 class Planner(Protocol):
+    """Planner interface that mutates state with a plan."""
     def plan(self, state: State, *, trace_id: str, parent_span_id: str) -> State: ...
 
 
 class Executor(Protocol):
+    """Executor interface that performs work and mutates state."""
     def execute(self, state: State, *, trace_id: str, parent_span_id: str) -> State: ...
 
 
 class Critic(Protocol):
+    """Critic interface that evaluates state and decides retry/stop."""
     def critique(self, state: State, *, trace_id: str, parent_span_id: str) -> CritiqueResult: ...
 
 
@@ -159,6 +163,7 @@ class PECOrchestrator:
 
 
 def _safe_summary(value: Any, max_len: int = 240) -> str:
+    """Stringify and truncate summaries for event payloads."""
     if value is None:
         return ""
     s = str(value)

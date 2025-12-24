@@ -9,9 +9,11 @@ from tensorfoundry.orchestration.pec import CritiqueResult, State
 
 @dataclass
 class ResearchPlanner:
+    """Planner adapter that delegates planning to a ResearchAgent."""
     agent: ResearchAgent
 
     def plan(self, state: State, *, trace_id: str, parent_span_id: str) -> State:
+        """Attach plan steps to state using the underlying agent."""
         plan_steps = self.agent.plan(state["task"], trace_id=trace_id, parent_span_id=parent_span_id)
         state["plan"] = plan_steps
         return state
@@ -19,9 +21,11 @@ class ResearchPlanner:
 
 @dataclass
 class ResearchExecutor:
+    """Executor adapter that runs search + summarization on a ResearchAgent."""
     agent: ResearchAgent
 
     def execute(self, state: State, *, trace_id: str, parent_span_id: str) -> State:
+        """Populate findings and result in state using the agent."""
         findings: List[str] = self.agent.search(state["task"], trace_id=trace_id, parent_span_id=parent_span_id)
         summary: str = self.agent.summarize(findings, trace_id=trace_id, parent_span_id=parent_span_id)
         state["artifacts"]["findings"] = findings
@@ -35,6 +39,7 @@ class SimpleCritic:
     min_len: int = 10
 
     def critique(self, state: State, *, trace_id: str, parent_span_id: str) -> CritiqueResult:
+        """Return a critique result and optional mutated state."""
         result = state.get("result") or ""
         if isinstance(result, str) and len(result.strip()) >= self.min_len:
             return CritiqueResult(done=True, status="success", reason="result_non_empty", confidence=0.7)

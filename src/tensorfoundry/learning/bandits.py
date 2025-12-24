@@ -1,3 +1,4 @@
+"""Routing bandits to choose models based on reward feedback."""
 from __future__ import annotations
 
 import json
@@ -10,14 +11,17 @@ from typing import Any, Dict, List
 
 @dataclass
 class Arm:
+    """Beta distribution parameters for Thompson sampling."""
     # Beta distribution parameters
     alpha: float = 1.0
     beta: float = 1.0
 
     def sample(self) -> float:
+        """Draw a probability sample from the arm's beta distribution."""
         return random.betavariate(self.alpha, self.beta)
 
     def update_from_reward(self, r: float) -> None:
+        """Update the arm with a fractional reward in [0, 1]."""
         # fractional success update (r in [0,1])
         r = max(0.0, min(1.0, float(r)))
         self.alpha += r
@@ -26,6 +30,7 @@ class Arm:
 
 @dataclass
 class RoutingBanditsV0:
+    """Bandit state for model routing per suite."""
     version: str = "bandit.v0"
     default_model: str = "unknown"
     # by_suite[suite_id][model_id] = Arm(...)
@@ -33,6 +38,7 @@ class RoutingBanditsV0:
 
     @staticmethod
     def load(path: str | Path) -> "RoutingBanditsV0":
+        """Load bandit state from disk (or return defaults if missing)."""
         p = Path(path)
         if not p.exists():
             return RoutingBanditsV0()
@@ -55,6 +61,7 @@ class RoutingBanditsV0:
         return inst
 
     def save(self, path: str | Path) -> Path:
+        """Persist bandit state to disk and return the path."""
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         obj: Dict[str, Any] = {
@@ -72,6 +79,7 @@ class RoutingBanditsV0:
         return p
 
     def ensure_arms(self, suite_id: str, candidate_models: List[str]) -> None:
+        """Ensure a suite has Arm entries for each candidate model."""
         if suite_id not in self.by_suite:
             self.by_suite[suite_id] = {}
         for m in candidate_models:
@@ -79,6 +87,7 @@ class RoutingBanditsV0:
     
 
     def choose_model(self, suite_id: str, candidate_models: List[str]) -> str:
+        """Choose a model via exploration then Thompson sampling."""
         candidate_models = [m.strip() for m in candidate_models if m and m.strip()]
         if not candidate_models:
             return self.default_model
@@ -113,6 +122,7 @@ class RoutingBanditsV0:
         model_id: str,
         rewards: List[float],
     ) -> None:
+        """Update arm parameters from a list of reward values."""
         if not rewards:
             return
         self.by_suite.setdefault(suite_id, {})
@@ -123,6 +133,7 @@ class RoutingBanditsV0:
 
 
 def candidate_models_from_env() -> List[str]:
+    """Read candidate model IDs from environment variables."""
     # Comma-separated list: "gpt-5-mini,gpt-5,claude-sonnet"
     s = os.getenv("TENSORFOUNDRY_CANDIDATE_MODELS", "").strip()
     if not s:
@@ -133,6 +144,7 @@ def candidate_models_from_env() -> List[str]:
 
 
 def load_rewards_for_run(run_logs_dir: str | Path) -> List[dict[str, Any]]:
+    """Load reward.jsonl rows for a specific run directory."""
     p = Path(run_logs_dir) / "reward.jsonl"
     if not p.exists():
         return []

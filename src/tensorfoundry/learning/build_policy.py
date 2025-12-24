@@ -1,3 +1,4 @@
+"""Build routing policy files from reward logs."""
 from __future__ import annotations
 
 import argparse
@@ -8,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
+    """Read a JSONL file into a list of objects."""
     rows: List[Dict[str, Any]] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -17,6 +19,7 @@ def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
 
 
 def _iter_reward_files(logs_dir: Path) -> List[Path]:
+    """Return all reward.jsonl files under a logs directory."""
     return sorted(logs_dir.glob("**/reward.jsonl"))
 
 
@@ -26,6 +29,7 @@ def build_routing_policy_v0(
     default_model: str,
     min_cases: int = 3,
 ) -> Dict[str, Any]:
+    """Aggregate reward logs and select the best model per suite."""
     # suite_id, model_id -> stats
     agg: Dict[Tuple[str, str], List[float]] = defaultdict(list)
 
@@ -71,6 +75,7 @@ def build_routing_policy_v0(
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for building a routing policy file."""
     parser = argparse.ArgumentParser(description="Build routing policy from reward.jsonl logs.")
     parser.add_argument("--logs-dir", type=str, default="logs")
     parser.add_argument("--out", type=str, default="policies/routing_v0.json")

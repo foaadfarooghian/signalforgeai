@@ -1,3 +1,4 @@
+"""Deterministic dummy provider for local testing without external APIs."""
 from __future__ import annotations
 
 import random
@@ -16,6 +17,7 @@ class DummyProvider:
     """
 
     def generate(self, *, prompt: str, model_id: str, task_type: Optional[str] = None) -> ModelOutput:
+        """Return a synthetic response based on model_id and prompt hints."""
         t0 = time.time()
 
         # Use prompt content to tailor keywords for your benchmark suites
@@ -38,6 +40,7 @@ class DummyProvider:
         )
 
     def _good_text(self, p: str, *, task_type: Optional[str]) -> str:
+        """Return a keyword-rich response to satisfy benchmark expectations."""
         # Make decision benchmark strongly separable
         if task_type == "decision":
             return (
@@ -63,6 +66,7 @@ class DummyProvider:
 
 
     def _bad_text(self, *, task_type: Optional[str]) -> str:
+        """Return a generic response that should fail stricter benchmarks."""
         # Avoid decision benchmark keywords explicitly
         if task_type == "decision":
             return "Next steps: move fast; ship features; reduce overhead; focus on delivery."

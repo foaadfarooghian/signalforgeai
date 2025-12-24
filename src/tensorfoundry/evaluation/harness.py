@@ -19,6 +19,7 @@ from tensorfoundry.evaluation.reward_writer import write_rewards_jsonl
 
 @dataclass(frozen=True)
 class CaseResult:
+    """Outcome and metadata for a single evaluation case."""
     case_id: str
     passed: bool
     score: float
@@ -31,6 +32,7 @@ class CaseResult:
 
 @dataclass(frozen=True)
 class SuiteResult:
+    """Aggregate result for a full evaluation suite run."""
     suite_name: str
     agent: str
     run_id : str
@@ -42,6 +44,7 @@ class SuiteResult:
     results: List[CaseResult]
 
 def _get_commit_sha() -> str:
+    """Resolve commit SHA from common CI environment variables."""
     # Prefer CI env if present; fall back to "unknown"
     return (
         os.getenv("GITHUB_SHA")
@@ -51,15 +54,18 @@ def _get_commit_sha() -> str:
     )
 
 def _get_model_id() -> str:
+    """Resolve the current model identifier from environment variables."""
     # If you route models elsewhere, replace this later.
     return os.getenv("TENSORFOUNDRY_MODEL_ID") or "unknown"
 
 
 def _load_suite(path: Path) -> Dict[str, Any]:
+    """Load a suite JSON file into a dictionary."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _ensure_dir(p: Path) -> None:
+    """Create a directory and parents if missing."""
     p.mkdir(parents=True, exist_ok=True)
 
 
@@ -69,7 +75,7 @@ def _score_case(
     terminal_outcome: Dict[str, Any],
     result_text: str,
 ) -> Tuple[bool, float, List[str]]:
-    """Simple scoring: status match + contains_any check."""
+    """Score a case by status match and optional substring checks."""
     notes: List[str] = []
     score = 0.0
 
@@ -93,6 +99,7 @@ def _score_case(
     return passed, score, notes
 
 def _extract_cost_latency(events: List[Dict[str, Any]]) -> tuple[Optional[float], Optional[int]]:
+    """Extract cost/latency from events, preferring model_called metrics."""
     cost_usd: Optional[float] = None
     latency_ms: Optional[int] = None
 
@@ -129,6 +136,7 @@ def run_suite(
     output_dir: Path | str = Path("results"),
     logs_dir: Path | str = Path("logs"),
 ) -> SuiteResult:
+    """Run a suite end-to-end and write results, summaries, and reward logs."""
     suite_path = Path(suite_path)
     output_dir = Path(output_dir)
     logs_dir = Path(logs_dir)
@@ -333,6 +341,7 @@ def run_suite(
 
 
 def _render_summary_md(s: SuiteResult) -> str:
+    """Render a Markdown summary for a suite result."""
     lines = [
         f"# Suite: {s.suite_name}",
         "",
@@ -376,6 +385,7 @@ def _extract_result_text(agent_name: str, result_obj: Dict[str, Any]) -> str:
 # --- Agent registry ---
 
 def get_agent_runner(agent_name: str):
+    """Return the runner function for a known agent name."""
     if agent_name == "decision_agent":
         return _run_decision_agent
     if agent_name == "research_agent":
@@ -386,6 +396,7 @@ def get_agent_runner(agent_name: str):
 
 
 def _run_decision_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter) -> Dict[str, Any]:
+    """Run the decision agent with inputs from a suite case."""
     from tensorfoundry.agents.decision_agent import DecisionAgent
 
     agent = DecisionAgent(emitter=emitter)
@@ -397,12 +408,14 @@ def _run_decision_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter
 
 
 def _run_research_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter) -> Dict[str, Any]:
+    """Run the research agent with inputs from a suite case."""
     from tensorfoundry.agents.research_agent import ResearchAgent
 
     agent = ResearchAgent(emitter=emitter)
     return agent.run(task)
 
 def _run_refactor_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter) -> Dict[str, Any]:
+    """Run the refactor agent with inputs from a suite case."""
     from tensorfoundry.agents.refactor_agent import RefactorAgent
 
     agent = RefactorAgent(emitter=emitter)

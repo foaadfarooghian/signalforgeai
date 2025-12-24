@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 @dataclass(frozen=True)
 class ResultsDiff:
+    """Summary of differences between two evaluation result files."""
     left: str
     right: str
     suite_left: str
@@ -32,10 +33,12 @@ class ResultsDiff:
 
 
 def _load(path: Path) -> Dict[str, Any]:
+    """Load a JSON file into a dictionary."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def diff_results(left_path: Path, right_path: Path) -> ResultsDiff:
+    """Compute a ResultsDiff for two evaluation outputs."""
     left = _load(left_path)
     right = _load(right_path)
 
@@ -85,6 +88,7 @@ def diff_results(left_path: Path, right_path: Path) -> ResultsDiff:
 
 
 def format_results_diff(d: ResultsDiff) -> str:
+    """Render a ResultsDiff as human-readable text."""
     lines: List[str] = []
     lines.append(f"Left:  {d.left} (suite={d.suite_left})")
     lines.append(f"Right: {d.right} (suite={d.suite_right})")
@@ -114,6 +118,7 @@ def format_results_diff(d: ResultsDiff) -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for diffing two evaluation results."""
     p = argparse.ArgumentParser(description="Diff two TensorFoundry evaluation results files.")
     p.add_argument("left", type=str)
     p.add_argument("right", type=str)

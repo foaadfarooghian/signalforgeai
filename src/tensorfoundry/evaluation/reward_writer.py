@@ -1,3 +1,4 @@
+"""Utilities for writing reward logs to JSONL."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,6 +7,7 @@ from .reward_schema import RewardV0
 
 
 def write_rewards_jsonl(path: str | Path, rewards: Iterable[RewardV0]) -> Path:
+    """Append reward records to a JSONL file and return the path."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
