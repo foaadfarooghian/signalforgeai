@@ -16,7 +16,7 @@
   <img alt="status" src="https://img.shields.io/badge/status-active_development-blue" />
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue" />
   <img alt="license" src="https://img.shields.io/badge/License-Apache%202.0-green.svg" />
-  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/footi93/tensorfoundry/ci.yml?branch=dev" />
+  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/foaadfarooghian/tensorfoundry/ci.yml?branch=dev" />
 </p>
 
 ---
@@ -99,7 +99,7 @@ If an agent can’t be logged, validated, and compared over time, it’s not pro
 ## Quickstart (5 minutes)
 
 ```bash
-git clone https://github.com/footi93/tensorfoundry.git
+git clone https://github.com/foaadfarooghian/tensorfoundry.git
 cd tensorfoundry
 
 python -m venv .venv
