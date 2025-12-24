@@ -99,7 +99,7 @@ If an agent can’t be logged, validated, and compared over time, it’s not pro
 ## Quickstart (5 minutes)
 
 ```bash
-git clone https://github.com/<your-username>/tensorfoundry.git
+git clone https://github.com/footi93/tensorfoundry.git
 cd tensorfoundry
 
 python -m venv .venv
