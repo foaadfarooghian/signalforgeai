@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
 from tensorfoundry.models.base import ModelProvider
 from tensorfoundry.models.providers.dummy import DummyProvider
 from tensorfoundry.models.providers.ollama import OllamaProvider
