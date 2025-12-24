@@ -1,22 +1,18 @@
-"""Provider registry for resolving the active model backend."""
 from __future__ import annotations
-import os
+
 from typing import Optional
-from .base import ModelProvider
-from .providers.dummy import DummyProvider
+from tensorfoundry.models.base import ModelProvider
+from tensorfoundry.models.providers.dummy import DummyProvider
+from tensorfoundry.models.providers.ollama import OllamaProvider
+from tensorfoundry.models.providers.openai_provider import OpenAIProvider
 
-_cached: Optional[ModelProvider] = None
+_dummy = DummyProvider()
+_ollama = OllamaProvider()
+_openai = OpenAIProvider()
 
-def get_provider() -> ModelProvider:
-    """Return a cached model provider based on environment configuration."""
-    global _cached
-    if _cached is not None:
-        return _cached
-
-    name = (os.getenv("TENSORFOUNDRY_PROVIDER") or "dummy").strip().lower()
-
-    if name == "dummy":
-        _cached = DummyProvider()
-        return _cached
-
-    raise ValueError(f"Unknown provider: {name!r}")
+def get_provider_for_model(model_id: str) -> ModelProvider:
+    if model_id.startswith("ollama:"):
+        return _ollama
+    if model_id.startswith("openai:"):
+        return _openai
+    return _dummy
