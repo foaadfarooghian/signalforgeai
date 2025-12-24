@@ -76,14 +76,27 @@ class RoutingBanditsV0:
             self.by_suite[suite_id] = {}
         for m in candidate_models:
             self.by_suite[suite_id].setdefault(m, Arm())
+    
 
     def choose_model(self, suite_id: str, candidate_models: List[str]) -> str:
-        candidate_models = [m for m in candidate_models if m]
+        candidate_models = [m.strip() for m in candidate_models if m and m.strip()]
         if not candidate_models:
             return self.default_model
 
+        # Ensure suite + arms exist before reading them
         self.ensure_arms(suite_id, candidate_models)
 
+        min_pulls = int(os.getenv("TENSORFOUNDRY_BANDIT_MIN_PULLS", "5"))
+
+        def pulls(arm: Arm) -> float:
+            return (arm.alpha + arm.beta) - 2.0
+
+        # Explore under-sampled arms first
+        under = sorted(candidate_models, key=lambda m: pulls(self.by_suite[suite_id][m]))
+        if pulls(self.by_suite[suite_id][under[0]]) < min_pulls:
+            return under[0]
+
+        # Thompson Sampling once all arms have enough pulls
         best_m = None
         best_draw = -1.0
         for m in candidate_models:

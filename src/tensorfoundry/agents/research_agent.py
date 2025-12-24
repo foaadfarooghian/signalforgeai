@@ -2,7 +2,8 @@
 from __future__ import annotations
 from tensorfoundry.logging import JsonlEmitter
 from typing import Any, Dict, List
-
+from tensorfoundry.models import get_provider
+import os
 
 class ResearchAgent:
     """Placeholder research agent that records actions."""
@@ -58,7 +59,13 @@ class ResearchAgent:
 
     def summarize(self, findings: List[str], trace_id: str, parent_span_id: str) -> str:
         """Summarize findings using a placeholder model call."""
-        summary = " | ".join(findings)
+        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
+        provider = get_provider()
+
+        prompt = f"Summarise: {findings[0] if findings else ''}"
+        out = provider.generate(prompt=prompt, model_id=model_id, task_type="research")
+        summary = out.text
+        # summary = " | ".join(findings)
         self.journal.append("summarized findings")
 
         self.emitter.emit(
@@ -67,10 +74,14 @@ class ResearchAgent:
             trace_id=trace_id,
             parent_span_id=parent_span_id,
             payload={
-                "model": "provider:model-name",
+                "model": model_id,
                 "input_summary": "Summarise findings",
                 "output_summary": "Produced summary",
                 "content_policy": {"raw_input_logged": False, "raw_output_logged": False},
+            },
+            metrics={
+                "latency_ms": out.metrics.latency_ms,
+                "cost_usd": out.metrics.cost_usd,
             },
             outcome={"summary": summary},
         )

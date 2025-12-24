@@ -12,10 +12,12 @@ It does NOT attempt to be a general patch engine yet.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from tensorfoundry.logging.emitter import JsonlEmitter
+from tensorfoundry.models.registry import get_provider
 
 
 @dataclass(frozen=True)
@@ -160,7 +162,7 @@ class RefactorAgent:
         if patch.find not in before:
             return {
                 "applied": False,
-                "reason": "find_string_not_found",
+                "reason": "reason=find_string_not_found",
                 "file": patch.file,
             }
 
@@ -244,16 +246,31 @@ class RefactorAgent:
             parent_span_id=root_span,
         )
 
+        provider = get_provider()
+        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
+
+        prompt = f"""Task: {task}
+        Repo root: {repo_root_path}
+        Chosen file: {patch.file}
+        Find: {find!r}
+        Replace: {replace!r}
+        Explain the proposed deterministic patch in 1-2 sentences."""
+        out = provider.generate(prompt=prompt, model_id=model_id, task_type="refactor")
+
         self.emitter.emit(
             event_type="model_called",
             stage="executor",
             trace_id=trace_id,
             parent_span_id=root_span,
             payload={
-                "model": "provider:model-name",
+                "model": model_id,
                 "input_summary": "Propose deterministic patch",
                 "output_summary": "Selected file + find/replace patch",
                 "content_policy": {"raw_input_logged": False, "raw_output_logged": False},
+            },
+            metrics={
+                "latency_ms": out.metrics.latency_ms,
+                "cost_usd": out.metrics.cost_usd,
             },
             outcome={"patch": {"file": patch.file}},
         )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from html import parser
 from pathlib import Path
 from typing import List, Optional
 import os
@@ -50,6 +49,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         bandits = None
         print(f"Model (env/default): {os.getenv('TENSORFOUNDRY_MODEL_ID') or 'unknown'}")
+    
+    if suite_name == "benchmark_v0_refactor":
+        bandits = None 
         
     result = run_suite(
         suite_path=Path(args.suite),
@@ -58,17 +60,51 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
 
     if bandits is not None:
-        # result.run_logs_dir should be printed by your run_suite result now
         rows = load_rewards_for_run(result.run_logs_dir)
-        # collect rewards for this suite+model (should match anyway)
-        rewards = []
-        for r in rows:
-            if r.get("version") == "reward.v0" and r.get("suite_id") == suite_name and r.get("model_id") == os.environ.get("TENSORFOUNDRY_MODEL_ID"):
-                rewards.append(float(r.get("overall_score", 0.0)))
 
-        bandits.update_from_rewards(suite_name, os.environ["TENSORFOUNDRY_MODEL_ID"], rewards)
+        chosen_model = os.environ.get("TENSORFOUNDRY_MODEL_ID") or "unknown"
+
+        # Weights (default 0 => behaves like pure score)
+        lambda_cost = float(os.getenv("TENSORFOUNDRY_LAMBDA_COST", "0.0"))
+        mu_latency = float(os.getenv("TENSORFOUNDRY_MU_LATENCY", "0.0"))  # penalty per second
+
+        rewards: list[float] = []
+        raw_scores: list[float] = []
+
+        for r in rows:
+            if r.get("version") != "reward.v0":
+                continue
+            if r.get("suite_id") != suite_name:
+                continue
+            if r.get("model_id") != chosen_model:
+                continue
+
+            score = r.get("overall_score", 0.0)
+            if not isinstance(score, (int, float)):
+                continue
+            score_f = float(score)
+            raw_scores.append(score_f)
+
+            effective = score_f
+
+            cost = r.get("cost_usd")
+            if isinstance(cost, (int, float)):
+                effective -= lambda_cost * float(cost)
+
+            lat_ms = r.get("latency_ms")
+            if isinstance(lat_ms, int):
+                effective -= mu_latency * (lat_ms / 1000.0)
+
+            # clamp to [0, 1]
+            effective = max(0.0, min(1.0, effective))
+            rewards.append(effective)
+
+        bandits.update_from_rewards(suite_name, chosen_model, rewards)
         bandits.save(args.bandits)
-        print(f"Bandits updated: {args.bandits}")
+
+        mean_score = (sum(raw_scores) / len(raw_scores)) if raw_scores else 0.0
+        mean_eff = (sum(rewards) / len(rewards)) if rewards else 0.0
+        print(f"Bandits updated: {args.bandits} (n={len(rewards)} mean_score={mean_score:.3f} mean_effective={mean_eff:.3f})")
 
    
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from tensorfoundry.logging.emitter import JsonlEmitter
-
+from tensorfoundry.models import get_provider
+import os
 
 class DecisionAgent:
     """A simple decision agent producing structured recommendations.
@@ -71,11 +72,18 @@ class DecisionAgent:
             "Risk: underspecified requirements lead to rework",
             "Risk: evaluation missing means regressions go unnoticed",
         ]
-        next_steps = [
-            "Define success criteria",
-            "Implement minimal evaluator",
-            "Ship and iterate",
-        ]
+        
+        provider = get_provider()
+        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
+
+        prompt = f"""Task: {task}
+        Constraints: {constraints}
+        Options: {options}
+        Return a short recommendation + next steps."""
+        out = provider.generate(prompt=prompt, model_id=model_id, task_type="decision")
+
+        # Use provider output to populate next_steps (so benchmark learns without hardcoding)
+        next_steps = [out.text]
 
         memo = {
             "task": task,
@@ -94,15 +102,19 @@ class DecisionAgent:
             trace_id=trace_id,
             parent_span_id=parent_span_id,
             payload={
-                "model": "provider:model-name",
+                "model": model_id,
                 "input_summary": "Decision memo generation",
                 "output_summary": "Structured recommendation",
                 "content_policy": {"raw_input_logged": False, "raw_output_logged": False},
             },
+            metrics={
+                "latency_ms": out.metrics.latency_ms,
+                "cost_usd": out.metrics.cost_usd,
+            },
             outcome={"result": {"recommendation": recommendation}},
         )
 
-        return memo
+        return memo, out.metrics
 
     def run(
         self,
@@ -118,7 +130,7 @@ class DecisionAgent:
         )
 
         plan_steps = self.plan(task, trace_id=root.trace_id, parent_span_id=root.span_id)
-        memo = self.decide(
+        memo, model_metrics = self.decide(
             task=task,
             constraints=constraints,
             options=options,
@@ -132,6 +144,10 @@ class DecisionAgent:
             trace_id=root.trace_id,
             parent_span_id=root.span_id,
             payload={"result_summary": memo.get("recommendation", ""), "plan": plan_steps},
+                metrics={
+                "latency_ms": model_metrics.latency_ms,
+                "cost_usd": model_metrics.cost_usd,
+            },
             outcome={"status": "success", "reason": "decision_memo_created", "confidence": 0.7},
         )
 

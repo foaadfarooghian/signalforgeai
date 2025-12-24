@@ -34,7 +34,7 @@ class SuiteResult:
     suite_name: str
     agent: str
     run_id : str
-    run_logs_dir: Path
+    run_logs_dir: str
     num_cases: int
     passed: int
     failed: int
@@ -92,6 +92,36 @@ def _score_case(
     passed = score >= 0.7  # status match is enough to pass, contains adds confidence
     return passed, score, notes
 
+def _extract_cost_latency(events: List[Dict[str, Any]]) -> tuple[Optional[float], Optional[int]]:
+    cost_usd: Optional[float] = None
+    latency_ms: Optional[int] = None
+
+    # Prefer model_called metrics
+    for ev in events:
+        if ev.get("event_type") == "model_called":
+            m = ev.get("metrics") or {}
+            c = m.get("cost_usd")
+            l = m.get("latency_ms")
+            if isinstance(c, (int, float)):
+                cost_usd = float(c)
+            if isinstance(l, int):
+                latency_ms = l
+            if cost_usd is not None or latency_ms is not None:
+                return cost_usd, latency_ms
+
+    # Fallback: terminal event metrics
+    for ev in events:
+        if ev.get("event_type") in ("task_completed", "task_failed"):
+            m = ev.get("metrics") or {}
+            c = m.get("cost_usd")
+            l = m.get("latency_ms")
+            if isinstance(c, (int, float)):
+                cost_usd = float(c)
+            if isinstance(l, int):
+                latency_ms = l
+            return cost_usd, latency_ms
+
+    return cost_usd, latency_ms
 
 def run_suite(
     *,
@@ -130,7 +160,7 @@ def run_suite(
 
         # Create per-case trace file
         emitter = JsonlEmitter(
-            logs_dir / "temp.jsonl",
+            run_logs_dir / "temp.jsonl",
             agent_name=agent_name,
             agent_version="0.1.0",
             default_stage="system",
@@ -175,6 +205,8 @@ def run_suite(
                     commit_sha=commit_sha,
                     success=False,
                     overall_score=0.0,
+                    cost_usd=cost_usd,
+                    latency_ms=latency_ms,
                     subscores={},
                     violations=violations,
                     terminal_status=None,
@@ -188,6 +220,7 @@ def run_suite(
         # Inspect terminal outcome
         events = read_jsonl(trace_path)
         summary = summarise_trace(events, path=trace_path)
+        cost_usd, latency_ms = _extract_cost_latency(events)
         terminal = summary.terminal_outcome or {}
         terminal_status = terminal.get("status")
         terminal_reason = terminal.get("reason")
@@ -221,6 +254,8 @@ def run_suite(
                 commit_sha=commit_sha,
                 success=passed,
                 overall_score=score,
+                cost_usd=cost_usd,
+                latency_ms=latency_ms,
                 subscores={
                     # optional decomposition now, can refine later
                     "status": 1.0 if expect.get("status") is None or terminal_status == expect.get("status") else 0.0,
@@ -325,7 +360,7 @@ def _extract_result_text(agent_name: str, result_obj: Dict[str, Any]) -> str:
     if agent_name == "decision_agent":
         memo = result_obj.get("memo", {})
         if isinstance(memo, dict):
-            return str(memo.get("recommendation", "")) + " " + " ".join(memo.get("next_steps", []) or [])
+            return " ".join(memo.get("next_steps", []) or [])
     if agent_name == "research_agent":
         return str(result_obj.get("summary", "")) or str(result_obj.get("result", ""))
     
