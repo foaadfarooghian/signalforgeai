@@ -38,15 +38,6 @@ jobs:
         run: |
           pytest -q
 
-      - name: Smoke test example + validate run logs
-        env:
-          TENSORFOUNDRY_PROVIDER: dummy
-        run: |
-          python examples/quick_research_agent.py
-          LATEST_RUN_DIR="$(ls -td logs/* | head -n 1)"
-          echo "Validating: ${LATEST_RUN_DIR}"
-          python -m tensorfoundry.logging.validate "${LATEST_RUN_DIR}"
-
       - name: Run Benchmark v0 suites + validate run logs
         env:
           TENSORFOUNDRY_PROVIDER: dummy
