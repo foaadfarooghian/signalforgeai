@@ -7,7 +7,7 @@ def test_reward_jsonl_roundtrip():
         trace_id="t1",
         run_id="r1",
         suite_id="s1",
-        task_id="task1",
+        case_id="task1",
         agent_id="refactor",
         model_id="gpt-x",
         commit_sha="abc123",
