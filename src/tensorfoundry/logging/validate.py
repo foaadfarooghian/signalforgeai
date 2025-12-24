@@ -35,7 +35,7 @@ REWARD_REQUIRED_KEYS: Set[str] = {
     "trace_id",
     "run_id",
     "suite_id",
-    "case_id",
+    "task_id",
     "agent_id",
     "model_id",
     "commit_sha",
@@ -70,8 +70,8 @@ def validate_reward_events(events: Iterable[Dict[str, Any]]) -> List[ValidationI
             issues.append(ValidationIssue(i, "reward_bad_type", "`run_id` must be a string."))
         if not _is_str(ev.get("suite_id")):
             issues.append(ValidationIssue(i, "reward_bad_type", "`suite_id` must be a string."))
-        if not _is_str(ev.get("case_id")):
-            issues.append(ValidationIssue(i, "reward_bad_type", "`case_id` must be a string."))
+        if not _is_str(ev.get("task_id")):
+            issues.append(ValidationIssue(i, "reward_bad_type", "`task_id` must be a string."))
         if not _is_str(ev.get("agent_id")):
             issues.append(ValidationIssue(i, "reward_bad_type", "`agent_id` must be a string."))
         if not _is_str(ev.get("model_id")):

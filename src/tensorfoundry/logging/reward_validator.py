@@ -12,7 +12,7 @@ REQUIRED: dict[str, ClassInfo] = {
     "trace_id": str,
     "run_id": str,
     "suite_id": str,
-    "task_id": str,
+    "case_id": str,
     "agent_id": str,
     "model_id": str,
     "commit_sha": str,
