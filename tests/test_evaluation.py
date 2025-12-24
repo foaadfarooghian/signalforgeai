@@ -36,5 +36,8 @@ def test_eval_quickstart_runs_and_writes_outputs(tmp_path: Path) -> None:
     assert (out_dir / "tmp_quickstart.results.json").exists()
     assert (out_dir / "tmp_quickstart.summary.md").exists()
 
-    # Should create at least one trace file
-    assert any(p.suffix == ".jsonl" for p in logs_dir.iterdir())
+    # Should create at least one trace file (now under logs/<run_id>/)
+    run_logs_dir = Path(res.run_logs_dir)
+    assert run_logs_dir.exists()
+    assert any(p.suffix == ".jsonl" for p in run_logs_dir.iterdir())
+    assert (run_logs_dir / "reward.jsonl").exists()
