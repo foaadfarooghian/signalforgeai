@@ -7,12 +7,11 @@
 </h1>
 
 <p align="center">
-  <strong>An opinionated open-source platform for engineered AI agents</strong><br/>
+  <strong>An opinionated open-source framework for engineered AI agents</strong><br/>
   Build, orchestrate, observe, and evaluate agentic workflows — not chatbots.
 </p>
 
 <p align="center">
-  <!-- Project status badges -->
   <img alt="status" src="https://img.shields.io/badge/status-active_development-blue" />
   <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue" />
   <img alt="license" src="https://img.shields.io/badge/License-Apache%202.0-green.svg" />
@@ -48,6 +47,9 @@ It is designed for teams who care about:
 
 Agents in TensorFoundry are **stateful systems** with tools, retries, failure handling, and measurable outcomes.
 
+TensorFoundry provides the **infrastructure and abstractions** needed to build these systems —  
+*not* a fixed catalog of pre-built agents.
+
 ---
 
 ## What makes TensorFoundry different
@@ -66,18 +68,42 @@ If an agent can’t be logged, validated, and compared over time, it’s not pro
 
 ---
 
+## What TensorFoundry is not
+
+TensorFoundry is **not**:
+- a fixed set of pre-built agents
+- a chatbot framework
+- a prompt library
+- a no-code agent builder
+
+It is a **software framework** for engineering agentic systems with strong guarantees around
+logging, evaluation, and reproducibility.
+
+---
+
 ## What’s included (v1 scope)
 
-### Agent templates
+TensorFoundry is a **framework**, not a catalog of agents.
+
+The components below define the **core platform**, alongside a small set of
+**reference implementations** that demonstrate how to use it.
+
+### Reference agent templates (examples)
+
+These agents are provided as **examples**, not limitations.
+You are expected to build your own domain-specific agents on top of the framework.
+
 - **ResearchAgent** — structured research with tools and synthesis
 - **DecisionAgent** — decision memos with assumptions and trade-offs
 - **RefactorAgent** — safe, deterministic code refactoring (dry-run by default)
 
 ### Orchestration
+
 - Planner → Executor → Critic pattern
 - Explicit retry logic with state mutation
 
 ### Logging & observability
+
 - Canonical JSONL logging schema
 - Safe-by-default payload sanitisation
 - Trace validation (`validate`)
@@ -85,12 +111,14 @@ If an agent can’t be logged, validated, and compared over time, it’s not pro
 - Trace diffing (`diff`)
 
 ### Evaluation
+
 - Task-based evaluation harness
 - Suite definitions in JSON
 - Result summaries and pass rates
 - Regression detection via diffing
 
 ### Quality & CI
+
 - Tests covering orchestration, logging, and evaluation
 - CI enforcing schema correctness and evaluation success
 
@@ -106,7 +134,8 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
-Run a research agent:
+
+Run a **reference research agent (example)**:
 
 ```bash
 python examples/quick_research_agent.py
@@ -126,6 +155,30 @@ python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quick
 python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json
 ```
 
+These examples demonstrate TensorFoundry’s core primitives.
+The same workflow applies to any custom agent you build.
+
+---
+
+## Building your own agents
+
+TensorFoundry is designed for **custom, domain-specific agents**.
+
+Typical use cases include:
+- internal research assistants
+- decision-support systems
+- code analysis and refactoring tools
+- evaluation-first LLM pipelines
+
+A minimal agent is composed of:
+- a planner
+- an executor
+- optional critics and tools
+
+Documentation will expand as APIs stabilise.
+
+---
+
 ## Core ideas
 
 - Agents ≠ chatbots
@@ -133,19 +186,25 @@ python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/resea
 - Evaluation > clever prompts
 - Orchestration is the product
 
-See manifesto.md for the full philosophy and roadmap.md for what’s coming next.
+See `manifesto.md` for the full philosophy and `roadmap.md` for what’s coming next.
+
+---
 
 ## Repository layout
 
 ```text
 src/tensorfoundry/
-├── agents/          # Agent templates
+├── agents/          # Reference agent templates (examples)
 ├── orchestration/   # Planner–Executor–Critic patterns
 ├── logging/         # Schema, emitter, validate, inspect, diff
 ├── evaluation/      # Harness, suites, results diff
 ├── examples/        # Runnable examples
 └── docs/            # Design notes
 ```
-# Branching & releases
-- prod — protected, stable release branch
-- dev — integration branch for ongoing work
+
+---
+
+## Branching & releases
+
+- `prod` — protected, stable release branch
+- `dev` — integration branch for ongoing work
