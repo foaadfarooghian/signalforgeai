@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
     "openai>=2.14.0",
     "PyYAML>=6.0",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 
 [project.optional-dependencies]
