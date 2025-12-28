@@ -29,27 +29,31 @@ def main(argv: Optional[List[str]] = None) -> int:
     suite_obj = json.loads(Path(args.suite).read_text(encoding="utf-8"))
     suite_name = suite_obj["suite_name"]
 
+    disable_bandits = args.no_bandits or (suite_name == "benchmark_v0_refactor")
+
     policy = load_policy_if_present(args.policy)
     if policy:
         chosen_model = policy.pick_model(suite_name)
         os.environ["TENSORFOUNDRY_MODEL_ID"] = chosen_model
         print(f"Model (policy): {chosen_model}")
-    else:
-        print(f"Model (env/default): {os.getenv('TENSORFOUNDRY_MODEL_ID') or 'unknown'}")
-
-    if not args.no_bandits:
-        bandits = RoutingBanditsV0.load(args.bandits)
-        candidates = candidate_models_from_env()
-        # default model if unset
-        if bandits.default_model == "unknown":
-            bandits.default_model = os.getenv("TENSORFOUNDRY_MODEL_ID") or (candidates[0] if candidates else "unknown")
-
-        chosen = bandits.choose_model(suite_name, candidates)
-        os.environ["TENSORFOUNDRY_MODEL_ID"] = chosen
-        print(f"Model (bandit): {chosen}")
-    else:
         bandits = None
-        print(f"Model (env/default): {os.getenv('TENSORFOUNDRY_MODEL_ID') or 'unknown'}")
+    else:
+        if disable_bandits:
+            bandits = None
+            print(f"Model (env/default): {os.getenv('TENSORFOUNDRY_MODEL_ID') or 'unknown'}")
+        else:
+            bandits = RoutingBanditsV0.load(args.bandits)
+            candidates = candidate_models_from_env()
+            if not candidates:
+                bandits = None
+                print("Bandits disabled: no candidate models found in env")
+            else:
+                if bandits.default_model == "unknown":
+                    bandits.default_model = os.getenv("TENSORFOUNDRY_MODEL_ID") or candidates[0]
+
+                chosen = bandits.choose_model(suite_name, candidates)
+                os.environ["TENSORFOUNDRY_MODEL_ID"] = chosen
+                print(f"Model (bandit): {chosen}")
     
     if suite_name == "benchmark_v0_refactor":
         bandits = None 
