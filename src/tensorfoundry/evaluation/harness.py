@@ -98,37 +98,82 @@ def _score_case(
     passed = score >= 0.7  # status match is enough to pass, contains adds confidence
     return passed, score, notes
 
-def _extract_cost_latency(events: List[Dict[str, Any]]) -> tuple[Optional[float], Optional[int]]:
-    """Extract cost/latency from events, preferring model_called metrics."""
-    cost_usd: Optional[float] = None
-    latency_ms: Optional[int] = None
+def _extract_tradeoff_metrics(
+    events: List[Dict[str, Any]],
+) -> tuple[Optional[float], Optional[int], Dict[str, Optional[int]]]:
+    """
+    Extract aggregate trade-off metrics from trace events.
 
-    # Prefer model_called metrics
+    Returns:
+      (cost_usd, latency_ms, tokens_dict)
+
+    tokens_dict keys: input_tokens, output_tokens, total_tokens
+    """
+    total_cost: float = 0.0
+    total_latency: int = 0
+    saw_cost = False
+    saw_latency = False
+
+    tok_in = 0
+    tok_out = 0
+    tok_total = 0
+    saw_any_tokens = False
+
+    def _as_int(x) -> Optional[int]:
+        return int(x) if isinstance(x, (int, float)) else None
+
     for ev in events:
-        if ev.get("event_type") == "model_called":
-            m = ev.get("metrics") or {}
-            c = m.get("cost_usd")
-            latency_value = m.get("latency_ms")
-            if isinstance(c, (int, float)):
-                cost_usd = float(c)
-            if isinstance(latency_value, int):
-                latency_ms = latency_value
-            if cost_usd is not None or latency_ms is not None:
-                return cost_usd, latency_ms
+        if ev.get("event_type") != "model_called":
+            continue
 
-    # Fallback: terminal event metrics
-    for ev in events:
-        if ev.get("event_type") in ("task_completed", "task_failed"):
-            m = ev.get("metrics") or {}
-            c = m.get("cost_usd")
-            latency_value = m.get("latency_ms")
-            if isinstance(c, (int, float)):
-                cost_usd = float(c)
-            if isinstance(latency_value, int):
-                latency_ms = latency_value
-            return cost_usd, latency_ms
+        m = ev.get("metrics") or {}
+        c = m.get("cost_usd")
+        l = m.get("latency_ms")
 
-    return cost_usd, latency_ms
+        if isinstance(c, (int, float)):
+            total_cost += float(c)
+            saw_cost = True
+
+        if isinstance(l, int):
+            total_latency += l
+            saw_latency = True
+        
+        usage = {}
+        extra = m.get("extra") or {}
+        if isinstance(extra, dict) and isinstance(extra.get("usage"), dict):
+            usage = extra["usage"]
+        else:
+            # fallback: tokens were hoisted to top-level metrics
+            usage = {
+                "input_tokens": m.get("input_tokens"),
+                "output_tokens": m.get("output_tokens"),
+                "total_tokens": m.get("total_tokens"),
+            }
+
+        if isinstance(usage, dict):
+            i = _as_int(usage.get("input_tokens"))
+            o = _as_int(usage.get("output_tokens"))
+            t = _as_int(usage.get("total_tokens"))
+
+            if i is not None:
+                tok_in += i
+                saw_any_tokens = True
+            if o is not None:
+                tok_out += o
+                saw_any_tokens = True
+            if t is not None:
+                tok_total += t
+                saw_any_tokens = True
+
+    cost_usd: Optional[float] = round(total_cost, 10) if saw_cost else None
+    latency_ms: Optional[int] = total_latency if saw_latency else None
+
+    tokens = {
+        "input_tokens": tok_in if saw_any_tokens else None,
+        "output_tokens": tok_out if saw_any_tokens else None,
+        "total_tokens": tok_total if saw_any_tokens else None,
+    }
+    return cost_usd, latency_ms, tokens
 
 def run_suite(
     *,
@@ -164,9 +209,7 @@ def run_suite(
         task = case["task"]
         inputs = case.get("inputs", {})
         expect = case.get("expect", {})
-        cost_usd = None
-        latency_ms = None
-
+ 
         # Create per-case trace file
         emitter = JsonlEmitter(
             run_logs_dir / "temp.jsonl",
@@ -185,7 +228,13 @@ def run_suite(
         # Validate trace
         issues = validate_trace_file(trace_path)
         if issues:
+
             notes = [f"trace invalid: {i.code} {i.message}" for i in issues]
+            events = read_jsonl(trace_path)
+            cost_usd, latency_ms, tokens = _extract_tradeoff_metrics(events)
+            input_tokens = None
+            output_tokens = None
+            total_tokens = None
             case_results.append(
                 CaseResult(
                     case_id=case_id,
@@ -216,6 +265,9 @@ def run_suite(
                     overall_score=0.0,
                     cost_usd=cost_usd,
                     latency_ms=latency_ms,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    total_tokens=total_tokens,
                     subscores={},
                     violations=violations,
                     terminal_status=None,
@@ -229,7 +281,12 @@ def run_suite(
         # Inspect terminal outcome
         events = read_jsonl(trace_path)
         summary = summarise_trace(events, path=trace_path)
-        cost_usd, latency_ms = _extract_cost_latency(events)
+
+        cost_usd, latency_ms, tokens = _extract_tradeoff_metrics(events)
+        input_tokens = tokens.get("input_tokens")
+        output_tokens = tokens.get("output_tokens")
+        total_tokens = tokens.get("total_tokens")
+
         terminal = summary.terminal_outcome or {}
         terminal_status = terminal.get("status")
         terminal_reason = terminal.get("reason")
@@ -265,6 +322,9 @@ def run_suite(
                 overall_score=score,
                 cost_usd=cost_usd,
                 latency_ms=latency_ms,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=total_tokens,
                 subscores={
                     # optional decomposition now, can refine later
                     "status": 1.0 if expect.get("status") is None or terminal_status == expect.get("status") else 0.0,
