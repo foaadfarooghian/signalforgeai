@@ -32,17 +32,18 @@ class RewardV0:
     # --- optional fields (defaults)
     subscores: dict[str, float] = field(default_factory=dict)
     violations: list[str] = field(default_factory=list)
+
+    # token usage (optional)
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
     cost_usd: Optional[float] = None
     latency_ms: Optional[int] = None
     terminal_status: Optional[str] = None
     terminal_reason: Optional[str] = None
     rationale: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-    def __post_init__(self) -> None:
-        """Backfill case_id from task_id for older consumers."""
-        if self.case_id is None:
-            object.__setattr__(self, "case_id", self.task_id)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary with clamped scores."""
