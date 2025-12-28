@@ -52,3 +52,4 @@ no_implicit_optional = true
 
 [project.scripts]
 tensorfoundry-pricing-validate = "tensorfoundry.models.pricing.validate_openai_pricing:main"
+tensorfoundry-report-tradeoffs = "tensorfoundry.evaluation.report_tradeoffs:main"
