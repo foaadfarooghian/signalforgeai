@@ -98,19 +98,11 @@ class DecisionAgent:
             "next_steps": next_steps,
         }
 
-        usage = (out.metrics.extra or {}).get("usage") if out.metrics else None
-
         metrics = {
             "latency_ms": out.metrics.latency_ms,
             "cost_usd": out.metrics.cost_usd,
+            "extra": out.metrics.extra
         }
-
-        if isinstance(usage, dict):
-            for k in ("input_tokens", "output_tokens", "total_tokens"):
-                v = usage.get(k)
-                if isinstance(v, int):
-                    metrics[k] = v
-
         self.emitter.emit(
             event_type="model_called",
             stage="executor",
@@ -160,6 +152,7 @@ class DecisionAgent:
             metrics={
                 "latency_ms": model_metrics.latency_ms,
                 "cost_usd": model_metrics.cost_usd,
+                
             },
             outcome={"status": "success", "reason": "decision_memo_created", "confidence": 0.7},
         )
