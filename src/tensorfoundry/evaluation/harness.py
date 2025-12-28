@@ -128,14 +128,14 @@ def _extract_tradeoff_metrics(
 
         m = ev.get("metrics") or {}
         c = m.get("cost_usd")
-        l = m.get("latency_ms")
+        latency = m.get("latency_ms")
 
         if isinstance(c, (int, float)):
             total_cost += float(c)
             saw_cost = True
 
-        if isinstance(l, int):
-            total_latency += l
+        if isinstance(latency, int):
+            total_latency += latency
             saw_latency = True
         
         usage = {}
