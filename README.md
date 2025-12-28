@@ -66,6 +66,17 @@ TensorFoundry optimises for:
 
 If an agent can’t be logged, validated, and compared over time, it’s not production-ready.
 
+### Cost-aware agent routing
+
+TensorFoundry supports **economics-aware model routing**:
+
+- token usage, latency, and USD cost captured per model call
+- reward artifacts enriched with economic signals
+- online learning (Thompson Sampling) routes models per suite
+- configurable cost and latency penalties
+
+This allows agents to choose *when* expensive intelligence is worth it — and when cheaper models are “good enough”.
+
 ---
 
 ## What TensorFoundry is not

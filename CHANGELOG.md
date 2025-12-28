@@ -10,11 +10,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Planned
-- Real LLM providers (OpenAI / Anthropic / local) behind the ModelProvider interface
-- Cost- and latency-aware optimization at scale
 - Dataset export (trace + reward → SFT / preference data)
+- Preference learning and distillation pipelines
 - Research into small, continually learning agent-specialised models
 
+
+---
+
+## [0.3.0] — 2025-12-28
+
+### Added
+- **Real hosted and local model providers** behind the ModelProvider interface
+- **Token usage, latency, and USD cost tracking** per model call
+- **Config-driven pricing** for hosted providers
+- **Cost- and latency-aware effective reward**
+  - `effective = score − λ_cost · cost − μ_latency · latency`
+- **Economics-aware Thompson Sampling routing**
+  - Learned per benchmark suite
+  - Fractional reward support
+  - Minimum-pull exploration
+
+### Changed
+- Model routing decisions can now trade off quality vs cost vs latency
+- Reward artifacts now carry full economic provenance
+- Learning behaviour reflects real execution economics, not proxy metrics
+
+### Architectural Notes
+- Routing decisions are learned online, not statically configured
+- Economic signals are first-class inputs to learning
+- Agents remain model-agnostic; all optimisation happens at the routing layer
+
+### Breaking Changes
+- None  
+  All changes are additive and backward-compatible.
 ---
 
 ## [0.2.0] — 2025-12-24
