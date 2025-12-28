@@ -34,6 +34,10 @@ jobs:
         run: |
           mypy src
 
+      - name: Validate pricing config
+        run: |
+          python -m tensorfoundry.models.pricing.validate_openai_pricing --require gpt-5-mini
+
       - name: Run tests
         env:
           TF_ALLOW_NETWORK: "true"
