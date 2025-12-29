@@ -49,6 +49,21 @@ class PreferenceExample:
         )
 
 
+@dataclass(frozen=True)
+class _Candidate:
+    prompt: str
+    response: str
+    model_id: str
+    trace_id: str
+    trace_path: str
+    score: float
+    cost_usd: Optional[float]
+    latency_ms: Optional[int]
+    total_tokens: Any
+    effective: float
+    created_at: Any
+
+
 # ----------------------------
 # IO helpers
 # ----------------------------
@@ -196,7 +211,7 @@ def export_preferences(
                 continue
 
             # Build candidates with extracted prompt/response + effective reward
-            candidates = []
+            candidates: List[_Candidate] = []
             for rf, r in items:
                 trace_id = r.get("trace_id")
                 if not isinstance(trace_id, str) or not trace_id:
@@ -209,16 +224,19 @@ def export_preferences(
                 events = _read_trace_events(trace_path)
                 prompt = extract_instruction(events)
                 response = extract_response(events)
-                if not prompt or not response:
+                if not isinstance(prompt, str) or not isinstance(response, str) or not prompt or not response:
                     continue
 
                 score = _as_float(r.get("overall_score"))
                 if score is None:
                     continue
 
+                model_id = r.get("model_id")
+                if not isinstance(model_id, str) or not model_id:
+                    continue
+
                 cost = _as_float(r.get("cost_usd"))
                 lat = _as_int(r.get("latency_ms"))
-
                 eff = _effective_reward(
                     score=score,
                     cost_usd=cost,
@@ -228,19 +246,19 @@ def export_preferences(
                 )
 
                 candidates.append(
-                    {
-                        "prompt": prompt,
-                        "response": response,
-                        "model_id": r.get("model_id"),
-                        "trace_id": trace_id,
-                        "trace_path": str(trace_path),
-                        "score": score,
-                        "cost_usd": cost,
-                        "latency_ms": lat,
-                        "total_tokens": r.get("total_tokens"),
-                        "effective": eff,
-                        "created_at": r.get("created_at"),
-                    }
+                    _Candidate(
+                        prompt=prompt,
+                        response=response,
+                        model_id=model_id,
+                        trace_id=trace_id,
+                        trace_path=str(trace_path),
+                        score=score,
+                        cost_usd=cost,
+                        latency_ms=lat,
+                        total_tokens=r.get("total_tokens"),
+                        effective=eff,
+                        created_at=r.get("created_at"),
+                    )
                 )
 
             # Need at least 2 extracted candidates with the same prompt
@@ -248,16 +266,16 @@ def export_preferences(
                 continue
 
             # Ensure prompt consistency (same case should yield same prompt; guard anyway)
-            prompt0 = candidates[0]["prompt"]
-            candidates = [c for c in candidates if c["prompt"] == prompt0]
+            prompt0 = candidates[0].prompt
+            candidates = [c for c in candidates if c.prompt == prompt0]
             if len(candidates) < 2:
                 continue
 
             # Sort by effective reward
-            candidates.sort(key=lambda c: float(c["effective"]), reverse=True)
-            best_by_model = {}
+            candidates.sort(key=lambda c: c.effective, reverse=True)
+            best_by_model: Dict[str, _Candidate] = {}
             for c in candidates:
-                mid = c["model_id"]
+                mid = c.model_id
                 if mid not in best_by_model:
                     best_by_model[mid] = c
             candidates = list(best_by_model.values())
@@ -265,28 +283,28 @@ def export_preferences(
             if len(candidates) < 2:
                 continue
 
-            candidates.sort(key=lambda c: float(c["effective"]), reverse=True)
+            candidates.sort(key=lambda c: c.effective, reverse=True)
             best = candidates[0]
 
             # Pair best vs a runner-up that is "close enough" in raw score (so it's a fair preference)
             paired = False
             for other in candidates[1:]:
-                if other["model_id"] == best["model_id"]:
+                if other.model_id == best.model_id:
                     continue
-                if other["response"].strip() == best["response"].strip():
+                if other.response.strip() == best.response.strip():
                     continue
-                if abs(float(best["score"]) - float(other["score"])) > max_abs_score_gap:
+                if abs(best.score - other.score) > max_abs_score_gap:
                     continue
 
                 # Build a single preference pair: best (a) vs other (b)
                 a = best
                 b = other
-                pref = "a" if float(a["effective"]) >= float(b["effective"]) else "b"
+                pref = "a" if a.effective >= b.effective else "b"
 
                 ex = PreferenceExample(
                     prompt=prompt0,
-                    response_a=str(a["response"]),
-                    response_b=str(b["response"]),
+                    response_a=a.response,
+                    response_b=b.response,
                     preferred=pref,
                     meta={
                         "suite_id": suite_id,
@@ -294,32 +312,32 @@ def export_preferences(
                         "lambda_cost": lambda_cost,
                         "mu_latency": mu_latency,
                         "a": {
-                            "model_id": a["model_id"],
-                            "trace_id": a["trace_id"],
-                            "score": a["score"],
-                            "cost_usd": a["cost_usd"],
-                            "latency_ms": a["latency_ms"],
-                            "total_tokens": a["total_tokens"],
-                            "effective": a["effective"],
-                            "trace_path": a["trace_path"],
+                            "model_id": a.model_id,
+                            "trace_id": a.trace_id,
+                            "score": a.score,
+                            "cost_usd": a.cost_usd,
+                            "latency_ms": a.latency_ms,
+                            "total_tokens": a.total_tokens,
+                            "effective": a.effective,
+                            "trace_path": a.trace_path,
                         },
                         "b": {
-                            "model_id": b["model_id"],
-                            "trace_id": b["trace_id"],
-                            "score": b["score"],
-                            "cost_usd": b["cost_usd"],
-                            "latency_ms": b["latency_ms"],
-                            "total_tokens": b["total_tokens"],
-                            "effective": b["effective"],
-                            "trace_path": b["trace_path"],
+                            "model_id": b.model_id,
+                            "trace_id": b.trace_id,
+                            "score": b.score,
+                            "cost_usd": b.cost_usd,
+                            "latency_ms": b.latency_ms,
+                            "total_tokens": b.total_tokens,
+                            "effective": b.effective,
+                            "trace_path": b.trace_path,
                         },
                         "deltas": {
-                            "score": float(a["score"]) - float(b["score"]),
-                            "cost_usd": (float(a["cost_usd"]) if a["cost_usd"] is not None else 0.0)
-                                        - (float(b["cost_usd"]) if b["cost_usd"] is not None else 0.0),
-                            "latency_ms": (int(a["latency_ms"]) if a["latency_ms"] is not None else 0)
-                                          - (int(b["latency_ms"]) if b["latency_ms"] is not None else 0),
-                            "effective": float(a["effective"]) - float(b["effective"]),
+                            "score": a.score - b.score,
+                            "cost_usd": (a.cost_usd if a.cost_usd is not None else 0.0)
+                                        - (b.cost_usd if b.cost_usd is not None else 0.0),
+                            "latency_ms": (a.latency_ms if a.latency_ms is not None else 0)
+                                          - (b.latency_ms if b.latency_ms is not None else 0),
+                            "effective": a.effective - b.effective,
                         },
                     },
                 )
