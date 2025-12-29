@@ -11,7 +11,7 @@ import json
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from tensorfoundry.export.extract import (
     extract_instruction,
@@ -150,12 +150,12 @@ def export_sft(
                 instruction = extract_instruction(events)
                 response = extract_response(events)
 
-                min_response_chars = int(os.getenv("TENSORFOUNDRY_MIN_RESPONSE_CHARS", "200"))
-                if len(response.strip()) < min_response_chars:
+                if not instruction or not response:
                     skipped += 1
                     continue
 
-                if not instruction or not response:
+                min_response_chars = int(os.getenv("TENSORFOUNDRY_MIN_RESPONSE_CHARS", "200"))
+                if len(response.strip()) < min_response_chars:
                     skipped += 1
                     continue
 
