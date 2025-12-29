@@ -47,6 +47,9 @@ htmlcov/
 logs/
 results/
 
+# Generated datasets
+datasets/
+
 # Learning outputs
 learning/bandits/
 learning/datasets/
