@@ -99,13 +99,13 @@ class OpenAIProvider:
         # 2) Fallback: attribute-walk resp.output (typed objects)
         out_obj = getattr(resp, "output", None)
         if isinstance(out_obj, list):
-            chunks: list[str] = []
+            chunks_out: list[str] = []
             for item in out_obj:
                 item_type = getattr(item, "type", None)
                 if item_type in ("output_text", "text"):
                     it = getattr(item, "text", None)
                     if isinstance(it, str) and it.strip():
-                        chunks.append(it.strip())
+                        chunks_out.append(it.strip())
 
                 if item_type == "message":
                     content = getattr(item, "content", None)
@@ -115,10 +115,10 @@ class OpenAIProvider:
                             if c_type in ("output_text", "text"):
                                 ct = getattr(c, "text", None)
                                 if isinstance(ct, str) and ct.strip():
-                                    chunks.append(ct.strip())
+                                    chunks_out.append(ct.strip())
 
-            if chunks:
-                return "\n".join(chunks).strip()
+            if chunks_out:
+                return "\n".join(chunks_out).strip()
 
         return ""
 
