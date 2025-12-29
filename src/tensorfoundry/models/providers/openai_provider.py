@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from openai import OpenAI
 
@@ -37,6 +37,90 @@ class OpenAIProvider:
             cost_cached = (int(cached_tokens) * price.cached_input_per_1m) / 1_000_000
 
         return round(cost_in + cost_cached + cost_out, 10)
+    
+    def _extract_text_from_response(self, resp: Any) -> str:
+        # 0) Best case: SDK exposes output_text
+        t = getattr(resp, "output_text", None)
+        if isinstance(t, str) and t.strip():
+            return t.strip()
+
+        # 1) Convert to plain dict if possible (most reliable)
+        dumped = None
+        try:
+            dumped = resp.model_dump()
+            out = dumped.get("output", [])
+            print("DEBUG output len:", len(out))
+            print("DEBUG output types:", [x.get("type") for x in out if isinstance(x, dict)])
+            print("DEBUG output[1] (if any):", out[1] if len(out) > 1 else None)
+        except Exception:
+            pass
+
+        # 1a) If dict has output_text, use it
+        if isinstance(dumped, dict):
+            t2 = dumped.get("output_text")
+            if isinstance(t2, str) and t2.strip():
+                return t2.strip()
+
+            # 1b) Parse Responses API shape: output[].content[].text where type == "output_text"
+            out = dumped.get("output")
+            if isinstance(out, list):
+                chunks: list[str] = []
+                for item in out:
+                    if not isinstance(item, dict):
+                        continue
+
+                    item_type = item.get("type")
+
+                    # Skip reasoning items (no user-facing text)
+                    if item_type == "reasoning":
+                        continue
+
+                    # Some SDK variants may have direct text at item level
+                    if item_type in ("output_text", "text"):
+                        it = item.get("text")
+                        if isinstance(it, str) and it.strip():
+                            chunks.append(it.strip())
+
+                    # Common case: message with content blocks
+                    if item_type == "message":
+                        content = item.get("content")
+                        if isinstance(content, list):
+                            for c in content:
+                                if not isinstance(c, dict):
+                                    continue
+                                if c.get("type") in ("output_text", "text"):
+                                    ct = c.get("text")
+                                    if isinstance(ct, str) and ct.strip():
+                                        chunks.append(ct.strip())
+
+                if chunks:
+                    return "\n".join(chunks).strip()
+
+        # 2) Fallback: attribute-walk resp.output (typed objects)
+        out_obj = getattr(resp, "output", None)
+        if isinstance(out_obj, list):
+            chunks: list[str] = []
+            for item in out_obj:
+                item_type = getattr(item, "type", None)
+                if item_type in ("output_text", "text"):
+                    it = getattr(item, "text", None)
+                    if isinstance(it, str) and it.strip():
+                        chunks.append(it.strip())
+
+                if item_type == "message":
+                    content = getattr(item, "content", None)
+                    if isinstance(content, list):
+                        for c in content:
+                            c_type = getattr(c, "type", None)
+                            if c_type in ("output_text", "text"):
+                                ct = getattr(c, "text", None)
+                                if isinstance(ct, str) and ct.strip():
+                                    chunks.append(ct.strip())
+
+            if chunks:
+                return "\n".join(chunks).strip()
+
+        return ""
 
     def generate(self, *, prompt: str, model_id: str, task_type: Optional[str] = None) -> ModelOutput:
         if not model_id.startswith("openai:"):
@@ -47,9 +131,21 @@ class OpenAIProvider:
         resp = self.client.responses.create(
             model=model_name,
             input=prompt,
+            reasoning={"effort": "minimal"},       # reduces reasoning-only output
+            text={"verbosity": "medium"},          # encourages output_text
             max_output_tokens=256,
         )
-        text = getattr(resp, "output_text", "") or ""
+
+        try:
+            d = resp.model_dump()
+            out = d.get("output", [])
+            print("DEBUG output len:", len(out))
+            print("DEBUG output types:", [x.get("type") for x in out if isinstance(x, dict)])
+            print("DEBUG output[1] (if any):", out[1] if len(out) > 1 else None)
+        except Exception as e:
+            print("DEBUG model_dump failed:", e)
+
+        text = self._extract_text_from_response(resp)
         latency_ms = int((time.time() - t0) * 1000)
 
         usage = getattr(resp, "usage", None)
