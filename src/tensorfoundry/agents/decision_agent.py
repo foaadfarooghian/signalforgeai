@@ -115,7 +115,9 @@ class DecisionAgent:
                 "content_policy": {"raw_input_logged": False, "raw_output_logged": False},
             },
             metrics=metrics,
-            outcome={"result": {"recommendation": recommendation}},
+            outcome={"result": {"recommendation": recommendation,
+                     "text": out.text}
+                     },
         )
 
         return memo, out.metrics
