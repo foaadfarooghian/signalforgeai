@@ -31,6 +31,9 @@ from tensorfoundry.export.extract import (
 # Models
 # ----------------------------
 
+PREFS_SCHEMA_VERSION = "prefs.v0"
+DPO_SCHEMA_VERSION = "dpo.v0"
+
 @dataclass(frozen=True)
 class PreferenceExample:
     prompt: str
@@ -38,10 +41,12 @@ class PreferenceExample:
     response_b: str
     preferred: str  # "a" or "b"
     meta: Dict[str, Any]
+    version: str = PREFS_SCHEMA_VERSION
 
     def to_jsonl(self) -> str:
         return json.dumps(
             {
+                "version": self.version,
                 "prompt": self.prompt,
                 "response_a": self.response_a,
                 "response_b": self.response_b,
@@ -191,6 +196,9 @@ def export_preferences(
     max_abs_score_gap: float,
     limit: Optional[int],
     prompt_normalize: str,
+    prompt_source: str = "auto",
+    output_format: str = "prefs",
+    trace_allowlist: Optional[Set[str]] = None,
 ) -> Tuple[int, int]:
     """
     Returns: (written_pairs, skipped_pairs)
@@ -236,6 +244,9 @@ def export_preferences(
                 if not isinstance(trace_id, str) or not trace_id:
                     continue
 
+                if trace_allowlist is not None and trace_id not in trace_allowlist:
+                    continue
+
                 trace_path = _trace_path_for_reward(rf, trace_id)
                 if not trace_path.exists():
                     continue
@@ -244,13 +255,23 @@ def export_preferences(
 
                 step = None
                 prompt = None
-                for candidate_step in ("critic_check", "draft_answer"):
-                    prompt = extract_step_prompt_full(events, step=candidate_step)
-                    if prompt:
-                        step = candidate_step
-                        break
-                if not prompt:
+                if prompt_source == "instruction":
                     prompt = extract_instruction(events)
+                    step = "task_received"
+                elif prompt_source == "step_prompt":
+                    for candidate_step in ("critic_check", "draft_answer"):
+                        prompt = extract_step_prompt_full(events, step=candidate_step)
+                        if prompt:
+                            step = candidate_step
+                            break
+                else:
+                    for candidate_step in ("critic_check", "draft_answer"):
+                        prompt = extract_step_prompt_full(events, step=candidate_step)
+                        if prompt:
+                            step = candidate_step
+                            break
+                    if not prompt:
+                        prompt = extract_instruction(events)
 
                 response = None
                 if step:
@@ -394,7 +415,19 @@ def export_preferences(
 
                 )
 
-                f.write(ex.to_jsonl() + "\n")
+                if output_format == "dpo":
+                    chosen = ex.response_a if ex.preferred == "a" else ex.response_b
+                    rejected = ex.response_b if ex.preferred == "a" else ex.response_a
+                    row = {
+                        "version": DPO_SCHEMA_VERSION,
+                        "prompt": ex.prompt,
+                        "chosen": chosen,
+                        "rejected": rejected,
+                        "meta": ex.meta,
+                    }
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                else:
+                    f.write(ex.to_jsonl() + "\n")
                 written += 1
                 paired = True
                 
@@ -431,6 +464,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--max-abs-score-gap", type=float, default=0.15, help="Only pair if |score_a-score_b| <= gap")
     p.add_argument("--seed", type=int, default=42, help="Random seed for A/B assignment")
     p.add_argument("--prompt-normalize", type=str, default="none", choices=["none", "strip_json", "mask_json"], help="Normalize prompt_full by removing variable JSON blocks")
+    p.add_argument("--prompt-source", type=str, default="auto", choices=["auto", "instruction", "step_prompt"], help="Prompt source strategy")
+    p.add_argument("--format", type=str, default="prefs", choices=["prefs", "dpo"], help="Output format")
 
     args = p.parse_args(argv)
 
@@ -459,6 +494,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         max_abs_score_gap=float(args.max_abs_score_gap),
         limit=limit,
         prompt_normalize=str(args.prompt_normalize),
+        prompt_source=str(args.prompt_source),
+        output_format=str(args.format),
     )
 
     print(f"Exported preference dataset: {out_path}")
