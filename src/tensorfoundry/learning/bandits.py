@@ -6,7 +6,7 @@ import os
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -84,37 +84,6 @@ class RoutingBanditsV0:
             self.by_suite[suite_id] = {}
         for m in candidate_models:
             self.by_suite[suite_id].setdefault(m, Arm())
-    
-
-    def choose_model(self, suite_id: str, candidate_models: List[str]) -> str:
-        """Choose a model via exploration then Thompson sampling."""
-        candidate_models = [m.strip() for m in candidate_models if m and m.strip()]
-        if not candidate_models:
-            return self.default_model
-
-        # Ensure suite + arms exist before reading them
-        self.ensure_arms(suite_id, candidate_models)
-
-        min_pulls = int(os.getenv("TENSORFOUNDRY_BANDIT_MIN_PULLS", "5"))
-
-        def pulls(arm: Arm) -> float:
-            return (arm.alpha + arm.beta) - 2.0
-
-        # Explore under-sampled arms first
-        under = sorted(candidate_models, key=lambda m: pulls(self.by_suite[suite_id][m]))
-        if pulls(self.by_suite[suite_id][under[0]]) < min_pulls:
-            return under[0]
-
-        # Thompson Sampling once all arms have enough pulls
-        best_m = None
-        best_draw = -1.0
-        for m in candidate_models:
-            draw = self.by_suite[suite_id][m].sample()
-            if draw > best_draw:
-                best_draw = draw
-                best_m = m
-
-        return best_m or self.default_model
 
     def update_from_rewards(
         self,
@@ -130,6 +99,76 @@ class RoutingBanditsV0:
         arm = self.by_suite[suite_id][model_id]
         for r in rewards:
             arm.update_from_reward(r)
+
+    def choose_model(
+        self,
+        suite_id: str,
+        candidate_models: List[str],
+        *,
+        stats=None,  # RoutingStatsV0
+        max_cost_usd: Optional[float] = None,
+        max_latency_s: Optional[float] = None,
+        utility_lambda_cost: float = 0.0,
+        utility_mu_latency: float = 0.0,
+    ) -> str:
+        """Choose a model via exploration then Thompson sampling (quality) with optional cost/latency constraints."""
+        candidate_models = [m.strip() for m in candidate_models if m and m.strip()]
+        if not candidate_models:
+            return self.default_model
+
+        # Ensure suite + arms exist
+        self.ensure_arms(suite_id, candidate_models)
+
+        min_pulls = int(os.getenv("TENSORFOUNDRY_BANDIT_MIN_PULLS", "10"))
+
+        def pulls(arm: Arm) -> float:
+            return (arm.alpha + arm.beta) - 2.0
+
+        # Explore under-sampled arms first (stats-aware exploration is optional; keep simple)
+        under = [m for m in candidate_models if pulls(self.by_suite[suite_id][m]) < min_pulls]
+        if under:
+            return random.choice(under)
+
+        # Thompson draw quality for each candidate
+        draws = {m: self.by_suite[suite_id][m].sample() for m in candidate_models}
+
+        # Hard constraint filter (optional)
+        feasible = list(candidate_models)
+        if stats is not None and (max_cost_usd is not None or max_latency_s is not None):
+            feasible = []
+            suite_stats = (stats.by_suite.get(suite_id) or {})
+            for m in candidate_models:
+                ms = suite_stats.get(m)
+                est_cost = ms.cost_usd.value if ms else None
+                est_lat = ms.latency_s.value if ms else None
+
+                ok = True
+                if max_cost_usd is not None and est_cost is not None and est_cost > max_cost_usd:
+                    ok = False
+                if max_latency_s is not None and est_lat is not None and est_lat > max_latency_s:
+                    ok = False
+
+                if ok:
+                    feasible.append(m)
+
+        # If feasible exists, pick best sampled quality
+        if feasible:
+            return max(feasible, key=lambda m: draws[m])
+
+        # Otherwise, soft utility fallback
+        if stats is not None and (utility_lambda_cost > 0 or utility_mu_latency > 0):
+            suite_stats = (stats.by_suite.get(suite_id) or {})
+
+            def utility(m: str) -> float:
+                ms = suite_stats.get(m)
+                est_cost = ms.cost_usd.value if (ms and ms.cost_usd.value is not None) else 0.0
+                est_lat = ms.latency_s.value if (ms and ms.latency_s.value is not None) else 0.0
+                return draws[m] - utility_lambda_cost * est_cost - utility_mu_latency * est_lat
+
+            return max(candidate_models, key=utility)
+
+        # Default: best quality draw
+        return max(candidate_models, key=lambda m: draws[m])
 
 
 def candidate_models_from_env() -> List[str]:
