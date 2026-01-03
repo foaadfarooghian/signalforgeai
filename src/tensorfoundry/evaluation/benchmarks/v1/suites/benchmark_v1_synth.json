@@ -1,0 +1,1140 @@
+{
+  "suite_name": "benchmark_v1_synth",
+  "agent": "synth_agent",
+  "cases": [
+    {
+      "id": "synth_v1_001_easy",
+      "task": "Summarise the key finding and cite the source.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Note A", "text": "The system captures cost_usd and latency_ms per model call."},
+          {"source_id": "S2", "title": "Note B", "text": "Reward artifacts are written to reward.jsonl for learning."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+    {
+      "id": "synth_v1_002_conflict",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc 1", "text": "Local models outperform hosted models on all tasks."},
+          {"source_id": "S2", "title": "Doc 2", "text": "Hosted models outperform local models on complex synthesis tasks."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+    {
+      "id": "synth_v1_003_noisy",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Relevant", "text": "Evaluation uses suites and scores cases."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "Bananas are berries but strawberries are not."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_004_easy_metrics",
+      "task": "Summarise the key finding and cite the source.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Spec", "text": "The logger records token usage per call, including input_tokens and output_tokens."},
+          {"source_id": "S2", "title": "Spec", "text": "latency_ms is stored alongside cost_usd in the trace metrics block."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+    {
+      "id": "synth_v1_005_two_findings",
+      "task": "Summarise the key findings and cite the sources.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Note", "text": "The exporter produces SFT datasets as instruction→response pairs."},
+          {"source_id": "S2", "title": "Note", "text": "The exporter produces preference pairs for DPO-style training."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+    {
+      "id": "synth_v1_006_irrelevant_double",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Relevant", "text": "Preference pairs are structured as (prompt, response_a, response_b, preferred)."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "The Eiffel Tower is in Paris."},
+          {"source_id": "S3", "title": "Irrelevant", "text": "Water boils at 100°C at sea level."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_007_conflict_soft",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Report A", "text": "Local models are cheaper per call than hosted models."},
+          {"source_id": "S2", "title": "Report B", "text": "Hosted models are cheaper per call when local GPUs are fully utilized."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+    {
+      "id": "synth_v1_008_conflict_numbers",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Bench", "text": "Model A latency_ms median is 1200."},
+          {"source_id": "S2", "title": "Bench", "text": "Model A latency_ms median is 3500."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+    {
+      "id": "synth_v1_009_conflict_scope",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc", "text": "The system captures cost_usd for each model call."},
+          {"source_id": "S2", "title": "Doc", "text": "The system captures cost_usd only for hosted models."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_010_quote_fidelity_easy",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Policy", "text": "Each citation.quote MUST be copied verbatim from the corresponding SOURCE text."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "Cats have retractable claws."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+    {
+      "id": "synth_v1_011_quote_fidelity_trap",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Policy", "text": "citation.quote MUST NOT contain '[' or ']'."},
+          {"source_id": "S2", "title": "Policy", "text": "citation.quote MUST be copied verbatim from the SOURCE text (exact substring)."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_012_multi_source_summary",
+      "task": "Summarise the key findings and cite the sources.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Note", "text": "Reward artifacts are written to reward.jsonl."},
+          {"source_id": "S2", "title": "Note", "text": "Traces are stored as jsonl files keyed by trace_id."},
+          {"source_id": "S3", "title": "Note", "text": "Evaluation is organized into suites and cases."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_013_noisy_similar_words",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Relevant", "text": "Effective reward is score minus penalties for cost and latency."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "Affective reward is a psychology term related to emotion."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_014_conflict_three_sources",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Claim", "text": "The exporter always writes one preference pair per case."},
+          {"source_id": "S2", "title": "Claim", "text": "The exporter can write multiple preference pairs per case."},
+          {"source_id": "S3", "title": "Claim", "text": "The exporter writes preference pairs only when at least two models ran."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_015_irrelevant_title_case",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Irrelevant", "text": "This source should never be cited even if it contains plausible facts."},
+          {"source_id": "S2", "title": "Relevant", "text": "Use ONLY these source_id values: S2."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_016_short_sources",
+      "task": "Summarise the key finding and cite the source.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Note", "text": "Suite uses cases."},
+          {"source_id": "S2", "title": "Note", "text": "Cases are scored."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_017_conflict_latency_units",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Metric", "text": "Latency is stored as latency_ms in milliseconds."},
+          {"source_id": "S2", "title": "Metric", "text": "Latency is stored as latency_s in seconds."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_018_noisy_extra_source",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Relevant", "text": "The critic removes citations whose quotes are not found in source text."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "Pluto was reclassified as a dwarf planet."},
+          {"source_id": "S3", "title": "Irrelevant", "text": "The Pacific Ocean is the largest ocean."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_019_conflict_qualifiers",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc", "text": "Bandits improve routing decisions over time."},
+          {"source_id": "S2", "title": "Doc", "text": "Bandits improve routing decisions only when reward feedback is reliable."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_020_summary_with_uncertainty",
+      "task": "Summarise the key findings and note any uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Memo", "text": "The local model is faster on average."},
+          {"source_id": "S2", "title": "Memo", "text": "The hosted model is more accurate on average."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_021_quote_collision",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc A", "text": "Evaluation uses suites and scores cases."},
+          {"source_id": "S2", "title": "Doc B", "text": "Evaluation uses suites and scores cases."},
+          {"source_id": "S3", "title": "Irrelevant", "text": "This is irrelevant."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_022_near_duplicate_quotes",
+      "task": "Summarise the key finding and cite the source.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc", "text": "Reward artifacts are written to reward.jsonl for learning."},
+          {"source_id": "S2", "title": "Doc", "text": "Reward artifacts are written to reward.jsonl for training."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_023_conflict_mixed",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Note", "text": "The exporter writes SFT datasets and preference datasets."},
+          {"source_id": "S2", "title": "Note", "text": "The exporter writes only preference datasets."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_024_noisy_wrong_domain",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Relevant", "text": "Routing can escalate to a hosted model only if the distilled model confidence is low."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "The Amazon rainforest produces a significant portion of Earth's oxygen."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_025_three_sources_summary",
+      "task": "Summarise the key findings and cite the sources.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Note", "text": "Scores are stored as overall_score in reward.jsonl."},
+          {"source_id": "S2", "title": "Note", "text": "Latency is recorded as latency_ms."},
+          {"source_id": "S3", "title": "Note", "text": "Costs are recorded as cost_usd."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_026_conflict_boolean",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc", "text": "success is true only when the agent completes the task."},
+          {"source_id": "S2", "title": "Doc", "text": "success can be true even when the agent returns a fallback answer."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_027_noisy_numbers",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Relevant", "text": "The exporter filters rows below min_score."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "The number 1729 is a Hardy-Ramanujan number."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_028_conflict_training_terms",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Glossary", "text": "Distillation trains a student model to imitate a teacher."},
+          {"source_id": "S2", "title": "Glossary", "text": "Distillation trains a teacher model to imitate a student."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_029_easy_routing",
+      "task": "Summarise the key finding and cite the source.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Note", "text": "Routing chooses between local and hosted models per task."},
+          {"source_id": "S2", "title": "Note", "text": "Thompson Sampling can learn routing policies per suite."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_030_noisy_policy",
+      "task": "Answer using relevant sources only and include citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Relevant", "text": "Use only relevant sources and include citations."},
+          {"source_id": "S2", "title": "Irrelevant", "text": "Sharks are older than trees."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_031_conflict_precision",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc", "text": "cost_usd is recorded with 6 decimal places."},
+          {"source_id": "S2", "title": "Doc", "text": "cost_usd is recorded with 2 decimal places."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_032_easy_export_paths",
+      "task": "Summarise the key finding and cite the source.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc", "text": "Traces are stored under logs/<run_id>/<trace_id>.jsonl."},
+          {"source_id": "S2", "title": "Doc", "text": "reward.jsonl is stored under logs/<run_id>/reward.jsonl."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+
+    {
+      "id": "synth_v1_033_conflict_storage",
+      "task": "Do the sources agree? If not, explain uncertainty with citations.",
+      "inputs": {
+        "sources": [
+          {"source_id": "S1", "title": "Doc", "text": "reward artifacts are written to reward.jsonl."},
+          {"source_id": "S2", "title": "Doc", "text": "reward artifacts are written to rewards.jsonl."}
+        ]
+      },
+      "expect": {"status": "success"}
+    },
+     {
+    "id": "synth_v1_034_easy_metrics_repeat",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Token usage is logged for every model call."},
+        {"source_id": "S2", "title": "Doc", "text": "Latency is recorded in milliseconds."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_035_easy_storage",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Trace files are stored as JSONL."},
+        {"source_id": "S2", "title": "Doc", "text": "Each trace file is keyed by trace_id."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_036_conflict_latency",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Bench", "text": "Local models respond faster than hosted models."},
+        {"source_id": "S2", "title": "Bench", "text": "Hosted models respond faster than local models for long prompts."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_037_noisy_irrelevant_fact",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Effective reward penalizes cost and latency."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "The Moon is drifting away from Earth."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_038_conflict_scope_models",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Preference learning compares outputs from different models."},
+        {"source_id": "S2", "title": "Spec", "text": "Preference learning compares outputs from the same model."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_039_easy_preference_format",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Preference datasets include a preferred label."},
+        {"source_id": "S2", "title": "Spec", "text": "Preference datasets contain two responses per prompt."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_040_conflict_cost_units",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Costs are measured in USD."},
+        {"source_id": "S2", "title": "Doc", "text": "Costs are measured in cents."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_041_noisy_science",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Routing escalates to a hosted model when confidence is low."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Octopuses have three hearts."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_042_conflict_precision_latency",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Latency is rounded to the nearest millisecond."},
+        {"source_id": "S2", "title": "Doc", "text": "Latency is stored with microsecond precision."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_043_easy_export_roles",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "The exporter reads reward.jsonl files."},
+        {"source_id": "S2", "title": "Spec", "text": "The exporter reads trace files."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_044_conflict_success_definition",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "success is true only when the output passes validation."},
+        {"source_id": "S2", "title": "Spec", "text": "success is true whenever the agent returns any answer."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_045_noisy_history",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Distillation transfers behavior from teacher to student models."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "The Roman Empire fell in 476 AD."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_046_conflict_training_method",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "DPO uses preference pairs for training."},
+        {"source_id": "S2", "title": "Doc", "text": "DPO uses absolute scores for training."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_047_easy_bandit_note",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Note", "text": "Bandits balance exploration and exploitation."},
+        {"source_id": "S2", "title": "Note", "text": "Bandits can adapt routing over time."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_048_conflict_bandit_scope",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Bandits operate per task."},
+        {"source_id": "S2", "title": "Doc", "text": "Bandits operate per suite."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_049_noisy_geography",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Routing decisions use historical rewards."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Mount Everest is the tallest mountain above sea level."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_050_conflict_reward_formula",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Effective reward subtracts cost and latency penalties."},
+        {"source_id": "S2", "title": "Spec", "text": "Effective reward subtracts only latency penalties."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_051_easy_eval_structure",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Evaluations are organized into suites."},
+        {"source_id": "S2", "title": "Doc", "text": "Each suite contains multiple cases."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_052_conflict_score_range",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Scores range from 0 to 1."},
+        {"source_id": "S2", "title": "Spec", "text": "Scores range from 1 to 5."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_053_noisy_math",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Utility combines quality, cost, and latency."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Pi is approximately 3.14159."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_054_conflict_storage_location",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "reward.jsonl is stored per run."},
+        {"source_id": "S2", "title": "Doc", "text": "reward.jsonl is stored globally."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_055_easy_trace_linking",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Each reward row references a trace_id."},
+        {"source_id": "S2", "title": "Doc", "text": "trace_id links reward rows to trace files."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_056_conflict_latency_measurement",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Bench", "text": "Latency is measured end-to-end."},
+        {"source_id": "S2", "title": "Bench", "text": "Latency is measured only for model inference."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_057_noisy_biology",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Routing policies can change over time."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Dolphins are highly intelligent mammals."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_058_easy_distillation_note",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Note", "text": "Distilled models can be used as first-line responders."},
+        {"source_id": "S2", "title": "Note", "text": "Hosted models act as fallback when needed."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_059_conflict_model_roles",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Local models handle most requests."},
+        {"source_id": "S2", "title": "Doc", "text": "Hosted models handle most requests."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_060_noisy_astronomy",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Escalation reduces cost when used sparingly."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Mars has the tallest volcano in the solar system."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_061_conflict_routing_trigger",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Routing escalates based on low confidence."},
+        {"source_id": "S2", "title": "Spec", "text": "Routing escalates based on high latency."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_062_easy_contract",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Outputs must conform to a fixed JSON contract."},
+        {"source_id": "S2", "title": "Spec", "text": "The contract includes answer and citations fields."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_063_conflict_contract_keys",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "The contract includes a confidence field."},
+        {"source_id": "S2", "title": "Spec", "text": "The contract does not include a confidence field."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_064_noisy_physics",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Evaluation scores are used to compare models."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Light travels faster than sound."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_065_conflict_evaluation_timing",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Evaluation occurs after execution."},
+        {"source_id": "S2", "title": "Doc", "text": "Evaluation occurs during execution."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+   {
+    "id": "synth_v1_066_easy_agent_role",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Agents orchestrate multiple execution steps."},
+        {"source_id": "S2", "title": "Doc", "text": "Agents emit structured logs for evaluation."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_067_conflict_agent_scope",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Agents operate independently per task."},
+        {"source_id": "S2", "title": "Spec", "text": "Agents share state across tasks."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_070_noisy_food",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Preference signals compare outputs under equal prompts."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Honey never spoils."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_071_easy_reward_signal",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "overall_score reflects output quality."},
+        {"source_id": "S2", "title": "Doc", "text": "effective reward incorporates cost and latency."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_072_conflict_reward_definition",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Reward is based only on quality score."},
+        {"source_id": "S2", "title": "Spec", "text": "Reward includes quality, cost, and latency."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_073_noisy_language",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Distilled models reduce reliance on hosted models."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Esperanto was created in the 19th century."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_074_easy_training_pipeline",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "SFT trains models on instruction-response pairs."},
+        {"source_id": "S2", "title": "Doc", "text": "DPO trains models using preference pairs."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_075_conflict_training_order",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Guide", "text": "Distillation should start with DPO."},
+        {"source_id": "S2", "title": "Guide", "text": "Distillation should start with SFT."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_076_noisy_weather",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Latency penalties discourage slow models."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Lightning strikes Earth about 100 times per second."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_077_easy_escalation",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Escalation sends tasks to hosted models when needed."},
+        {"source_id": "S2", "title": "Doc", "text": "Escalation increases cost but improves quality."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_078_conflict_escalation_trigger",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Escalation triggers when confidence is low."},
+        {"source_id": "S2", "title": "Spec", "text": "Escalation triggers when latency exceeds a threshold."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_079_noisy_space",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Routing policies can be learned per suite."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Jupiter has the strongest magnetic field of any planet."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_080_easy_logging",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Logs capture execution and evaluation events."},
+        {"source_id": "S2", "title": "Doc", "text": "Logs enable offline analysis and training."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_081_conflict_logging_scope",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "All agent steps are logged."},
+        {"source_id": "S2", "title": "Spec", "text": "Only final outputs are logged."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_082_noisy_transport",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Preference datasets preserve provenance metadata."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "The first automobile was invented in the 19th century."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_083_easy_provenance",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Each dataset row includes trace_id."},
+        {"source_id": "S2", "title": "Doc", "text": "trace_id links outputs to execution context."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_084_conflict_metadata",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Datasets include commit SHA."},
+        {"source_id": "S2", "title": "Spec", "text": "Datasets do not include commit SHA."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_085_noisy_music",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Evaluation benchmarks guide model improvement."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Beethoven composed nine symphonies."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_086_easy_benchmarking",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Benchmarks define standardized evaluation tasks."},
+        {"source_id": "S2", "title": "Doc", "text": "Benchmarks enable reproducible comparisons."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_087_conflict_benchmark_scope",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Benchmarks are agent-specific."},
+        {"source_id": "S2", "title": "Spec", "text": "Benchmarks are model-agnostic."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_088_noisy_sports",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Preference learning improves comparative quality."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "The Olympics are held every four years."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_089_easy_learning_loop",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Execution logs feed into training data."},
+        {"source_id": "S2", "title": "Doc", "text": "Training improves future execution quality."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_090_conflict_loop_timing",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Learning occurs after each run."},
+        {"source_id": "S2", "title": "Spec", "text": "Learning occurs periodically."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_091_noisy_economics",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Cost-aware routing reduces total spend."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Inflation measures changes in price levels."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_092_easy_specialist_models",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Specialist models focus on narrow task domains."},
+        {"source_id": "S2", "title": "Doc", "text": "Specialists can outperform generalists on specific tasks."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_093_conflict_specialist_value",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Specialists always outperform general models."},
+        {"source_id": "S2", "title": "Spec", "text": "Specialists outperform only on narrow tasks."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_094_noisy_literature",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Distillation can reduce inference costs."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Shakespeare wrote many famous plays."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_095_easy_model_comparison",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Models can be compared using evaluation scores."},
+        {"source_id": "S2", "title": "Doc", "text": "Models can be compared using preference signals."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_096_conflict_comparison_method",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Absolute scores are sufficient for comparison."},
+        {"source_id": "S2", "title": "Spec", "text": "Relative preferences provide better comparison."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_097_noisy_health",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Confidence estimates guide escalation decisions."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Regular exercise improves health."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_098_easy_future_work",
+    "task": "Summarise the key finding and cite the source.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Doc", "text": "Continual learning can adapt models over time."},
+        {"source_id": "S2", "title": "Doc", "text": "Drift detection monitors reward distributions."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+
+  {
+    "id": "synth_v1_099_conflict_learning_schedule",
+    "task": "Do the sources agree? If not, explain uncertainty with citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Spec", "text": "Learning should happen after every task."},
+        {"source_id": "S2", "title": "Spec", "text": "Learning should happen in batches."}
+      ]
+    },
+    "expect": {"status": "success"}
+  },
+  {
+    "id": "synth_v1_100_noisy_trivia",
+    "task": "Answer using relevant sources only and include citations.",
+    "inputs": {
+      "sources": [
+        {"source_id": "S1", "title": "Relevant", "text": "Utility optimization balances multiple objectives."},
+        {"source_id": "S2", "title": "Irrelevant", "text": "Venus rotates in the opposite direction to most planets."}
+      ]
+    },
+    "expect": {"status": "success"}
+  }
+  ]
+}
