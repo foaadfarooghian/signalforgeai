@@ -48,10 +48,6 @@ class OpenAIProvider:
         dumped = None
         try:
             dumped = resp.model_dump()
-            out = dumped.get("output", [])
-            print("DEBUG output len:", len(out))
-            print("DEBUG output types:", [x.get("type") for x in out if isinstance(x, dict)])
-            print("DEBUG output[1] (if any):", out[1] if len(out) > 1 else None)
         except Exception:
             pass
 
@@ -135,15 +131,6 @@ class OpenAIProvider:
             text={"verbosity": "medium"},          # encourages output_text
             max_output_tokens=256,
         )
-
-        try:
-            d = resp.model_dump()
-            out = d.get("output", [])
-            print("DEBUG output len:", len(out))
-            print("DEBUG output types:", [x.get("type") for x in out if isinstance(x, dict)])
-            print("DEBUG output[1] (if any):", out[1] if len(out) > 1 else None)
-        except Exception as e:
-            print("DEBUG model_dump failed:", e)
 
         text = self._extract_text_from_response(resp)
         latency_ms = int((time.time() - t0) * 1000)
