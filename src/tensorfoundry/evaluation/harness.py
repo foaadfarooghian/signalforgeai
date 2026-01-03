@@ -121,6 +121,12 @@ def _score_synth_case(*, case_id: str, result_obj: Dict[str, Any], sources: List
     notes: List[str] = []
     score = 0.0
 
+    def _as_str(value: Any) -> str:
+        return value if isinstance(value, str) else ""
+
+    def _as_list(value: Any) -> List[Any]:
+        return value if isinstance(value, list) else []
+
     res = (result_obj or {}).get("result")
     if not isinstance(res, dict):
         return False, 0.0, ["missing result dict"]
@@ -131,13 +137,13 @@ def _score_synth_case(*, case_id: str, result_obj: Dict[str, Any], sources: List
     else:
         notes.append("schema missing keys")
 
-    answer = res.get("answer") if isinstance(res.get("answer"), str) else ""
-    citations = res.get("citations") if isinstance(res.get("citations"), list) else []
+    answer = _as_str(res.get("answer"))
+    citations = _as_list(res.get("citations"))
 
     # Build source maps
     src_by_id = {s.get("source_id"): s for s in sources if isinstance(s, dict)}
-    src_text_by_id = {sid: (src_by_id[sid].get("text") or "") for sid in src_by_id}
-    src_title_by_id = {sid: (src_by_id[sid].get("title") or "") for sid in src_by_id}
+    src_text_by_id = {sid: _as_str(src_by_id[sid].get("text")) for sid in src_by_id}
+    src_title_by_id = {sid: _as_str(src_by_id[sid].get("title")) for sid in src_by_id}
 
     # --- citations present + grounded (0.3)
     if not citations:
@@ -168,9 +174,12 @@ def _score_synth_case(*, case_id: str, result_obj: Dict[str, Any], sources: List
         if grounded > 0 and invalid_sid == 0 and bad_quote == 0 and placeholder == 0:
             score += 0.3
         else:
-            if invalid_sid: notes.append("invalid citation source_id")
-            if bad_quote: notes.append("ungrounded_or_empty_quotes")
-            if placeholder: notes.append("placeholder_quotes")
+            if invalid_sid:
+                notes.append("invalid citation source_id")
+            if bad_quote:
+                notes.append("ungrounded_or_empty_quotes")
+            if placeholder:
+                notes.append("placeholder_quotes")
 
     # --- conflict handling (0.2) for conflict case
     is_conflict = "conflict" in case_id
