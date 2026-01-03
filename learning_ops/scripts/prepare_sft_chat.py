@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from datasets import load_dataset
 from transformers import AutoTokenizer
 
 BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"  # change if needed
