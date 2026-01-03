@@ -6,8 +6,6 @@ import time
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import parse_qs, urlsplit
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 from tensorfoundry.models.types import ModelMetrics, ModelOutput
 
 try:
@@ -49,6 +47,15 @@ class HFProvider:
         key = (base_model, adapter)
         if key in self._cache:
             return self._cache[key]
+
+        try:
+            import torch
+        except Exception as exc:
+            raise RuntimeError("HFProvider requires torch to load models.") from exc
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except Exception as exc:
+            raise RuntimeError("HFProvider requires transformers to load models.") from exc
 
         require_flash = os.getenv("TENSORFOUNDRY_HF_REQUIRE_FLASH", "0").lower() in {"1", "true", "yes"}
         tokenizer = AutoTokenizer.from_pretrained(base_model, use_fast=True)
@@ -129,6 +136,8 @@ class HFProvider:
     def generate(self, *, prompt: str, model_id: str, task_type: Optional[str] = None) -> ModelOutput:
         base, adapter = _parse_hf_model_id(model_id)
         model, tokenizer = self._load(base, adapter)
+
+        import torch
 
         t0 = time.time()
 
