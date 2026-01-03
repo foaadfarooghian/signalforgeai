@@ -13,7 +13,7 @@ from tensorfoundry.models.types import ModelMetrics, ModelOutput
 try:
     from peft import PeftModel
 except Exception:
-    PeftModel = None  # type: ignore
+    PeftModel = None
 
 
 def _parse_hf_model_id(model_id: str) -> Tuple[str, Optional[str]]:
