@@ -26,6 +26,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.5.0", "mypy>=1.7.0"]
+train = [
+    "accelerate>=0.30",
+    "datasets>=2.0",
+    "peft>=0.7",
+    "psutil>=5.9",
+    "torch>=2.0",
+    "transformers>=4.40",
+    "trl>=0.7",
+    "unsloth>=0.4",
+]
 
 
 [tool.setuptools]
@@ -53,3 +63,4 @@ no_implicit_optional = true
 [project.scripts]
 tensorfoundry-pricing-validate = "tensorfoundry.models.pricing.validate_openai_pricing:main"
 tensorfoundry-report-tradeoffs = "tensorfoundry.evaluation.report_tradeoffs:main"
+tensorfoundry-learn = "tensorfoundry.learning.learn:main"
