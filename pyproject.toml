@@ -7,7 +7,7 @@ name = "tensorfoundry"
 version = "0.1.0"
 description = "Opinionated platform for agentic workflows, tooling, and evaluation."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [
   { name = "TensorFoundry Team" }
@@ -27,14 +27,79 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.5.0", "mypy>=1.7.0"]
 train = [
-    "accelerate>=0.30",
-    "datasets>=2.0",
-    "peft>=0.7",
-    "psutil>=5.9",
-    "torch>=2.0",
-    "transformers>=4.40",
-    "trl>=0.7",
-    "unsloth>=0.4",
+  # Core ML / Torch
+  "torch==2.9.1",
+  "torchvision==0.24.1",
+  "triton==3.5.1",
+  "torchao==0.15.0",
+
+  # Hugging Face ecosystem
+  "transformers==4.57.3",
+  "datasets==4.3.0",
+  "accelerate==1.12.0",
+  "huggingface-hub==0.36.0",
+  "tokenizers==0.22.1",
+  "safetensors==0.7.0",
+  "peft==0.18.0",
+  "trl==0.24.0",
+
+  # Performance / memory
+  "xformers==0.0.33.post2",
+  "bitsandbytes==0.49.0",
+  "einops==0.8.1",
+
+  # Diffusion / fine-tuning
+  "diffusers==0.36.0",
+  "sentencepiece==0.2.1",
+
+  # Unsloth
+  "unsloth==2025.12.9",
+  "unsloth-zoo==2025.12.7",
+
+  # Data / utils
+  "numpy==2.4.0",
+  "pandas==2.3.3",
+  "pyarrow==22.0.0",
+  "psutil==7.2.1",
+  "regex==2025.11.3",
+  "protobuf==6.33.2",
+  "msgspec==0.20.0",
+  "filelock==3.20.1",
+  "requests==2.32.5",
+  "urllib3==2.6.2",
+  "packaging==25.0",
+  "pillow==12.0.0",
+  "networkx==3.6.1",
+  "sympy==1.14.0",
+  "mpmath==1.3.0",
+  "typeguard==4.4.4",
+  "tyro==1.0.3",
+
+  # Multiprocessing / IO
+  "dill==0.4.0",
+  "multiprocess==0.70.16",
+  "fsspec==2025.9.0",
+  "xxhash==3.6.0",
+  "python-dateutil==2.9.0.post0",
+  "pytz==2025.2",
+  "tzdata==2025.3",
+
+  # Async stack (datasets / HF internals)
+  "aiohttp==3.13.2",
+  "aiosignal==1.4.0",
+  "aiohappyeyeballs==2.6.1",
+  "attrs==25.4.0",
+  "charset-normalizer==3.4.4",
+  "frozenlist==1.8.0",
+  "multidict==6.7.0",
+  "yarl==1.22.0",
+  "propcache==0.4.1",
+
+  # Misc
+  "jinja2==3.1.6",
+  "markupsafe==3.0.3",
+  "docstring-parser==0.17.0",
+
 ]
 
 
