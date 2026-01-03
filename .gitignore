@@ -46,20 +46,23 @@ htmlcov/
 # Runtime outputs
 logs/
 results/
+artifacts/
+
 
 # Generated datasets
 datasets/
 
-# Learning outputs
-learning/bandits/
-learning/datasets/
-learning/experiments/
+# Training outputs
+training/bandits/
+training/datasets/
+training/experiments/
 
 # Keep policies committed (for now)
-!learning/policies/
+!training/policies/
 
 # Caches and tooling
 .cache/
+unsloth_compiled_cache/
 .mypy_cache/
 .ruff_cache/
 .nox/
