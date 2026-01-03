@@ -1,9 +1,0 @@
-{
-  "version": "routing.v0",
-  "default_model": "gpt-5-mini",
-  "by_suite": {},
-  "meta": {
-    "logs_dir": "logs",
-    "min_cases": 3
-  }
-}
