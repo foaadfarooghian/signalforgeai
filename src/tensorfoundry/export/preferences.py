@@ -14,6 +14,7 @@ v0 approach:
 from __future__ import annotations
 
 import argparse
+import random
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,8 @@ from collections import defaultdict
 from tensorfoundry.export.extract import (
     extract_instruction,
     extract_response,
+    extract_step_prompt_full,
+    extract_step_text_full,
 )
 
 # ----------------------------
@@ -53,6 +56,7 @@ class PreferenceExample:
 class _Candidate:
     prompt: str
     response: str
+    prompt_step: str
     model_id: str
     trace_id: str
     trace_path: str
@@ -157,6 +161,20 @@ def _effective_reward(
     # keep bounded for stable preferences
     return max(0.0, min(1.0, eff))
 
+def _normalize_prompt(prompt: str, mode: str) -> str:
+    if mode == "strip_json":
+        for marker in ("DRAFT_JSON:", "RESOLVED_JSON:"):
+            idx = prompt.find(marker)
+            if idx != -1:
+                return prompt[: idx + len(marker)].rstrip()
+    elif mode == "mask_json":
+        for marker in ("DRAFT_JSON:", "RESOLVED_JSON:"):
+            idx = prompt.find(marker)
+            if idx != -1:
+                head = prompt[: idx + len(marker)].rstrip()
+                return head + "\n<OMITTED_JSON>"
+    return prompt
+
 
 def export_preferences(
     *,
@@ -172,6 +190,7 @@ def export_preferences(
     mu_latency: float,
     max_abs_score_gap: float,
     limit: Optional[int],
+    prompt_normalize: str,
 ) -> Tuple[int, int]:
     """
     Returns: (written_pairs, skipped_pairs)
@@ -222,8 +241,26 @@ def export_preferences(
                     continue
 
                 events = _read_trace_events(trace_path)
-                prompt = extract_instruction(events)
-                response = extract_response(events)
+
+                step = None
+                prompt = None
+                for candidate_step in ("critic_check", "draft_answer"):
+                    prompt = extract_step_prompt_full(events, step=candidate_step)
+                    if prompt:
+                        step = candidate_step
+                        break
+                if not prompt:
+                    prompt = extract_instruction(events)
+
+                response = None
+                if step:
+                    response = extract_step_text_full(events, step=step)
+                if not response:
+                    response = extract_response(events, max_chars=None)
+
+                if prompt_normalize != "none" and prompt:
+                    prompt = _normalize_prompt(prompt, prompt_normalize)
+
                 if not isinstance(prompt, str) or not isinstance(response, str) or not prompt or not response:
                     continue
 
@@ -258,6 +295,7 @@ def export_preferences(
                         total_tokens=r.get("total_tokens"),
                         effective=eff,
                         created_at=r.get("created_at"),
+                        prompt_step=step or "task_received",
                     )
                 )
 
@@ -297,20 +335,29 @@ def export_preferences(
                     continue
 
                 # Build a single preference pair: best (a) vs other (b)
-                a = best
-                b = other
-                pref = "a" if a.effective >= b.effective else "b"
+                winner = best
+                loser = other  # candidates are sorted by effective desc so loser has <= effective
+
+                # Randomize which side gets winner
+                if random.random() < 0.5:
+                    a, b = winner, loser
+                    preferred = "a"
+                else:
+                    a, b = loser, winner
+                    preferred = "b"
 
                 ex = PreferenceExample(
                     prompt=prompt0,
                     response_a=a.response,
                     response_b=b.response,
-                    preferred=pref,
+                    preferred=preferred,
                     meta={
                         "suite_id": suite_id,
                         "case_id": case_id,
                         "lambda_cost": lambda_cost,
                         "mu_latency": mu_latency,
+                        "prompt_step": a.prompt_step,
+                        "prompt_normalize": prompt_normalize,
                         "a": {
                             "model_id": a.model_id,
                             "trace_id": a.trace_id,
@@ -320,6 +367,7 @@ def export_preferences(
                             "total_tokens": a.total_tokens,
                             "effective": a.effective,
                             "trace_path": a.trace_path,
+                            "prompt_step": a.prompt_step,
                         },
                         "b": {
                             "model_id": b.model_id,
@@ -330,21 +378,26 @@ def export_preferences(
                             "total_tokens": b.total_tokens,
                             "effective": b.effective,
                             "trace_path": b.trace_path,
+                            "prompt_step": b.prompt_step,
                         },
                         "deltas": {
                             "score": a.score - b.score,
                             "cost_usd": (a.cost_usd if a.cost_usd is not None else 0.0)
                                         - (b.cost_usd if b.cost_usd is not None else 0.0),
                             "latency_ms": (a.latency_ms if a.latency_ms is not None else 0)
-                                          - (b.latency_ms if b.latency_ms is not None else 0),
+                                        - (b.latency_ms if b.latency_ms is not None else 0),
                             "effective": a.effective - b.effective,
                         },
+                        # optional: explicit winner for sanity checks
+                        "winner_model_id": winner.model_id,
                     },
+
                 )
 
                 f.write(ex.to_jsonl() + "\n")
                 written += 1
                 paired = True
+                
                 break  # v0: emit at most one pair per case
 
             if not paired:
@@ -376,9 +429,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--lambda-cost", type=float, default=0.0, help="Cost penalty weight")
     p.add_argument("--mu-latency", type=float, default=0.0, help="Latency penalty per second")
     p.add_argument("--max-abs-score-gap", type=float, default=0.15, help="Only pair if |score_a-score_b| <= gap")
+    p.add_argument("--seed", type=int, default=42, help="Random seed for A/B assignment")
+    p.add_argument("--prompt-normalize", type=str, default="none", choices=["none", "strip_json", "mask_json"], help="Normalize prompt_full by removing variable JSON blocks")
 
     args = p.parse_args(argv)
 
+    random.seed(args.seed)
     logs_root = Path(args.logs_root)
     out_path = Path(args.out)
 
@@ -402,6 +458,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         mu_latency=float(args.mu_latency),
         max_abs_score_gap=float(args.max_abs_score_gap),
         limit=limit,
+        prompt_normalize=str(args.prompt_normalize),
     )
 
     print(f"Exported preference dataset: {out_path}")
