@@ -175,7 +175,12 @@ def export_sft(
                 instruction = instruction or extract_instruction(events)
                 response = extract_step_text_full(events, step=step) or extract_response(events)
 
-                if len(response.strip()) < int(min_response_chars):
+                instruction = instruction.strip() if isinstance(instruction, str) else ""
+                response = response.strip() if isinstance(response, str) else ""
+                if not instruction or not response:
+                    skipped += 1
+                    continue
+                if len(response) < int(min_response_chars):
                     skipped += 1
                     continue
 
