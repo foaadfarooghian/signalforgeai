@@ -34,9 +34,17 @@ def _truncate_str(value: str, max_length: int) -> str:
     return value[: max_length - 3] + "..."
 
 
-def _sanitize_value(value: Any, max_string: int = 500, max_items: int = 50) -> Any:
+def _sanitize_value(
+    value: Any,
+    max_string: int = 500,
+    max_items: int = 50,
+    preserve_keys: Optional[set[str]] = None,
+    key: Optional[str] = None,
+) -> Any:
     """Keep payloads small/safe by truncating and stringifying unknown objects."""
     if isinstance(value, str):
+        if preserve_keys and key in preserve_keys:
+            return value
         return _truncate_str(value, max_string)
     if isinstance(value, (int, float, bool)) or value is None:
         return value
@@ -46,11 +54,21 @@ def _sanitize_value(value: Any, max_string: int = 500, max_items: int = 50) -> A
             if idx >= max_items:
                 sanitized["__truncated__"] = f"{len(value) - max_items} more entries"
                 break
-            sanitized[str(key)] = _sanitize_value(val, max_string, max_items)
+            key_str = str(key)
+            sanitized[key_str] = _sanitize_value(
+                val,
+                max_string,
+                max_items,
+                preserve_keys=preserve_keys,
+                key=key_str,
+            )
         return sanitized
     if isinstance(value, (list, tuple, set)):
         seq = list(value)[:max_items]
-        sanitized_list = [_sanitize_value(item, max_string, max_items) for item in seq]
+        sanitized_list = [
+            _sanitize_value(item, max_string, max_items, preserve_keys=preserve_keys)
+            for item in seq
+        ]
         if len(value) > max_items:
             sanitized_list.append(f"...truncated {len(value) - max_items} items")
         return sanitized_list
@@ -58,11 +76,15 @@ def _sanitize_value(value: Any, max_string: int = 500, max_items: int = 50) -> A
     return _truncate_str(repr(value), max_string)
 
 
-def sanitize_payload(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def sanitize_payload(
+    payload: Optional[Dict[str, Any]],
+    *,
+    preserve_keys: Optional[set[str]] = None,
+) -> Dict[str, Any]:
     """Return a bounded, JSON-safe payload preserving keys where possible."""
     if not payload:
         return {}
-    sanitized = _sanitize_value(payload)
+    sanitized = _sanitize_value(payload, preserve_keys=preserve_keys)
     if isinstance(sanitized, dict):
         return sanitized
     return {"value": sanitized}
@@ -100,7 +122,10 @@ class Event:
             "event_type": self.event_type,
             "payload": sanitize_payload(self.payload),
             "metrics": sanitize_payload(self.metrics),
-            "outcome": sanitize_payload(self.outcome),
+            "outcome": sanitize_payload(
+                self.outcome,
+                preserve_keys={"text_full", "recommendation_full", "prompt_full"},
+            ),
         }
 
 

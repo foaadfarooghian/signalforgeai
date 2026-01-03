@@ -16,6 +16,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from tensorfoundry.export.extract import (
     extract_instruction,
     extract_response,
+    extract_step_prompt_full, 
+    extract_step_text_full
 )
 # ----------------------------
 # Models
@@ -147,12 +149,11 @@ def export_sft(
 
                 events = _read_trace_events(trace_path)
 
-                instruction = extract_instruction(events)
-                response = extract_response(events)
+                step = os.getenv("TENSORFOUNDRY_SFT_STEP", "critic_check")
 
-                if not instruction or not response:
-                    skipped += 1
-                    continue
+                
+                instruction = extract_step_prompt_full(events, step=step) or extract_instruction(events)
+                response = extract_step_text_full(events, step=step) or extract_response(events)
 
                 min_response_chars = int(os.getenv("TENSORFOUNDRY_MIN_RESPONSE_CHARS", "200"))
                 if len(response.strip()) < min_response_chars:
@@ -200,6 +201,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--include-model-prefix", type=str, default="openai:,ollama:", help="Comma-separated list of model ID prefixes to include")
     p.add_argument("--exclude-model-prefix", type=str, default="dummy", help="Comma-separated list of model ID prefixes to exclude")
     p.add_argument("--exclude-model-id", type=str, default="dummy_good,dummy_mid,dummy_bad,gpt-5-mini", help="Comma-separated list of model IDs to exclude (to catch legacy)")
+    p.add_argument("--step", type=str, default="critic_check", help="Step name to extract from traces (e.g. critic_check, draft_answer)")
+    p.add_argument("--use-step-prompt", type=int, default=0, help="Use step-specific prompt_full instead of Task instruction")
+
     args = p.parse_args(argv)
 
     include_prefixes = [s.strip() for s in args.include_model_prefix.split(",") if s.strip()]
