@@ -7,11 +7,12 @@ from tensorfoundry.models.base import ModelProvider
 from tensorfoundry.models.providers.dummy import DummyProvider
 from tensorfoundry.models.providers.ollama import OllamaProvider
 from tensorfoundry.models.providers.openai_provider import OpenAIProvider
+from tensorfoundry.models.providers.hf import HFProvider
 
 _dummy: Optional[ModelProvider] = None
 _ollama: Optional[ModelProvider] = None
 _openai: Optional[ModelProvider] = None
-
+_hf: Optional[ModelProvider] = None
 
 def _is_ci() -> bool:
     return os.getenv("CI", "").lower() in {"1", "true", "yes"}
@@ -37,6 +38,11 @@ def _get_openai() -> ModelProvider:
         _openai = OpenAIProvider()
     return _openai
 
+def _get_hf() -> ModelProvider:
+    global _hf
+    if _hf is None:
+        _hf = HFProvider()
+    return _hf
 
 def get_provider_for_model(model_id: str) -> ModelProvider:
     # CI safety: never touch networked providers unless explicitly allowed
@@ -47,4 +53,6 @@ def get_provider_for_model(model_id: str) -> ModelProvider:
         return _get_ollama()
     if model_id.startswith("openai:"):
         return _get_openai()
+    if model_id.startswith("hf:"):
+        return _get_hf()
     return _get_dummy()
