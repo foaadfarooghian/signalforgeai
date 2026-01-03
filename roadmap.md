@@ -131,6 +131,17 @@ Each agent includes:
   - Offline fine-tuning
   - Continual learning loops
 
+### Current status (repo)
+- [x] Reward artifacts emitted from evaluation runs (`reward.jsonl`)
+- [x] Logs → SFT dataset export (instruction/prompt)
+- [x] Logs → preference dataset export (utility + latency weighted)
+- [x] Logs → repair pairs (failed → repaired)
+- [x] Teacher → student QLoRA SFT + DPO (experimental)
+- [x] HF provider integrated into evaluation loop
+- [x] Curriculum construction from real executions
+- [x] Canonical learn pipeline (`tensorfoundry-learn`)
+- [x] Example datasets derived from logs (`datasets/examples/`)
+
 ### Exit criteria
 - Example datasets generated from real agent logs
 - Clear training interfaces defined
