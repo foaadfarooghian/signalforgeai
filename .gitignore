@@ -51,14 +51,15 @@ artifacts/
 
 # Generated datasets
 datasets/
+!datasets/examples
 
-# Training outputs
-training/bandits/
-training/datasets/
-training/experiments/
+# Learning ops outputs
+learning_ops/bandits/
+learning_ops/datasets/
+learning_ops/experiments/
 
 # Keep policies committed (for now)
-!training/policies/
+!learning_ops/policies/
 
 # Caches and tooling
 .cache/
