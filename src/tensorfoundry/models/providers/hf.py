@@ -3,30 +3,17 @@ from __future__ import annotations
 
 import os
 import time
-from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import parse_qs, urlsplit
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from tensorfoundry.models.types import ModelMetrics, ModelOutput
 
 try:
     from peft import PeftModel
 except Exception:
     PeftModel = None  # type: ignore
-
-
-@dataclass
-class Metrics:
-    latency_ms: int
-    cost_usd: float
-    extra: Dict[str, Any]
-
-
-@dataclass
-class Out:
-    text: str
-    metrics: Metrics
 
 
 def _parse_hf_model_id(model_id: str) -> Tuple[str, Optional[str]]:
@@ -94,11 +81,12 @@ class HFProvider:
             attempts = [("cpu", model_kwargs, "default")]
 
         last_err: Optional[Exception] = None
+        model: Any = None
         for label, kwargs, attn_impl in attempts:
             try:
                 model = AutoModelForCausalLM.from_pretrained(base_model, **kwargs)
-                model._tf_attn_impl = attn_impl
-                model._tf_load_label = label
+                setattr(model, "_tf_attn_impl", attn_impl)
+                setattr(model, "_tf_load_label", label)
                 if os.getenv("TENSORFOUNDRY_HF_LOG_DEVICE_MAP", "1") != "0":
                     cfg_attn = getattr(model.config, "attn_implementation", None) or getattr(model.config, "_attn_implementation", None)
                     device_map = getattr(model, "hf_device_map", None)
@@ -124,6 +112,9 @@ class HFProvider:
                     raise RuntimeError("HFProvider: flash_attention_2 requested but no flash-compatible load succeeded.") from last_err
                 raise last_err
 
+        if model is None:
+            raise RuntimeError("HFProvider: failed to load model.")
+
         model.eval()
 
         if adapter:
@@ -135,7 +126,7 @@ class HFProvider:
         self._cache[key] = (model, tokenizer)
         return model, tokenizer
 
-    def generate(self, *, prompt: str, model_id: str, task_type: str = "") -> Out:
+    def generate(self, *, prompt: str, model_id: str, task_type: Optional[str] = None) -> ModelOutput:
         base, adapter = _parse_hf_model_id(model_id)
         model, tokenizer = self._load(base, adapter)
 
@@ -183,9 +174,9 @@ class HFProvider:
         input_tokens = int(enc["input_ids"].shape[-1])
         output_tokens = int(gen_ids.shape[-1])
 
-        return Out(
+        return ModelOutput(
             text=text,
-            metrics=Metrics(
+            metrics=ModelMetrics(
                 latency_ms=latency_ms,
                 cost_usd=0.0,
                 extra={
