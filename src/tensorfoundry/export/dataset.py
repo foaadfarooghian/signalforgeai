@@ -23,17 +23,26 @@ from tensorfoundry.export.extract import (
 # Models
 # ----------------------------
 
+SFT_SCHEMA_VERSION = "sft.v0"
+
 @dataclass(frozen=True)
 class SFTExample:
     instruction: str
     response: str
     meta: Dict[str, Any]
+    version: str = SFT_SCHEMA_VERSION
+    prompt: Optional[str] = None
 
     def to_jsonl(self) -> str:
-        return json.dumps(
-            {"instruction": self.instruction, "response": self.response, "meta": self.meta},
-            ensure_ascii=False,
-        )
+        row = {
+            "version": self.version,
+            "instruction": self.instruction,
+            "response": self.response,
+            "meta": self.meta,
+        }
+        # Include prompt alias for training pipelines expecting {prompt,response}
+        row["prompt"] = self.prompt if self.prompt is not None else self.instruction
+        return json.dumps(row, ensure_ascii=False)
 
 
 # ----------------------------
@@ -119,6 +128,10 @@ def export_sft(
     include_prefixes: list[str],
     exclude_prefixes: list[str],
     exclude_model_ids: set[str],
+    step: Optional[str] = None,
+    use_step_prompt: bool = False,
+    min_response_chars: Optional[int] = None,
+    trace_allowlist: Optional[set[str]] = None,
 ) -> Tuple[int, int]:
     """
     Returns: (written, skipped)
@@ -129,7 +142,10 @@ def export_sft(
     reward_files = _find_reward_files(logs_root)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    
+    if not step:
+        step = os.getenv("TENSORFOUNDRY_SFT_STEP", "critic_check")
+    if min_response_chars is None:
+        min_response_chars = int(os.getenv("TENSORFOUNDRY_MIN_RESPONSE_CHARS", "200"))
 
     with out_path.open("w", encoding="utf-8") as f:
         for rf in reward_files:
@@ -142,6 +158,10 @@ def export_sft(
                     skipped += 1
                     continue
 
+                if trace_allowlist is not None and trace_id not in trace_allowlist:
+                    skipped += 1
+                    continue
+
                 trace_path = _trace_path_for_reward(rf, trace_id)
                 if not trace_path.exists():
                     skipped += 1
@@ -149,14 +169,13 @@ def export_sft(
 
                 events = _read_trace_events(trace_path)
 
-                step = os.getenv("TENSORFOUNDRY_SFT_STEP", "critic_check")
-
-                
-                instruction = extract_step_prompt_full(events, step=step) or extract_instruction(events)
+                instruction = None
+                if use_step_prompt:
+                    instruction = extract_step_prompt_full(events, step=step)
+                instruction = instruction or extract_instruction(events)
                 response = extract_step_text_full(events, step=step) or extract_response(events)
 
-                min_response_chars = int(os.getenv("TENSORFOUNDRY_MIN_RESPONSE_CHARS", "200"))
-                if len(response.strip()) < min_response_chars:
+                if len(response.strip()) < int(min_response_chars):
                     skipped += 1
                     continue
 
@@ -176,7 +195,7 @@ def export_sft(
                     "trace_path": str(trace_path),
                 }
 
-                ex = SFTExample(instruction=instruction, response=response, meta=meta)
+                ex = SFTExample(instruction=instruction, response=response, meta=meta, prompt=instruction)
                 f.write(ex.to_jsonl() + "\n")
                 written += 1
 
@@ -203,6 +222,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--exclude-model-id", type=str, default="dummy_good,dummy_mid,dummy_bad,gpt-5-mini", help="Comma-separated list of model IDs to exclude (to catch legacy)")
     p.add_argument("--step", type=str, default="critic_check", help="Step name to extract from traces (e.g. critic_check, draft_answer)")
     p.add_argument("--use-step-prompt", type=int, default=0, help="Use step-specific prompt_full instead of Task instruction")
+    p.add_argument("--min-response-chars", type=int, default=200, help="Skip responses shorter than this length")
 
     args = p.parse_args(argv)
 
@@ -226,6 +246,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         include_prefixes=include_prefixes,
         exclude_prefixes=exclude_prefixes,
         exclude_model_ids=exclude_model_ids,
+        step=str(args.step),
+        use_step_prompt=bool(args.use_step_prompt),
+        min_response_chars=int(args.min_response_chars),
     )
 
     print(f"Exported SFT dataset: {out_path}")
