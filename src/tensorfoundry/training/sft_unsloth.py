@@ -1,5 +1,5 @@
 import os
-from datasets import load_dataset
+import datasets
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import train_on_responses_only
 from trl import SFTTrainer
@@ -10,7 +10,8 @@ import builtins
 BASE_MODEL = os.environ.get("BASE_MODEL", "YOUR_HF_BASE_MODEL_ID_HERE")  # e.g. ministral 3B HF id
 OUT_DIR = os.environ.get("OUT_DIR", "artifacts/synth_sft_lora")
 
-builtins.psutil = psutil
+setattr(builtins, "psutil", psutil)
+load_dataset = getattr(datasets, "load_dataset")
 
 _FORMAT_TOKENIZER = None
 

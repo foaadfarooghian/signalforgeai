@@ -1,8 +1,10 @@
 import os
-from datasets import load_dataset
+import datasets
 from unsloth import FastLanguageModel
 from peft import PeftModel
 from trl import DPOTrainer, DPOConfig
+
+load_dataset = getattr(datasets, "load_dataset")
 
 BASE_MODEL = os.environ.get("BASE_MODEL", "YOUR_HF_BASE_MODEL_ID_HERE")
 SFT_DIR = os.environ.get("SFT_DIR", "artifacts/synth_sft_lora")
