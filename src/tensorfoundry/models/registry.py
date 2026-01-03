@@ -42,6 +42,7 @@ def _get_hf() -> ModelProvider:
     global _hf
     if _hf is None:
         _hf = HFProvider()
+    assert _hf is not None
     return _hf
 
 def get_provider_for_model(model_id: str) -> ModelProvider:
