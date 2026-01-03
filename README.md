@@ -128,6 +128,20 @@ You are expected to build your own domain-specific agents on top of the framewor
 - Result summaries and pass rates
 - Regression detection via diffing
 
+### Learning & training (Phase 4 progress)
+
+- Reward artifacts emitted per run (`reward.jsonl`)
+- Logs → SFT dataset export (instruction/prompt)
+- Logs → preference dataset export (utility + latency weighted)
+- Logs → repair pairs (failed → repaired)
+- Curriculum buckets from real executions (easy/repair/escalation)
+- Bandit-based routing integrated into evaluation
+- HF provider integrated into the evaluation loop
+- Canonical learning pipeline (`tensorfoundry-learn`)
+- Experimental teacher → student SFT/DPO via packaged training modules (`src/tensorfoundry/training/`)
+- Measured local-model improvements (`results/benchmark_v1_synth.model_improvements.md`)
+- Log-derived example datasets (`datasets/examples/`)
+
 ### Quality & CI
 
 - Tests covering orchestration, logging, and evaluation
@@ -214,7 +228,7 @@ src/tensorfoundry/
 ```
 
 Other top-level directories:
-- `training/` — policies, bandit state, and experimental training utilities
+- `learning_ops/` — policies, bandit state, and experimental training utilities
 - `datasets/` — generated JSONL datasets
 
 ---
