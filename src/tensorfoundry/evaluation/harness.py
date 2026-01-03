@@ -6,11 +6,11 @@ Runs a suite of task cases, captures traces, validates them, and scores outcomes
 from __future__ import annotations
 import os
 import json
+import re
 from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
 from tensorfoundry.logging.emitter import JsonlEmitter
 from tensorfoundry.logging.inspect import summarise_trace, read_jsonl
 from tensorfoundry.logging.validate import validate_trace_file
@@ -68,6 +68,17 @@ def _ensure_dir(p: Path) -> None:
     """Create a directory and parents if missing."""
     p.mkdir(parents=True, exist_ok=True)
 
+def _norm(s: str) -> str:
+    # whitespace-normalize for robust substring checks
+    return re.sub(r"\s+", " ", (s or "").strip())
+
+def _quote_in_source(quote: str, source_text: str) -> bool:
+    q = _norm(quote)
+    t = _norm(source_text)
+    if not q or len(q) < 6:  # avoid empty / trivial quotes
+        return False
+    # case-insensitive substring match
+    return q.lower() in t.lower()
 
 def _score_case(
     *,
@@ -97,6 +108,101 @@ def _score_case(
 
     passed = score >= 0.7  # status match is enough to pass, contains adds confidence
     return passed, score, notes
+
+def _score_synth_case(*, case_id: str, result_obj: Dict[str, Any], sources: List[Dict[str, Any]]) -> tuple[bool, float, List[str]]:
+    """
+    Continuous score 0..1:
+    - schema validity (0.2)
+    - citations present + grounded (0.3)
+    - conflict handling (0.2)   [only for conflict cases]
+    - relevance/noise handling (0.2) [only for noisy cases]
+    - clarity/length (0.1)
+    """
+    notes: List[str] = []
+    score = 0.0
+
+    res = (result_obj or {}).get("result")
+    if not isinstance(res, dict):
+        return False, 0.0, ["missing result dict"]
+
+    required = ["answer", "citations", "assumptions", "risks", "confidence"]
+    if all(k in res for k in required):
+        score += 0.2
+    else:
+        notes.append("schema missing keys")
+
+    answer = res.get("answer") if isinstance(res.get("answer"), str) else ""
+    citations = res.get("citations") if isinstance(res.get("citations"), list) else []
+
+    # Build source maps
+    src_by_id = {s.get("source_id"): s for s in sources if isinstance(s, dict)}
+    src_text_by_id = {sid: (src_by_id[sid].get("text") or "") for sid in src_by_id}
+    src_title_by_id = {sid: (src_by_id[sid].get("title") or "") for sid in src_by_id}
+
+    # --- citations present + grounded (0.3)
+    if not citations:
+        notes.append("no citations")
+    else:
+        grounded = 0
+        invalid_sid = 0
+        bad_quote = 0
+        placeholder = 0
+
+        for c in citations:
+            if not isinstance(c, dict):
+                bad_quote += 1
+                continue
+            sid = c.get("source_id")
+            quote = c.get("quote") or ""
+            if sid not in src_by_id:
+                invalid_sid += 1
+                continue
+            # reject placeholders like "[S1 ...]" that aren't verbatim source text
+            if "[" in quote and "]" in quote:
+                placeholder += 1
+            if not _quote_in_source(quote, src_text_by_id.get(sid, "")):
+                bad_quote += 1
+            else:
+                grounded += 1
+
+        if grounded > 0 and invalid_sid == 0 and bad_quote == 0 and placeholder == 0:
+            score += 0.3
+        else:
+            if invalid_sid: notes.append("invalid citation source_id")
+            if bad_quote: notes.append("ungrounded_or_empty_quotes")
+            if placeholder: notes.append("placeholder_quotes")
+
+    # --- conflict handling (0.2) for conflict case
+    is_conflict = "conflict" in case_id
+    if is_conflict:
+        # Must cite both S1 and S2
+        cited_ids = {c.get("source_id") for c in citations if isinstance(c, dict)}
+        if {"S1", "S2"}.issubset(cited_ids) and any(w in answer.lower() for w in ["uncertain", "disagree", "conflict", "mixed"]):
+            score += 0.2
+        else:
+            notes.append("conflict_handling_missing")
+
+    # --- noisy handling (0.2) for noisy case
+    is_noisy = "noisy" in case_id
+    if is_noisy:
+        # In your suite, S2 is explicitly titled "Irrelevant"
+        irrelevant_ids = {sid for sid, title in src_title_by_id.items() if title.lower().strip() == "irrelevant"}
+        cited_ids = {c.get("source_id") for c in citations if isinstance(c, dict)}
+
+        # Reward: does NOT cite irrelevant + answer does not mention obvious irrelevant topic
+        mentions_irrelevant = any(tok in answer.lower() for tok in ["banana", "bananas", "strawberry", "strawberries", "berry", "berries"])
+        if not (cited_ids & irrelevant_ids) and not mentions_irrelevant:
+            score += 0.2
+        else:
+            notes.append("irrelevant_source_leakage")
+
+    # --- clarity/length (0.1)
+    if isinstance(answer, str) and 50 <= len(answer) <= 1200:
+        score += 0.1
+
+    passed = score >= 0.7
+    return passed, score, notes
+
 
 def _extract_tradeoff_metrics(
     events: List[Dict[str, Any]],
@@ -224,7 +330,6 @@ def run_suite(
         # Run
         with emitter:
             result_obj = runner(task, inputs, emitter)
-
         # Validate trace
         issues = validate_trace_file(trace_path)
         if issues:
@@ -294,11 +399,18 @@ def run_suite(
         # Extract a result text for basic expectation checks
         result_text = _extract_result_text(agent_name, result_obj)
 
-        passed, score, notes = _score_case(
-            expect=expect,
-            terminal_outcome=terminal,
-            result_text=result_text,
-        )
+        if suite_name == "benchmark_v1_synth":
+            passed, score, notes = _score_synth_case(
+                case_id = case_id,
+                result_obj=result_obj,
+                sources=inputs.get("sources", []),
+                    )
+        else:
+            passed, score, notes = _score_case(
+                expect=expect,
+                terminal_outcome=terminal,
+                result_text=result_text,
+            )
 
         violations = []
         # make evaluation reasons machine-readable
@@ -452,7 +564,15 @@ def get_agent_runner(agent_name: str):
         return _run_research_agent
     if agent_name == "refactor_agent":
         return _run_refactor_agent
+    if agent_name == "synth_agent":
+        return _run_synth_agent
+
     raise ValueError(f"Unknown agent: {agent_name!r}")
+
+def _run_synth_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter) -> Dict[str, Any]:
+    from tensorfoundry.agents.synth_agent import SynthAgent
+    agent = SynthAgent(emitter=emitter)
+    return agent.run(task, sources=inputs.get("sources", []))
 
 
 def _run_decision_agent(task: str, inputs: Dict[str, Any], emitter: JsonlEmitter) -> Dict[str, Any]:
