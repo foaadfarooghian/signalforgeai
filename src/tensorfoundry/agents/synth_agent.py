@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import json
 import re
 from tensorfoundry.logging.emitter import JsonlEmitter
@@ -321,8 +321,6 @@ class SynthAgent:
 
         model_id = self._model_id()
         provider = get_provider_for_model(model_id)
-
-        sources_by_id = {s.source_id: s for s in sources}
 
         # Optional: remove "Irrelevant" sources entirely
         filtered_sources = [s for s in sources if (s.title or "").strip().lower() != "irrelevant"]
