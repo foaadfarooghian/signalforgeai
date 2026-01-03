@@ -23,9 +23,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--output-dir", type=str, default="results", help="Directory for results outputs")
     parser.add_argument("--logs-dir", type=str, default="logs", help="Directory for trace logs")
     parser.add_argument("--policy", type=str, default="", help="Path to routing policy JSON (optional)")
-    parser.add_argument("--bandits", type=str, default="learning/bandits/routing_bandits_v0.json", help="Path to bandit state file",)
+    parser.add_argument("--bandits", type=str, default="training/bandits/routing_bandits_v0.json", help="Path to bandit state file",)
     parser.add_argument("--no-bandits", action="store_true", help="Disable bandit routing",)
-    parser.add_argument("--stats", type=str, default="learning/bandits/routing_stats_v0.json", help="Path to routing stats file (cost/latency EWMA)")
+    parser.add_argument("--stats", type=str, default="training/bandits/routing_stats_v0.json", help="Path to routing stats file (cost/latency EWMA)")
     args = parser.parse_args(argv)
 
     suite_obj = json.loads(Path(args.suite).read_text(encoding="utf-8"))
