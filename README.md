@@ -213,6 +213,10 @@ src/tensorfoundry/
 └── docs/            # Design notes
 ```
 
+Other top-level directories:
+- `training/` — policies, bandit state, and experimental training utilities
+- `datasets/` — generated JSONL datasets
+
 ---
 
 ## Branching & releases
