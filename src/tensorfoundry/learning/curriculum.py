@@ -201,7 +201,14 @@ def export_curriculum(
 
                 score = float(r.get("overall_score", 0.0))
                 success = r.get("success") is True
-                violations = r.get("violations") if isinstance(r.get("violations"), list) else []
+                raw_violations = r.get("violations")
+                violations: List[str] = []
+                if isinstance(raw_violations, list):
+                    for v in raw_violations:
+                        if isinstance(v, str):
+                            violations.append(v)
+                        else:
+                            violations.append(str(v))
                 retry_count = _count_retries(events)
 
                 bucket, difficulty = _assign_bucket(
