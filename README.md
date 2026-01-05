@@ -8,12 +8,12 @@
 
 <p align="center">
   <strong>An opinionated open-source framework for engineered AI agents</strong><br/>
-  Build, orchestrate, observe, and evaluate agentic workflows — not chatbots.
+  Build, orchestrate, observe, evaluate, and improve agentic workflows — not chatbots.
 </p>
 
 <p align="center">
   <img alt="status" src="https://img.shields.io/badge/status-active_development-blue" />
-  <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue" />
+  <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-purple" />
   <img alt="license" src="https://img.shields.io/badge/License-Apache%202.0-green.svg" />
   <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/foaadfarooghian/tensorfoundry/ci.yml?branch=dev" />
 </p>
@@ -22,16 +22,17 @@
 
 ## Project status
 
-**TensorFoundry is in active development.**
+**TensorFoundry is in active, pre-1.0 development.**
 
-- Core abstractions and APIs are stabilising
+- Core abstractions are solidifying
 - Logging, orchestration, and evaluation are production-oriented
-- Expect **breaking changes** before the first stable release (`v1.0.0`)
+- Learning infrastructure is present but evolving
+- **Breaking changes may occur** as APIs mature
 
-This project is being built **in the open** with correctness, observability, and long-term maintainability as first-class goals.
+TensorFoundry is built **in the open** with correctness, observability, and long-term maintainability as first-class goals.
 
 If you’re evaluating TensorFoundry today:
-- ✅ Suitable for experimentation and internal tools
+- ✅ Suitable for experimentation, research, and internal tooling
 - ⚠️ Not yet recommended for mission-critical production without pinning versions
 
 ---
@@ -66,6 +67,8 @@ TensorFoundry optimises for:
 
 If an agent can’t be logged, validated, and compared over time, it’s not production-ready.
 
+---
+
 ### Cost-aware agent routing
 
 TensorFoundry supports **economics-aware model routing**:
@@ -92,7 +95,7 @@ logging, evaluation, and reproducibility.
 
 ---
 
-## What’s included (v1 scope)
+## What’s included (current scope, pre-1.0)
 
 TensorFoundry is a **framework**, not a catalog of agents.
 
@@ -128,24 +131,45 @@ You are expected to build your own domain-specific agents on top of the framewor
 - Result summaries and pass rates
 - Regression detection via diffing
 
-### Learning & training (Phase 4 progress)
+### Learning & training (Phase 4 — execution → learning)
+
+TensorFoundry includes **learning infrastructure derived directly from execution traces**:
 
 - Reward artifacts emitted per run (`reward.jsonl`)
 - Logs → SFT dataset export (instruction/prompt)
 - Logs → preference dataset export (utility + latency weighted)
 - Logs → repair pairs (failed → repaired)
-- Curriculum buckets from real executions (easy/repair/escalation)
+- Curriculum buckets from real executions (easy / repair / escalation)
 - Bandit-based routing integrated into evaluation
 - HF provider integrated into the evaluation loop
 - Canonical learning pipeline (`tensorfoundry-learn`)
-- Experimental teacher → student SFT/DPO via packaged training modules (`src/tensorfoundry/training/`)
-- Measured local-model improvements (`results/benchmark_v1_synth.model_improvements.md`)
+- Experimental teacher → student SFT / DPO utilities
 - Log-derived example datasets (`datasets/examples/`)
+
+Learning is **system-level, model-agnostic, and reversible**.
+Model weights are not automatically modified during agent execution.
 
 ### Quality & CI
 
 - Tests covering orchestration, logging, and evaluation
 - CI enforcing schema correctness and evaluation success
+
+---
+
+## Versioning & stability
+
+TensorFoundry follows **semantic versioning with research-grade guarantees**.
+
+- `v0.x` releases represent **capability milestones**, not API freeze
+- Learning features may evolve as reward definitions and datasets mature
+- Core principles are stable:
+  - logs are the dataset
+  - evaluation is the contract
+  - learning must be measurable and reversible
+
+`v1.0.0` will mark **interface and systems stability**, not trained models or benchmark dominance.
+
+See `VERSIONING.md` for details.
 
 ---
 
@@ -180,28 +204,6 @@ python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quick
 python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json
 ```
 
-These examples demonstrate TensorFoundry’s core primitives.
-The same workflow applies to any custom agent you build.
-
----
-
-## Building your own agents
-
-TensorFoundry is designed for **custom, domain-specific agents**.
-
-Typical use cases include:
-- internal research assistants
-- decision-support systems
-- code analysis and refactoring tools
-- evaluation-first LLM pipelines
-
-A minimal agent is composed of:
-- a planner
-- an executor
-- optional critics and tools
-
-Documentation will expand as APIs stabilise.
-
 ---
 
 ## Core ideas
@@ -235,5 +237,6 @@ Other top-level directories:
 
 ## Branching & releases
 
-- `prod` — protected, stable release branch
+- `prod` — protected, tagged releases
 - `dev` — integration branch for ongoing work
+
