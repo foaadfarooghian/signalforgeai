@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 from tensorfoundry.evaluation import harness
-from tensorfoundry.evaluation.harness import _extract_tradeoff_metrics, _score_synth_case, run_suite
+from tensorfoundry.evaluation.harness import _extract_tradeoff_metrics, run_suite
+from tensorfoundry.evaluation.scorers import ScoringContext, synth_v1
 from tensorfoundry.logging.validate import ValidationIssue
 
 
@@ -65,11 +66,15 @@ def test_score_synth_case_conflict_success() -> None:
             "confidence": 0.4,
         }
     }
-    passed, score, notes = _score_synth_case(
-        case_id="case_conflict_001",
+    ctx = ScoringContext(
+        suite_name="benchmark_v1_synth",
+        case={"id": "case_conflict_001", "inputs": {"sources": sources}},
         result_obj=result_obj,
-        sources=sources,
+        terminal_outcome={},
+        result_text="",
+        events=[],
     )
+    passed, score, notes = synth_v1(ctx)
     assert passed is True
     assert score >= 0.7
     assert notes == []
@@ -86,11 +91,15 @@ def test_score_synth_case_flags_bad_quotes() -> None:
             "confidence": 0.2,
         }
     }
-    passed, _score, notes = _score_synth_case(
-        case_id="case_basic",
+    ctx = ScoringContext(
+        suite_name="benchmark_v1_synth",
+        case={"id": "case_basic", "inputs": {"sources": sources}},
         result_obj=result_obj,
-        sources=sources,
+        terminal_outcome={},
+        result_text="",
+        events=[],
     )
+    passed, _score, notes = synth_v1(ctx)
     assert passed is False
     assert "placeholder_quotes" in notes
     assert "ungrounded_or_empty_quotes" in notes
