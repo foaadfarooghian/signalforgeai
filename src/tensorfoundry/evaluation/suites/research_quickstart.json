@@ -1,6 +1,7 @@
 {
   "suite_name": "research_quickstart",
   "agent": "research_agent",
+  "scoring": "default_v0",
   "cases": [
     {
       "id": "res_001",

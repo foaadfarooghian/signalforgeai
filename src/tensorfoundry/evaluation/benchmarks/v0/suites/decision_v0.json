@@ -1,6 +1,7 @@
 {
   "suite_name": "benchmark_v0_decision",
   "agent": "decision_agent",
+  "scoring": "default_v0",
   "cases": [
     {
       "id": "dec_v0_001",

@@ -1,6 +1,7 @@
 {
   "suite_name": "benchmark_v0_research",
   "agent": "research_agent",
+  "scoring": "default_v0",
   "cases": [
     {
       "id": "res_v0_001",

@@ -1,6 +1,7 @@
 {
   "suite_name": "quickstart",
   "agent": "decision_agent",
+  "scoring": "default_v0",
   "cases": [
     {
       "id": "dec_001",

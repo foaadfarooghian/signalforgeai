@@ -1,6 +1,7 @@
 {
   "suite_name": "benchmark_v1_synth",
   "agent": "synth_agent",
+  "scoring": "synth_v1",
   "cases": [
     {
       "id": "synth_v1_001_easy",

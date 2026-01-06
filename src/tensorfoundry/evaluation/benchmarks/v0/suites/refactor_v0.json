@@ -1,6 +1,7 @@
 {
   "suite_name": "benchmark_v0_refactor",
   "agent": "refactor_agent",
+  "scoring": "default_v0",
   "cases": [
     {
       "id": "ref_v0_001",
