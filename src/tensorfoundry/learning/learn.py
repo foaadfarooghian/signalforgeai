@@ -195,6 +195,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     exp.add_argument("--sft", action="store_true", help="Export SFT dataset")
     exp.add_argument("--prefs", action="store_true", help="Export preference dataset")
+    exp.add_argument("--deterministic", action="store_true", help="Stable JSON + stable pairing where possible")
     exp.add_argument("--repairs", action="store_true", help="Export failure->success repair pairs")
     exp.add_argument("--curriculum", action="store_true", help="Export curriculum dataset")
 
