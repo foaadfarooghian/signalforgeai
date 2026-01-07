@@ -19,6 +19,7 @@ from tensorfoundry.export.extract import (
     extract_step_prompt_full, 
     extract_step_text_full
 )
+from tensorfoundry.export._json import dumps_row
 # ----------------------------
 # Models
 # ----------------------------
@@ -39,11 +40,11 @@ class SFTExample:
             "instruction": self.instruction,
             "response": self.response,
             "meta": self.meta,
+            "prompt": self.prompt if self.prompt is not None else self.instruction,
         }
         # Include prompt alias for training pipelines expecting {prompt,response}
-        row["prompt"] = self.prompt if self.prompt is not None else self.instruction
-        return json.dumps(row, ensure_ascii=False)
-
+        deterministic = bool(self.meta.get("extractor", {}).get("deterministic"))
+        return dumps_row(row, deterministic=deterministic)
 
 # ----------------------------
 # IO helpers
@@ -130,8 +131,9 @@ def export_sft(
     exclude_model_ids: set[str],
     step: Optional[str] = None,
     use_step_prompt: bool = False,
+    deterministic: bool = False,
     min_response_chars: Optional[int] = None,
-    trace_allowlist: Optional[set[str]] = None,
+    trace_allowlist: Optional[set[str]] = None
 ) -> Tuple[int, int]:
     """
     Returns: (written, skipped)
@@ -200,6 +202,23 @@ def export_sft(
                     "trace_path": str(trace_path),
                 }
 
+                meta["provenance"] = {
+                    "inputs": {
+                        "logs_root": str(logs_root),
+                        "reward_jsonl": str(rf),
+                        "trace_path": str(trace_path),
+                    }
+                }
+
+                meta["extractor"] = {
+                    "schema": SFT_SCHEMA_VERSION,   # optional but nice
+                    "step": step,
+                    "use_step_prompt": bool(use_step_prompt),
+                    "min_response_chars": int(min_response_chars),
+                    "deterministic": bool(deterministic),
+                    "sort_key": "run_id,suite_id,case_id,trace_id",
+                }
+
                 ex = SFTExample(instruction=instruction, response=response, meta=meta, prompt=instruction)
                 f.write(ex.to_jsonl() + "\n")
                 written += 1
@@ -228,6 +247,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--step", type=str, default="critic_check", help="Step name to extract from traces (e.g. critic_check, draft_answer)")
     p.add_argument("--use-step-prompt", type=int, default=0, help="Use step-specific prompt_full instead of Task instruction")
     p.add_argument("--min-response-chars", type=int, default=200, help="Skip responses shorter than this length")
+    p.add_argument("--deterministic", action="store_true", help="Emit stable JSON + stable ordering where possible")
+
 
     args = p.parse_args(argv)
 
@@ -254,6 +275,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         step=str(args.step),
         use_step_prompt=bool(args.use_step_prompt),
         min_response_chars=int(args.min_response_chars),
+        deterministic=bool(args.deterministic),
     )
 
     print(f"Exported SFT dataset: {out_path}")
