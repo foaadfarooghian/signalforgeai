@@ -26,6 +26,7 @@ from tensorfoundry.export.extract import (
     extract_step_prompt_full,
     extract_step_text_full,
 )
+from tensorfoundry.export._json import dumps_row
 
 # ----------------------------
 # Models
@@ -44,17 +45,16 @@ class PreferenceExample:
     version: str = PREFS_SCHEMA_VERSION
 
     def to_jsonl(self) -> str:
-        return json.dumps(
-            {
-                "version": self.version,
-                "prompt": self.prompt,
-                "response_a": self.response_a,
-                "response_b": self.response_b,
-                "preferred": self.preferred,
-                "meta": self.meta,
-            },
-            ensure_ascii=False,
-        )
+        row = {
+        "version": self.version,
+        "prompt": self.prompt,
+        "response_a": self.response_a,
+        "response_b": self.response_b,
+        "preferred": self.preferred,
+        "meta": self.meta,
+        }
+        deterministic = bool(self.meta.get("extractor", {}).get("deterministic"))
+        return dumps_row(row, deterministic=deterministic)
 
 
 @dataclass(frozen=True)
@@ -65,6 +65,7 @@ class _Candidate:
     model_id: str
     trace_id: str
     trace_path: str
+    reward_path: str
     score: float
     cost_usd: Optional[float]
     latency_ms: Optional[int]
@@ -198,6 +199,7 @@ def export_preferences(
     prompt_normalize: str,
     prompt_source: str = "auto",
     output_format: str = "prefs",
+    deterministic: bool = False,
     trace_allowlist: Optional[Set[str]] = None,
 ) -> Tuple[int, int]:
     """
@@ -310,6 +312,7 @@ def export_preferences(
                         model_id=model_id,
                         trace_id=trace_id,
                         trace_path=str(trace_path),
+                        reward_path=str(rf),
                         score=score,
                         cost_usd=cost,
                         latency_ms=lat,
@@ -359,13 +362,19 @@ def export_preferences(
                 winner = best
                 loser = other  # candidates are sorted by effective desc so loser has <= effective
 
-                # Randomize which side gets winner
-                if random.random() < 0.5:
+                if deterministic:
+                    # stable: winner always "a"
                     a, b = winner, loser
                     preferred = "a"
+                
                 else:
-                    a, b = loser, winner
-                    preferred = "b"
+                    # Randomize which side gets winner
+                    if random.random() < 0.5:
+                        a, b = winner, loser
+                        preferred = "a"
+                    else:
+                        a, b = loser, winner
+                        preferred = "b"
 
                 ex = PreferenceExample(
                     prompt=prompt0,
@@ -388,6 +397,7 @@ def export_preferences(
                             "total_tokens": a.total_tokens,
                             "effective": a.effective,
                             "trace_path": a.trace_path,
+                            "reward_path": a.reward_path,
                             "prompt_step": a.prompt_step,
                         },
                         "b": {
@@ -399,6 +409,7 @@ def export_preferences(
                             "total_tokens": b.total_tokens,
                             "effective": b.effective,
                             "trace_path": b.trace_path,
+                            "reward_path": b.reward_path,
                             "prompt_step": b.prompt_step,
                         },
                         "deltas": {
@@ -411,6 +422,28 @@ def export_preferences(
                         },
                         # optional: explicit winner for sanity checks
                         "winner_model_id": winner.model_id,
+                        "provenance": {
+                            "inputs": {
+                                "logs_root": str(logs_root),
+                                "reward_jsonl": str(rf),  # for BOTH candidates you can store both; see below
+                                "trace_a_path": a.trace_path,
+                                "trace_b_path": b.trace_path
+                            }
+                            },
+                            "extractor": {
+                            "schema": PREFS_SCHEMA_VERSION,
+                            "prompt_source": prompt_source,
+                            "prompt_normalize": prompt_normalize,
+                            "min_score": float(min_score),
+                            "success_only": bool(success_only),
+                            "lambda_cost": float(lambda_cost),
+                            "mu_latency": float(mu_latency),
+                            "max_abs_score_gap": float(max_abs_score_gap),
+                            "pairing": "best_vs_first_close_runner_up",
+                            "min_models_per_case": 2,
+                            "deterministic": bool(deterministic),
+                            "sort_key": "suite_id,case_id,winner_model_id"
+                            }
                     },
 
                 )
@@ -425,7 +458,7 @@ def export_preferences(
                         "rejected": rejected,
                         "meta": ex.meta,
                     }
-                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    f.write(dumps_row(row, deterministic=deterministic) + "\n")
                 else:
                     f.write(ex.to_jsonl() + "\n")
                 written += 1
@@ -466,6 +499,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--prompt-normalize", type=str, default="none", choices=["none", "strip_json", "mask_json"], help="Normalize prompt_full by removing variable JSON blocks")
     p.add_argument("--prompt-source", type=str, default="auto", choices=["auto", "instruction", "step_prompt"], help="Prompt source strategy")
     p.add_argument("--format", type=str, default="prefs", choices=["prefs", "dpo"], help="Output format")
+    p.add_argument("--deterministic", action="store_true", help="Disable random A/B assignment; emit stable JSON")
+
 
     args = p.parse_args(argv)
 
@@ -496,6 +531,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         prompt_normalize=str(args.prompt_normalize),
         prompt_source=str(args.prompt_source),
         output_format=str(args.format),
+        deterministic=bool(args.deterministic),
     )
 
     print(f"Exported preference dataset: {out_path}")
