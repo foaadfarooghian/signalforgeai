@@ -1,0 +1,153 @@
+{
+  "version": "training_preflight.v0",
+  "ok": true,
+  "created_at": "2026-05-01T00:00:00Z",
+  "dry_run": true,
+  "quality_gate": true,
+  "logs_root": "results/pilot_check/logs",
+  "base_model": "dummy/base",
+  "datasets": [
+    {
+      "path": "results/pilot_check/datasets/pilot.sft.jsonl",
+      "kind": "sft",
+      "rows": 8,
+      "ok": true,
+      "issues": [],
+      "content_sha256": "503de10ca51c0000000000000000000000000000000000000000000000000000",
+      "split_counts": {
+        "test": 4,
+        "train": 4
+      },
+      "duplicate_count": 0,
+      "provenance_checked": true,
+      "missing_artifact_refs": [],
+      "quality_issues": [],
+      "role": "sft",
+      "source": "results/pilot_check/datasets/pilot.sft.jsonl"
+    },
+    {
+      "path": "results/pilot_check/datasets/pilot.dpo.jsonl",
+      "kind": "dpo",
+      "rows": 4,
+      "ok": true,
+      "issues": [],
+      "content_sha256": "88e8eacfd5d0000000000000000000000000000000000000000000000000000",
+      "split_counts": {
+        "test": 2,
+        "train": 2
+      },
+      "duplicate_count": 0,
+      "provenance_checked": true,
+      "missing_artifact_refs": [],
+      "quality_issues": [],
+      "role": "dpo",
+      "source": "results/pilot_check/datasets/pilot.dpo.jsonl"
+    }
+  ],
+  "optional_dependencies": {
+    "torch": false,
+    "datasets": false,
+    "transformers": false,
+    "trl": false,
+    "unsloth": false
+  },
+  "dependencies_ok": false,
+  "outputs": {
+    "sft_out": "results/pilot_check/training/sft_lora",
+    "dpo_out": "results/pilot_check/training/dpo_lora",
+    "sft_dir": "results/pilot_check/training/sft_lora"
+  },
+  "smoke": {
+    "version": "training_smoke.v0",
+    "created_at": "2026-05-01T00:00:00Z",
+    "requested": false,
+    "dry_run": true,
+    "max_steps": 1,
+    "dependencies_ok": false,
+    "missing_dependencies": [
+      "datasets",
+      "torch",
+      "transformers",
+      "trl",
+      "unsloth"
+    ],
+    "would_launch_training": false,
+    "status": "not_requested"
+  },
+  "max_steps": 1,
+  "artifact_manifest": {
+    "version": "training_artifact.v0",
+    "created_at": "2026-05-01T00:00:00Z",
+    "base_model": "dummy/base",
+    "dataset_sources": {
+      "sft": "results/pilot_check/datasets/pilot.sft.jsonl",
+      "dpo": "results/pilot_check/datasets/pilot.dpo.jsonl"
+    },
+    "dataset_hashes": {
+      "sft": "503de10ca51c0000000000000000000000000000000000000000000000000000",
+      "dpo": "88e8eacfd5d0000000000000000000000000000000000000000000000000000"
+    },
+    "split_counts": {
+      "sft": {
+        "test": 4,
+        "train": 4
+      },
+      "dpo": {
+        "test": 2,
+        "train": 2
+      }
+    },
+    "datasets": [
+      {
+        "role": "sft",
+        "kind": "sft",
+        "path": "results/pilot_check/datasets/pilot.sft.jsonl",
+        "rows": 8,
+        "ok": true,
+        "content_sha256": "503de10ca51c0000000000000000000000000000000000000000000000000000",
+        "split_counts": {
+          "test": 4,
+          "train": 4
+        },
+        "duplicate_count": 0,
+        "provenance_checked": true
+      },
+      {
+        "role": "dpo",
+        "kind": "dpo",
+        "path": "results/pilot_check/datasets/pilot.dpo.jsonl",
+        "rows": 4,
+        "ok": true,
+        "content_sha256": "88e8eacfd5d0000000000000000000000000000000000000000000000000000",
+        "split_counts": {
+          "test": 2,
+          "train": 2
+        },
+        "duplicate_count": 0,
+        "provenance_checked": true
+      }
+    ],
+    "outputs": {
+      "sft_out": "results/pilot_check/training/sft_lora",
+      "dpo_out": "results/pilot_check/training/dpo_lora",
+      "sft_dir": "results/pilot_check/training/sft_lora"
+    },
+    "quality_gate": true,
+    "logs_root": "results/pilot_check/logs",
+    "command_config": {
+      "source": "tensorfoundry-pilot-check",
+      "training_preflight": true,
+      "sft": true,
+      "dpo": true,
+      "max_steps": 1
+    },
+    "dependency_checks": {
+      "torch": false,
+      "datasets": false,
+      "transformers": false,
+      "trl": false,
+      "unsloth": false
+    }
+  },
+  "issues": []
+}

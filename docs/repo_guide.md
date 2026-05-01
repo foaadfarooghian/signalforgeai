@@ -364,6 +364,20 @@ without this field remain valid. New tool events are normalized with
 2. Outputs are saved under `artifacts/` (default).
 3. `tensorfoundry-learn train --dry-run` validates datasets, output paths, and
    optional dependency availability without loading models.
+4. `--quality-gate --logs-root ... --report-out ...` writes
+   `training_preflight.v0` evidence with strict dataset validation, hashes,
+   split summaries, dependency status, and a minimal `training_artifact.v0`
+   manifest.
+
+Example preflight:
+
+```bash
+tensorfoundry-learn train --base-model dummy/base --sft --dpo \
+  --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
+  --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
+  --dry-run --quality-gate --logs-root results/pilot_check/logs \
+  --report-out results/pilot_check/training_preflight.json
+```
 
 ### 5) Pilot Readiness Check
 
@@ -378,6 +392,7 @@ Outputs:
 - `results/pilot_check/pilot_readiness.json`
 - `results/pilot_check/eval_regression.md` when `--baseline` is supplied
 - `results/pilot_check/eval_regression.json` when `--baseline` is supplied
+- `results/pilot_check/training_preflight.json` when `--training-preflight` is supplied
 - `results/pilot_check/logs/`
 - `results/pilot_check/datasets/manifest.json`
 
@@ -408,6 +423,17 @@ tensorfoundry-pilot-check --require-provider hosted
 tensorfoundry-pilot-check --require-provider local
 tensorfoundry-pilot-check --require-provider all
 ```
+
+Training preflight is optional and dry-run only inside pilot-check:
+
+```bash
+tensorfoundry-pilot-check --mode dummy --training-preflight \
+  --work-dir results/pilot_check
+```
+
+That command generates an additional DPO-compatible preference export for the
+training preflight report, records dependency status, and leaves real SFT/DPO
+training opt-in through `tensorfoundry-learn train --smoke --max-steps 1`.
 
 ## Examples and Reference Workflows
 

@@ -201,10 +201,22 @@ tensorfoundry-pilot-check --require-provider hosted
 tensorfoundry-pilot-check --require-provider local
 ```
 
-Training remains experimental, but the dataset/training preflight is available without loading models:
+Training remains experimental, but preflight evidence is available without loading models:
 
 ```bash
-tensorfoundry-learn train --base-model dummy/base --sft --sft-data datasets/pilot.sft.jsonl --dry-run
+tensorfoundry-learn train --base-model dummy/base --sft --dpo \
+  --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
+  --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
+  --dry-run --quality-gate --logs-root results/pilot_check/logs \
+  --report-out results/pilot_check/training_preflight.json
+```
+
+To have the pilot loop generate DPO-compatible preference data and attach the
+preflight summary to readiness output:
+
+```bash
+tensorfoundry-pilot-check --mode dummy --training-preflight \
+  --work-dir results/pilot_check
 ```
 
 ---

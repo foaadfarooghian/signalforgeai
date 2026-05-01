@@ -7,8 +7,9 @@ from tensorfoundry.pilot_check import DEFAULT_SUITE, run_pilot_check
 
 
 def test_pilot_check_dummy_mode_produces_readiness_artifacts(tmp_path: Path) -> None:
+    work_dir = tmp_path / "pilot"
     payload = run_pilot_check(
-        work_dir=tmp_path / "pilot",
+        work_dir=work_dir,
         suites=[DEFAULT_SUITE],
         require_provider=set(),
         hosted_model_id="dummy_hosted",
@@ -27,6 +28,17 @@ def test_pilot_check_dummy_mode_produces_readiness_artifacts(tmp_path: Path) -> 
     assert all(not d["quality_issues"] for d in payload["datasets"])
     assert "Dataset Quality" in Path(payload["report_md"]).read_text(encoding="utf-8")
     assert "regression" not in payload
+    assert "training_preflight" not in payload
+
+    repeated = run_pilot_check(
+        work_dir=work_dir,
+        suites=[DEFAULT_SUITE],
+        require_provider=set(),
+        hosted_model_id="dummy_hosted",
+        local_model_id="dummy_local",
+    )
+    assert repeated["ok"] is True
+    assert all(d["duplicate_count"] == 0 for d in repeated["datasets"])
 
 
 def test_pilot_check_with_equivalent_baseline_succeeds(tmp_path: Path) -> None:
@@ -93,3 +105,26 @@ def test_pilot_check_baseline_regression_fails_and_reports(tmp_path: Path) -> No
     assert current["regression"]["ok"] is False
     assert any("missing" in issue for issue in current["regression"]["issues"])
     assert "Regression Gate" in Path(current["report_md"]).read_text(encoding="utf-8")
+
+
+def test_pilot_check_training_preflight_writes_evidence(tmp_path: Path) -> None:
+    payload = run_pilot_check(
+        work_dir=tmp_path / "pilot",
+        suites=[DEFAULT_SUITE],
+        require_provider=set(),
+        hosted_model_id="dummy_hosted",
+        local_model_id="dummy_local",
+        training_preflight=True,
+        training_base_model="dummy/base",
+    )
+
+    assert payload["ok"] is True
+    training = payload["training_preflight"]
+    assert training["version"] == "training_preflight.v0"
+    assert training["ok"] is True
+    assert training["artifact_manifest_version"] == "training_artifact.v0"
+    assert {d["role"] for d in training["datasets"]} == {"sft", "dpo"}
+    assert Path(training["report_json"]).exists()
+    full_report = json.loads(Path(training["report_json"]).read_text(encoding="utf-8"))
+    assert full_report["artifact_manifest"]["dataset_hashes"]["dpo"]
+    assert "Training Preflight" in Path(payload["report_md"]).read_text(encoding="utf-8")

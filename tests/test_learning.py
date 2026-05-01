@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tensorfoundry.export.quality import split_meta
 from tensorfoundry.learning.bandits import RoutingBanditsV0, candidate_models_from_env
 from tensorfoundry.learning.build_policy import build_routing_policy_v0
 from tensorfoundry.learning.learn import main as learn_main
@@ -116,3 +117,171 @@ def test_train_dry_run_validates_sft_and_dpo(tmp_path: Path) -> None:
         ]
     )
     assert code == 0
+
+
+def test_train_dry_run_quality_gate_writes_preflight_report(tmp_path: Path) -> None:
+    logs_root = tmp_path / "logs"
+    sft, dpo = _write_strict_training_datasets(tmp_path, logs_root)
+    report = tmp_path / "training_preflight.json"
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--dpo",
+            "--sft-data",
+            str(sft),
+            "--dpo-data",
+            str(dpo),
+            "--dry-run",
+            "--quality-gate",
+            "--logs-root",
+            str(logs_root),
+            "--report-out",
+            str(report),
+        ]
+    )
+
+    assert code == 0
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["version"] == "training_preflight.v0"
+    assert payload["ok"] is True
+    assert payload["quality_gate"] is True
+    assert {d["role"] for d in payload["datasets"]} == {"sft", "dpo"}
+    assert all(d["content_sha256"] for d in payload["datasets"])
+    assert payload["artifact_manifest"]["version"] == "training_artifact.v0"
+    assert payload["artifact_manifest"]["dataset_hashes"]["sft"]
+    assert payload["artifact_manifest"]["split_counts"]["dpo"]
+
+
+def test_train_dry_run_quality_gate_fails_duplicate_payloads(tmp_path: Path) -> None:
+    logs_root = tmp_path / "logs"
+    sft, _dpo = _write_strict_training_datasets(tmp_path, logs_root)
+    row = json.loads(sft.read_text(encoding="utf-8").splitlines()[0])
+    sft.write_text(
+        "\n".join(json.dumps(row) for _ in range(2)) + "\n",
+        encoding="utf-8",
+    )
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--sft-data",
+            str(sft),
+            "--dry-run",
+            "--quality-gate",
+            "--logs-root",
+            str(logs_root),
+        ]
+    )
+
+    assert code == 2
+
+
+def test_train_dry_run_smoke_reports_missing_optional_deps(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sft = tmp_path / "sft.jsonl"
+    sft.write_text(
+        json.dumps(
+            {
+                "version": "sft.v0",
+                "instruction": "Task: train",
+                "prompt": "Task: train",
+                "response": "A training response",
+                "meta": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "training_preflight.json"
+    monkeypatch.setattr("tensorfoundry.training.readiness.find_spec", lambda _name: None)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--sft-data",
+            str(sft),
+            "--dry-run",
+            "--smoke",
+            "--max-steps",
+            "1",
+            "--report-out",
+            str(report),
+        ]
+    )
+
+    assert code == 2
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["smoke_evidence"]["version"] == "training_smoke.v0"
+    assert payload["smoke_evidence"]["status"] == "blocked_missing_dependencies"
+    assert payload["smoke_evidence"]["would_launch_training"] is False
+
+
+def _write_strict_training_datasets(tmp_path: Path, logs_root: Path) -> tuple[Path, Path]:
+    run_dir = logs_root / "run1"
+    run_dir.mkdir(parents=True)
+    trace_a = run_dir / "trace-a.jsonl"
+    trace_b = run_dir / "trace-b.jsonl"
+    reward = run_dir / "reward.jsonl"
+    trace_a.write_text("{}\n", encoding="utf-8")
+    trace_b.write_text("{}\n", encoding="utf-8")
+    reward.write_text("{}\n", encoding="utf-8")
+
+    sft = tmp_path / "sft.jsonl"
+    sft.write_text(
+        json.dumps(
+            {
+                "version": "sft.v0",
+                "instruction": "Task: train",
+                "prompt": "Task: train",
+                "response": "A training response",
+                "meta": {
+                    **split_meta("suite", "case-sft"),
+                    "provenance": {
+                        "inputs": {
+                            "trace_path": str(trace_a),
+                            "reward_jsonl": str(reward),
+                        }
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dpo = tmp_path / "dpo.jsonl"
+    dpo.write_text(
+        json.dumps(
+            {
+                "version": "dpo.v0",
+                "prompt": "Task: compare",
+                "chosen": "Better response",
+                "rejected": "Worse response",
+                "meta": {
+                    **split_meta("suite", "case-dpo"),
+                    "provenance": {
+                        "inputs": {
+                            "trace_a_path": str(trace_a),
+                            "trace_b_path": str(trace_b),
+                            "reward_a_jsonl": str(reward),
+                            "reward_b_jsonl": str(reward),
+                        }
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return sft, dpo

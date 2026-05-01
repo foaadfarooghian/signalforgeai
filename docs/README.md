@@ -6,6 +6,7 @@ evaluation, trace-to-learning, and benchmarking.
 - `design_principles.md`: core principles for runtime, eval, data, and learning.
 - `model_exchange.md`: specialist model registry/exchange contract and lifecycle.
 - `pilot_readiness_sample.md`: example output from the production-pilot readiness check.
+- `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
 - `specs/specialist_model_unit.schema.json`: machine-readable manifest schema for exchange units.
 - `../roadmap.md`: active workstreams and exit criteria.
 - `../manifesto.md`: product philosophy and explicit non-goals.
@@ -44,3 +45,23 @@ tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_current \
 
 Baseline mode emits `eval_regression.v0` as JSON and Markdown, and the readiness
 command exits nonzero when the configured regression policy is violated.
+
+## Training readiness
+
+Run a dry-run training preflight against pilot-generated datasets with:
+
+```bash
+tensorfoundry-pilot-check --mode dummy --training-preflight \
+  --work-dir results/pilot_check
+```
+
+This writes `training_preflight.v0` evidence without loading models or launching
+training. Standalone preflight is available with:
+
+```bash
+tensorfoundry-learn train --base-model dummy/base --sft --dpo \
+  --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
+  --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
+  --dry-run --quality-gate --logs-root results/pilot_check/logs \
+  --report-out results/pilot_check/training_preflight.json
+```

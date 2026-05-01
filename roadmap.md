@@ -107,6 +107,10 @@ the distribution layer built on top of these pillars.
 
 ### Deliverables
 - Teacher run capture and curation workflow
+- Training preflight evidence:
+  - strict SFT/DPO dataset checks
+  - optional dependency and smoke-readiness status
+  - minimal `training_artifact.v0` manifest for later exchange packaging
 - Student training pipeline (SFT first, optional preference optimization)
 - Distillation eval gate:
   - specialist benchmark pass thresholds
@@ -114,6 +118,7 @@ the distribution layer built on top of these pillars.
 - Packaging path for local/private deployment
 
 ### Exit criteria
+- Training inputs can be validated reproducibly without loading models
 - At least one specialist student model reaches benchmark quality gates
 - Distilled model shows favorable cost/latency at acceptable reliability
 - Training and evaluation runs are reproducible end-to-end

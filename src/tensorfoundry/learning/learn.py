@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from importlib.util import find_spec
 from pathlib import Path
 from typing import Optional, Set
 
@@ -14,6 +13,12 @@ from tensorfoundry.export.preferences import export_preferences
 from tensorfoundry.export.repairs import export_repairs
 from tensorfoundry.export.validate import validate_dataset_jsonl
 from tensorfoundry.learning.curriculum import export_curriculum
+from tensorfoundry.training.readiness import (
+    TrainingDatasetCheck,
+    build_training_preflight,
+    check_optional_training_dependencies,
+    write_training_preflight,
+)
 
 
 def _default_out(out_dir: Path, suite: Optional[str], suffix: str) -> Path:
@@ -162,30 +167,19 @@ def _train_cmd(args: argparse.Namespace) -> int:
         os.environ["RESPONSE_PART"] = args.response_part
 
     if args.dry_run:
-        checks = []
-        if args.sft:
-            checks.append(validate_dataset_jsonl(args.sft_data, kind="sft"))
-        if args.dpo:
-            checks.append(validate_dataset_jsonl(args.dpo_data, kind="dpo"))
-        deps = {
-            name: find_spec(name) is not None
-            for name in ("datasets", "transformers", "trl", "unsloth")
-        }
-        payload = {
-            "dry_run": True,
-            "base_model": args.base_model,
-            "datasets": [c.to_dict() for c in checks],
-            "optional_dependencies": deps,
-            "outputs": {
-                "sft_out": args.sft_out if args.sft else None,
-                "dpo_out": args.dpo_out if args.dpo else None,
-            },
-            "smoke": bool(args.smoke),
-            "max_steps": int(args.max_steps),
-        }
+        payload = _training_preflight_payload(args, dry_run=True)
+        if args.report_out:
+            write_training_preflight(payload, args.report_out)
         print(json.dumps(payload, indent=2))
-        deps_ok = all(deps.values()) if args.smoke else True
-        return 0 if all(c.ok for c in checks) and deps_ok else 2
+        return 0 if payload["ok"] else 2
+
+    if args.quality_gate or args.report_out:
+        payload = _training_preflight_payload(args, dry_run=False)
+        if args.report_out:
+            write_training_preflight(payload, args.report_out)
+        if not payload["ok"]:
+            print(json.dumps(payload, indent=2))
+            return 2
 
     if args.sft:
         os.environ["SFT_DATASET"] = args.sft_data
@@ -211,6 +205,77 @@ def _train_cmd(args: argparse.Namespace) -> int:
         dpo_main()
 
     return 0
+
+
+def _training_preflight_payload(args: argparse.Namespace, *, dry_run: bool) -> dict[str, object]:
+    checks = _training_dataset_checks(args)
+    outputs = {
+        "sft_out": args.sft_out if args.sft else None,
+        "dpo_out": args.dpo_out if args.dpo else None,
+        "sft_dir": (args.sft_dir or args.sft_out) if args.dpo else None,
+    }
+    config = {
+        "sft": bool(args.sft),
+        "dpo": bool(args.dpo),
+        "sft_data": args.sft_data if args.sft else None,
+        "dpo_data": args.dpo_data if args.dpo else None,
+        "dataset_num_proc": int(args.dataset_num_proc),
+        "instruction_part": args.instruction_part or None,
+        "response_part": args.response_part or None,
+        "smoke": bool(args.smoke),
+        "max_steps": int(args.max_steps),
+    }
+    return build_training_preflight(
+        base_model=args.base_model,
+        dataset_checks=checks,
+        outputs=outputs,
+        quality_gate=bool(args.quality_gate),
+        logs_root=args.logs_root or None,
+        optional_dependencies=check_optional_training_dependencies(),
+        smoke_requested=bool(args.smoke),
+        max_steps=int(args.max_steps),
+        dry_run=dry_run,
+        config=config,
+    )
+
+
+def _training_dataset_checks(args: argparse.Namespace) -> list[TrainingDatasetCheck]:
+    quality_gate = bool(args.quality_gate)
+    logs_root = args.logs_root or None
+    checks: list[TrainingDatasetCheck] = []
+    if args.sft:
+        checks.append(
+            TrainingDatasetCheck(
+                role="sft",
+                path=args.sft_data,
+                result=validate_dataset_jsonl(
+                    args.sft_data,
+                    kind="sft",
+                    logs_root=logs_root,
+                    require_provenance=quality_gate,
+                    require_splits=quality_gate,
+                    allow_duplicates=not quality_gate,
+                    allow_leakage=not quality_gate,
+                ),
+            )
+        )
+    if args.dpo:
+        checks.append(
+            TrainingDatasetCheck(
+                role="dpo",
+                path=args.dpo_data,
+                result=validate_dataset_jsonl(
+                    args.dpo_data,
+                    kind="dpo",
+                    logs_root=logs_root,
+                    require_provenance=quality_gate,
+                    require_splits=quality_gate,
+                    allow_duplicates=not quality_gate,
+                    allow_leakage=not quality_gate,
+                ),
+            )
+        )
+    return checks
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -278,6 +343,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     tr.add_argument("--dry-run", action="store_true", help="Validate training inputs without loading models")
     tr.add_argument("--smoke", action="store_true", help="Run a minimal training smoke when optional deps are installed")
     tr.add_argument("--max-steps", type=int, default=0, help="Limit training steps for smoke runs (0 = trainer default)")
+    tr.add_argument("--quality-gate", action="store_true", help="Run strict dataset provenance/split/dedup/leakage checks")
+    tr.add_argument("--logs-root", type=str, default="", help="Logs root used to resolve dataset provenance refs")
+    tr.add_argument("--report-out", type=str, default="", help="Write training_preflight.v0 JSON evidence")
 
     args = parser.parse_args(argv)
     if args.command == "export":
