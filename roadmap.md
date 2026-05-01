@@ -111,6 +111,10 @@ the distribution layer built on top of these pillars.
   - strict SFT/DPO dataset checks
   - optional dependency and smoke-readiness status
   - minimal `training_artifact.v0` manifest for later exchange packaging
+- Evidence-only distillation eval gate:
+  - baseline/teacher vs candidate specialist suite comparison
+  - pass-rate, mean-score, and failure-mode movement thresholds
+  - `distillation_eval.v0` release artifact
 - Student training pipeline (SFT first, optional preference optimization)
 - Distillation eval gate:
   - specialist benchmark pass thresholds
@@ -119,6 +123,7 @@ the distribution layer built on top of these pillars.
 
 ### Exit criteria
 - Training inputs can be validated reproducibly without loading models
+- Candidate specialist models can be eval-gated before exchange packaging
 - At least one specialist student model reaches benchmark quality gates
 - Distilled model shows favorable cost/latency at acceptable reliability
 - Training and evaluation runs are reproducible end-to-end
@@ -182,6 +187,7 @@ the distribution layer built on top of these pillars.
 - Artifact-baseline regression gating for pilot readiness checks
 - Strict dataset quality gates for provenance, splits, duplicates, and leakage
 - Training dry-run preflight for SFT/DPO inputs
+- Evidence-only distillation eval gate for candidate specialists
 - Learning/routing primitives and experimental training utilities
 - Cost/latency-aware evaluation reporting
 

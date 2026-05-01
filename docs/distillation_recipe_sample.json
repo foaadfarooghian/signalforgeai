@@ -1,0 +1,14 @@
+{
+  "version": "distillation_recipe.v0",
+  "id": "pilot-distillation-gate",
+  "domain": "pilot",
+  "suite": "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json",
+  "baseline_model_id": "dummy_good",
+  "candidate_model_id": "dummy_good",
+  "training_preflight_path": "results/pilot_check/training_preflight.json",
+  "thresholds": {
+    "max_pass_rate_drop": 0.0,
+    "max_mean_score_drop": 0.0,
+    "allow_worse_failure_modes": false
+  }
+}

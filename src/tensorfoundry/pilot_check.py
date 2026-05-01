@@ -10,6 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set
 
+from tensorfoundry.distillation.recipe import DISTILLATION_RECIPE_VERSION
 from tensorfoundry.evaluation.harness import run_suite
 from tensorfoundry.evaluation.regression import (
     RegressionPolicy,
@@ -61,6 +62,7 @@ def _reset_generated_outputs(work_dir: Path) -> None:
         "eval_regression.json",
         "eval_regression.md",
         "training_preflight.json",
+        "distillation_recipe.json",
     ):
         path = work_dir / name
         if path.exists() or path.is_symlink():
@@ -167,6 +169,7 @@ def _write_report(payload: Dict[str, Any], report_md: Path) -> None:
                 f"- OK: `{str(training.get('ok')).lower()}`",
                 f"- Base model: `{training.get('base_model')}`",
                 f"- Report: `{training.get('report_json')}`",
+                f"- Distillation recipe: `{training.get('distillation_recipe') or ''}`",
                 "",
                 "| role | kind | rows | ok | sha256 | splits |",
                 "|---|---|---:|---:|---|---|",
@@ -271,7 +274,34 @@ def _training_preflight_summary(preflight: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(row, dict)
         ],
         "issues": preflight.get("issues", []),
+        "distillation_recipe": preflight.get("distillation_recipe"),
     }
+
+
+def _write_distillation_recipe(
+    *,
+    work_dir: Path,
+    suite_path: str,
+    training_preflight_path: Path,
+) -> Path:
+    """Write a default evidence-only distillation recipe for the pilot output."""
+    out = work_dir / "distillation_recipe.json"
+    payload = {
+        "version": DISTILLATION_RECIPE_VERSION,
+        "id": "pilot-distillation-gate",
+        "domain": "pilot",
+        "suite": suite_path,
+        "baseline_model_id": "dummy_good",
+        "candidate_model_id": "dummy_good",
+        "training_preflight_path": str(training_preflight_path),
+        "thresholds": {
+            "max_pass_rate_drop": 0.0,
+            "max_mean_score_drop": 0.0,
+            "allow_worse_failure_modes": False,
+        },
+    }
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return out
 
 
 def run_pilot_check(
@@ -492,11 +522,17 @@ def run_pilot_check(
             training_preflight_payload,
             work_dir / "training_preflight.json",
         )
+        distillation_recipe = _write_distillation_recipe(
+            work_dir=work_dir,
+            suite_path=suites[0],
+            training_preflight_path=training_report,
+        )
         training_preflight_ok = bool(training_preflight_payload["ok"])
         if not training_preflight_ok:
             for issue in training_preflight_payload.get("issues", []):
                 issues.append(f"training preflight: {issue}")
         training_preflight_payload["report_json"] = str(training_report)
+        training_preflight_payload["distillation_recipe"] = str(distillation_recipe)
 
     manifest_path = write_dataset_manifest(dataset_results, datasets_dir / "manifest.json")
     for dataset_result in dataset_results:
@@ -520,6 +556,7 @@ def run_pilot_check(
     }
     if training_preflight_payload is not None:
         payload["training_preflight"] = _training_preflight_summary(training_preflight_payload)
+        payload["distillation_recipe"] = training_preflight_payload.get("distillation_recipe")
     regression_ok = True
     if baseline_payload is not None:
         policy = RegressionPolicy(

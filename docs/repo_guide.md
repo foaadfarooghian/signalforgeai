@@ -379,6 +379,10 @@ tensorfoundry-learn train --base-model dummy/base --sft --dpo \
   --report-out results/pilot_check/training_preflight.json
 ```
 
+Distillation gate recipes use `distillation_recipe.v0`. They point at the
+training preflight report, one eval suite, a baseline/teacher model, a candidate
+specialist model, and release thresholds.
+
 ### 5) Pilot Readiness Check
 
 Run the full deterministic offline loop:
@@ -393,6 +397,7 @@ Outputs:
 - `results/pilot_check/eval_regression.md` when `--baseline` is supplied
 - `results/pilot_check/eval_regression.json` when `--baseline` is supplied
 - `results/pilot_check/training_preflight.json` when `--training-preflight` is supplied
+- `results/pilot_check/distillation_recipe.json` when `--training-preflight` is supplied
 - `results/pilot_check/logs/`
 - `results/pilot_check/datasets/manifest.json`
 
@@ -434,6 +439,19 @@ tensorfoundry-pilot-check --mode dummy --training-preflight \
 That command generates an additional DPO-compatible preference export for the
 training preflight report, records dependency status, and leaves real SFT/DPO
 training opt-in through `tensorfoundry-learn train --smoke --max-steps 1`.
+
+Run the evidence-only distillation gate from the generated recipe:
+
+```bash
+tensorfoundry-distill-check \
+  --recipe results/pilot_check/distillation_recipe.json \
+  --work-dir results/distillation_gate
+```
+
+The gate runs the configured suite for the baseline and candidate model, compares
+cases by `(suite_name, case_id)`, enforces pass-rate, mean-score, and failure-mode
+movement thresholds, and writes `distillation_eval.json` plus
+`distillation_eval.md`.
 
 ## Examples and Reference Workflows
 
@@ -507,6 +525,7 @@ Defined in `pyproject.toml`:
 - `tensorfoundry-dataset-validate` -> `src/tensorfoundry/export/validate.py`
 - `tensorfoundry-report-tradeoffs` -> `src/tensorfoundry/evaluation/report_tradeoffs.py`
 - `tensorfoundry-pricing-validate` -> `src/tensorfoundry/models/pricing/validate_openai_pricing.py`
+- `tensorfoundry-distill-check` -> `src/tensorfoundry/distillation/check.py`
 
 There are also module CLIs:
 

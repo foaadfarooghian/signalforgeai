@@ -219,6 +219,18 @@ tensorfoundry-pilot-check --mode dummy --training-preflight \
   --work-dir results/pilot_check
 ```
 
+Run the evidence-only distillation eval gate from the generated recipe:
+
+```bash
+tensorfoundry-distill-check \
+  --recipe results/pilot_check/distillation_recipe.json \
+  --work-dir results/distillation_gate
+```
+
+This compares a candidate specialist model against a baseline/teacher model and
+writes `distillation_eval.v0` JSON and Markdown evidence without requiring real
+training.
+
 ---
 
 ## Repository layout

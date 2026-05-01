@@ -7,6 +7,7 @@ evaluation, trace-to-learning, and benchmarking.
 - `model_exchange.md`: specialist model registry/exchange contract and lifecycle.
 - `pilot_readiness_sample.md`: example output from the production-pilot readiness check.
 - `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
+- `distillation_recipe_sample.json`: example `distillation_recipe.v0` gate recipe.
 - `specs/specialist_model_unit.schema.json`: machine-readable manifest schema for exchange units.
 - `../roadmap.md`: active workstreams and exit criteria.
 - `../manifesto.md`: product philosophy and explicit non-goals.
@@ -65,3 +66,14 @@ tensorfoundry-learn train --base-model dummy/base --sft --dpo \
   --dry-run --quality-gate --logs-root results/pilot_check/logs \
   --report-out results/pilot_check/training_preflight.json
 ```
+
+Then run the distillation eval gate:
+
+```bash
+tensorfoundry-distill-check \
+  --recipe results/pilot_check/distillation_recipe.json \
+  --work-dir results/distillation_gate
+```
+
+The gate emits `distillation_eval.v0` as JSON and Markdown, comparing the
+candidate specialist model against the baseline/teacher model from the recipe.

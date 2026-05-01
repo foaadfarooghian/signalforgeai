@@ -125,6 +125,8 @@ def test_pilot_check_training_preflight_writes_evidence(tmp_path: Path) -> None:
     assert training["artifact_manifest_version"] == "training_artifact.v0"
     assert {d["role"] for d in training["datasets"]} == {"sft", "dpo"}
     assert Path(training["report_json"]).exists()
+    assert Path(training["distillation_recipe"]).exists()
+    assert Path(payload["distillation_recipe"]).exists()
     full_report = json.loads(Path(training["report_json"]).read_text(encoding="utf-8"))
     assert full_report["artifact_manifest"]["dataset_hashes"]["dpo"]
     assert "Training Preflight" in Path(payload["report_md"]).read_text(encoding="utf-8")
