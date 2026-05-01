@@ -1,0 +1,18 @@
+{
+  "version": "benchmark_matrix.v0",
+  "id": "offline-dummy-frontier",
+  "suites": [
+    "decision_v0",
+    "research_v0",
+    "refactor_v0"
+  ],
+  "model_ids": [
+    "dummy_good",
+    "dummy_bad"
+  ],
+  "metric_weights": {
+    "lambda_cost": 0.0,
+    "mu_latency": 0.0
+  },
+  "require_providers": []
+}

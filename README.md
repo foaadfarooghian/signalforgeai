@@ -231,6 +231,19 @@ This compares a candidate specialist model against a baseline/teacher model and
 writes `distillation_eval.v0` JSON and Markdown evidence without requiring real
 training.
 
+Generate benchmark frontier evidence across suites and model ids:
+
+```bash
+tensorfoundry-benchmark-matrix \
+  --config docs/benchmark_matrix_sample.json \
+  --work-dir results/benchmark_matrix
+```
+
+This writes `benchmark_matrix.v0` JSON and Markdown with task success, cost per
+successful task, latency p50/p95, reliability fields, mean effective score, and
+frontier picks. Dummy rows are deterministic and mandatory; hosted/local/HF rows
+skip unless their provider is explicitly required.
+
 ---
 
 ## Repository layout

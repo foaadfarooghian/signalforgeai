@@ -8,6 +8,7 @@ evaluation, trace-to-learning, and benchmarking.
 - `pilot_readiness_sample.md`: example output from the production-pilot readiness check.
 - `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
 - `distillation_recipe_sample.json`: example `distillation_recipe.v0` gate recipe.
+- `benchmark_matrix_sample.json`: example offline `benchmark_matrix.v0` config.
 - `specs/specialist_model_unit.schema.json`: machine-readable manifest schema for exchange units.
 - `../roadmap.md`: active workstreams and exit criteria.
 - `../manifesto.md`: product philosophy and explicit non-goals.
@@ -77,3 +78,14 @@ tensorfoundry-distill-check \
 
 The gate emits `distillation_eval.v0` as JSON and Markdown, comparing the
 candidate specialist model against the baseline/teacher model from the recipe.
+
+Generate benchmark matrix and frontier evidence:
+
+```bash
+tensorfoundry-benchmark-matrix \
+  --config docs/benchmark_matrix_sample.json \
+  --work-dir results/benchmark_matrix
+```
+
+The matrix emits `benchmark_matrix.v0` JSON and Markdown with scorecards for
+success, cost, latency, reliability, and effective-score frontier picks.

@@ -453,6 +453,22 @@ cases by `(suite_name, case_id)`, enforces pass-rate, mean-score, and failure-mo
 movement thresholds, and writes `distillation_eval.json` plus
 `distillation_eval.md`.
 
+Generate benchmark matrix frontier evidence after the distillation gate:
+
+```bash
+tensorfoundry-benchmark-matrix \
+  --config docs/benchmark_matrix_sample.json \
+  --work-dir results/benchmark_matrix
+```
+
+The matrix runner consumes `benchmark_matrix.v0` config, resolves packaged suite
+aliases such as `decision_v0`, iterates `suite x model_id`, and writes
+`benchmark_matrix.json` plus `benchmark_matrix.md`. It reports task success,
+cost per successful task, latency p50/p95, retry/failure rates where available,
+mean effective score, and named frontier picks. Dummy rows are mandatory for
+offline release evidence; hosted, local, and HF rows skip unless passed with
+`--require-provider`.
+
 ## Examples and Reference Workflows
 
 Examples live in `examples/`:
@@ -526,6 +542,7 @@ Defined in `pyproject.toml`:
 - `tensorfoundry-report-tradeoffs` -> `src/tensorfoundry/evaluation/report_tradeoffs.py`
 - `tensorfoundry-pricing-validate` -> `src/tensorfoundry/models/pricing/validate_openai_pricing.py`
 - `tensorfoundry-distill-check` -> `src/tensorfoundry/distillation/check.py`
+- `tensorfoundry-benchmark-matrix` -> `src/tensorfoundry/evaluation/matrix.py`
 
 There are also module CLIs:
 

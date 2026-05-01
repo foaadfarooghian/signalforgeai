@@ -134,8 +134,10 @@ the distribution layer built on top of these pillars.
 
 **Goal:** Enable apples-to-apples comparisons across models and agent patterns.
 
+**Status:** Active implementation after the distillation eval gate.
+
 ### Deliverables
-- Matrix runner for:
+- `benchmark_matrix.v0` matrix runner for:
   - model providers
   - orchestration patterns
   - tooling profiles
@@ -145,6 +147,7 @@ the distribution layer built on top of these pillars.
   - latency distribution (p50/p95)
   - reliability (failure and retry rates)
 - Frontier reports highlighting efficient operating points
+- Offline deterministic dummy matrix as the required CI-compatible path
 
 ### Exit criteria
 - Benchmark reports can be regenerated from versioned suites and artifacts

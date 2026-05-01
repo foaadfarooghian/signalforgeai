@@ -136,3 +136,4 @@ tensorfoundry-pricing-validate = "tensorfoundry.models.pricing.validate_openai_p
 tensorfoundry-report-tradeoffs = "tensorfoundry.evaluation.report_tradeoffs:main"
 tensorfoundry-learn = "tensorfoundry.learning.learn:main"
 tensorfoundry-distill-check = "tensorfoundry.distillation.check:main"
+tensorfoundry-benchmark-matrix = "tensorfoundry.evaluation.matrix:main"
