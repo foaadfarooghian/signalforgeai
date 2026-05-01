@@ -87,6 +87,7 @@ def main():
         lr_scheduler_type="cosine",
         max_grad_norm=1.0,
         report_to="none",
+        max_steps=int(os.environ.get("MAX_STEPS", "0")) if os.environ.get("MAX_STEPS") else -1,
     )
     # Avoid Unsloth's psutil default branch by setting a fixed dataset worker count.
     args.dataset_num_proc = int(os.environ.get("DATASET_NUM_PROC", "1"))

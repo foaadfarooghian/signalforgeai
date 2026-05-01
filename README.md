@@ -7,8 +7,8 @@
 </h1>
 
 <p align="center">
-  <strong>An opinionated open-source framework for engineered AI agents</strong><br/>
-  Build, orchestrate, observe, evaluate, and improve agentic workflows — not chatbots.
+  <strong>Agent engineering and learning system for production workflows</strong><br/>
+  Build runtime traces, evaluate failures, generate datasets, distill specialists, and benchmark trade-offs.
 </p>
 
 <p align="center">
@@ -22,158 +22,112 @@
 
 ## Project status
 
-**TensorFoundry is in active, pre-1.0 development.**
+**TensorFoundry is in active, pre-1.0 development (`v0.x`).**
 
-- Core abstractions are solidifying
-- Logging, orchestration, and evaluation are production-oriented
-- Learning infrastructure is present but evolving
-- **Breaking changes may occur** as APIs mature
-
-TensorFoundry is built **in the open** with correctness, observability, and long-term maintainability as first-class goals.
-
-If you’re evaluating TensorFoundry today:
-- ✅ Suitable for experimentation, research, and internal tooling
-- ⚠️ Not yet recommended for mission-critical production without pinning versions
+- APIs and schemas are still converging
+- Breaking changes are expected while core runtime contracts are stabilized
+- Best fit today: internal platforms, research, and production pilots with pinned versions
 
 ---
 
-## What is TensorFoundry?
+## Narrowed product scope
 
-**TensorFoundry** is an opinionated framework for building **agentic systems as engineered software**, not prompt demos.
+TensorFoundry is narrowing to five pillars:
 
-It is designed for teams who care about:
-- **execution**, not demos
-- **observability**, not guesswork
-- **evaluation**, not vibes
+1. **OTel/MCP-native runtime + artifact schema**
+2. **Evaluation and failure analysis for multi-step, tool-using agents**
+3. **Dataset generation from production traces**
+4. **Distillation pipeline for specialist small models**
+5. **Benchmarking cost, latency, and reliability across models and agent patterns**
 
-Agents in TensorFoundry are **stateful systems** with tools, retries, failure handling, and measurable outcomes.
-
-TensorFoundry provides the **infrastructure and abstractions** needed to build these systems —  
-*not* a fixed catalog of pre-built agents.
+This is a systems-first direction: execution artifacts and measurable outcomes come before model hype.
 
 ---
 
-## What makes TensorFoundry different
+## Pillars in practice
 
-Most agent frameworks optimise for prompts and single-run success.
+### 1) OTel/MCP-native runtime + artifact schema
+- Runtime events map cleanly to spans/events for distributed observability
+- MCP tool calls are first-class execution units
+- Shared artifact contracts for traces, rewards, eval verdicts, and dataset rows
 
-TensorFoundry optimises for:
+### 2) Evaluation + failure analysis
+- Suite-based evaluation for multi-step workflows
+- Step-level and run-level scoring
+- Failure taxonomy for tool errors, reasoning failures, recovery failures, and policy failures
+- Regression diffing across runs, models, and orchestration patterns
 
-- **Execution** — tools, state, retries, failure handling
-- **Orchestration** — planner → executor → critic patterns
-- **Observability** — structured traces as first-class artefacts
-- **Evaluation** — task-based scoring and regression detection
-- **Provider flexibility** — OpenAI, Anthropic, Gemini, local models
+### 3) Dataset generation from production traces
+- Deterministic trace ETL into SFT, preference, repair, and critique datasets
+- Provenance from dataset row back to trace/reward artifacts
+- Data quality checks for schema validity, leakage risk, and label consistency
 
-If an agent can’t be logged, validated, and compared over time, it’s not production-ready.
+### 4) Distillation for specialist small models
+- Teacher traces -> curated supervision -> student training/eval loops
+- Focus on narrow specialist capabilities rather than general chat
+- Reproducible train/eval pipelines for iterative deployment
+
+### 5) Cost/latency/reliability benchmarking
+- Comparable benchmark matrix across model providers and orchestration patterns
+- Explicit trade-off reporting (quality vs cost vs latency vs failure rate)
+- Reliability metrics for retries, tool success, and degraded-mode completion
 
 ---
 
-### Cost-aware agent routing
+## Specialist model exchange
 
-TensorFoundry supports **economics-aware model routing**:
+TensorFoundry is expanding toward a specialist model registry/exchange where the
+published unit is a **complete deployable package**, not only weights.
 
-- token usage, latency, and USD cost captured per model call
-- reward artifacts enriched with economic signals
-- online learning (Thompson Sampling) routes models per suite
-- configurable cost and latency penalties
+Each exchange unit includes:
 
-This allows agents to choose *when* expensive intelligence is worth it — and when cheaper models are “good enough”.
+- Small domain model
+- Eval pack
+- Trace/dataset lineage
+- Hardware profile
+- Failure modes
+- License and usage constraints
+- Ready-to-run artifacts (adapters, Safetensors/GGUF, Ollama packaging)
+
+See `docs/model_exchange.md` and
+`docs/specs/specialist_model_unit.schema.json` for the draft contract.
+
+Good early domains:
+
+- Nutrition
+- Auction houses
+- Document-heavy verticals
+- Compliance
+- Support operations
+- Telecom workflows
+- Cataloguing
+- Extraction
+- Ranking
+- Summarization
+
+---
+
+## What is already in this repo
+
+- Structured JSONL tracing with validation/inspection/diff tooling
+- Evaluation harnesses and benchmark suites with reward artifacts
+- Dataset export pipelines (SFT, preferences, repair pairs, curriculum)
+- Learning/routing infrastructure and experimental SFT/DPO training utilities
+- Multi-provider model abstraction (OpenAI, Ollama, HF, dummy)
 
 ---
 
 ## What TensorFoundry is not
 
-TensorFoundry is **not**:
-- a fixed set of pre-built agents
-- a chatbot framework
-- a prompt library
-- a no-code agent builder
-
-It is a **software framework** for engineering agentic systems with strong guarantees around
-logging, evaluation, and reproducibility.
+- A chatbot framework
+- A prompt library
+- A no-code builder
+- A model leaderboard without task context
+- A fixed set of built-in agents
 
 ---
 
-## What’s included (current scope, pre-1.0)
-
-TensorFoundry is a **framework**, not a catalog of agents.
-
-The components below define the **core platform**, alongside a small set of
-**reference implementations** that demonstrate how to use it.
-
-### Reference agent templates (examples)
-
-These agents are provided as **examples**, not limitations.
-You are expected to build your own domain-specific agents on top of the framework.
-
-- **ResearchAgent** — structured research with tools and synthesis
-- **DecisionAgent** — decision memos with assumptions and trade-offs
-- **RefactorAgent** — safe, deterministic code refactoring (dry-run by default)
-
-### Orchestration
-
-- Planner → Executor → Critic pattern
-- Explicit retry logic with state mutation
-
-### Logging & observability
-
-- Canonical JSONL logging schema
-- Safe-by-default payload sanitisation
-- Trace validation (`validate`)
-- Human-readable inspection (`inspect`)
-- Trace diffing (`diff`)
-
-### Evaluation
-
-- Task-based evaluation harness
-- Suite definitions in JSON
-- Result summaries and pass rates
-- Regression detection via diffing
-
-### Learning & training (Phase 4 — execution → learning)
-
-TensorFoundry includes **learning infrastructure derived directly from execution traces**:
-
-- Reward artifacts emitted per run (`reward.jsonl`)
-- Logs → SFT dataset export (instruction/prompt)
-- Logs → preference dataset export (utility + latency weighted)
-- Logs → repair pairs (failed → repaired)
-- Curriculum buckets from real executions (easy / repair / escalation)
-- Bandit-based routing integrated into evaluation
-- HF provider integrated into the evaluation loop
-- Canonical learning pipeline (`tensorfoundry-learn`)
-- Experimental teacher → student SFT / DPO utilities
-- Log-derived example datasets (`datasets/examples/`)
-
-Learning is **system-level, model-agnostic, and reversible**.
-Model weights are not automatically modified during agent execution.
-
-### Quality & CI
-
-- Tests covering orchestration, logging, and evaluation
-- CI enforcing schema correctness and evaluation success
-
----
-
-## Versioning & stability
-
-TensorFoundry follows **semantic versioning with research-grade guarantees**.
-
-- `v0.x` releases represent **capability milestones**, not API freeze
-- Learning features may evolve as reward definitions and datasets mature
-- Core principles are stable:
-  - logs are the dataset
-  - evaluation is the contract
-  - learning must be measurable and reversible
-
-`v1.0.0` will mark **interface and systems stability**, not trained models or benchmark dominance.
-
-See `VERSIONING.md` for details.
-
----
-
-## Quickstart (5 minutes)
+## Quickstart
 
 ```bash
 git clone https://github.com/foaadfarooghian/tensorfoundry.git
@@ -184,13 +138,13 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Run a **reference research agent (example)**:
+Run a reference agent example:
 
 ```bash
-python examples/quick_research_agent.py
+python examples/quickstart_research_agent.py
 ```
 
-Validate and inspect the trace:
+Validate and inspect the latest trace:
 
 ```bash
 python -m tensorfoundry.logging.validate logs/$(ls -t logs | head -n 1)
@@ -204,16 +158,30 @@ python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quick
 python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json
 ```
 
----
+Run the deterministic production-pilot readiness loop:
 
-## Core ideas
+```bash
+tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_check
+```
 
-- Agents ≠ chatbots
-- Logs are the dataset
-- Evaluation > clever prompts
-- Orchestration is the product
+This writes:
+- `results/pilot_check/pilot_readiness.md`
+- `results/pilot_check/pilot_readiness.json`
+- `results/pilot_check/logs/` with `trace.v0` and `reward.v0` artifacts
+- `results/pilot_check/datasets/manifest.json` plus SFT, preference, repair, and curriculum exports
 
-See `manifesto.md` for the full philosophy and `roadmap.md` for what’s coming next.
+Optional provider smoke checks can be required in configured environments:
+
+```bash
+tensorfoundry-pilot-check --require-provider hosted
+tensorfoundry-pilot-check --require-provider local
+```
+
+Training remains experimental, but the dataset/training preflight is available without loading models:
+
+```bash
+tensorfoundry-learn train --base-model dummy/base --sft --sft-data datasets/pilot.sft.jsonl --dry-run
+```
 
 ---
 
@@ -221,22 +189,25 @@ See `manifesto.md` for the full philosophy and `roadmap.md` for what’s coming 
 
 ```text
 src/tensorfoundry/
-├── agents/          # Reference agent templates (examples)
-├── orchestration/   # Planner–Executor–Critic patterns
-├── logging/         # Schema, emitter, validate, inspect, diff
-├── evaluation/      # Harness, suites, results diff
-├── examples/        # Runnable examples
-└── docs/            # Design notes
+├── agents/          # Reference agents used by eval suites
+├── orchestration/   # Multi-step execution patterns
+├── logging/         # Trace schema, emitter, validation, inspection
+├── evaluation/      # Suites, harness, scoring, reporting
+├── export/          # Trace -> dataset transformations
+├── learning/        # Routing and learning loop primitives
+└── training/        # Experimental SFT/DPO components
 ```
 
-Other top-level directories:
-- `learning_ops/` — policies, bandit state, and experimental training utilities
-- `datasets/` — generated JSONL datasets
+Top-level runtime assets:
+- `logs/` -> execution traces and reward artifacts
+- `datasets/` -> generated learning datasets
+- `results/` -> evaluation outputs and summaries
+
+See `manifesto.md` for principles and `roadmap.md` for the focused build plan.
 
 ---
 
 ## Branching & releases
 
-- `prod` — protected, tagged releases
-- `dev` — integration branch for ongoing work
-
+- `prod` -> protected, tagged releases
+- `dev` -> integration branch for ongoing work

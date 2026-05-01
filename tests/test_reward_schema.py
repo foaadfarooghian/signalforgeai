@@ -15,7 +15,13 @@ def test_reward_jsonl_roundtrip():
         overall_score=0.9,
         subscores={"format": 1.0},
         violations=[],
+        failure_mode="expectation_failed",
+        diagnosis={"notes": ["missing keyword"]},
+        artifact_refs={"trace": "logs/t1.jsonl"},
     )
     obj = json.loads(r.to_jsonl())
     assert obj["version"] == "reward.v0"
     assert 0.0 <= obj["overall_score"] <= 1.0
+    assert obj["failure_mode"] == "expectation_failed"
+    assert obj["diagnosis"]["notes"] == ["missing keyword"]
+    assert obj["artifact_refs"]["trace"] == "logs/t1.jsonl"

@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 
+TRACE_SCHEMA_VERSION = "trace.v0"
+TOOL_EVENT_TYPES = {"tool_called", "tool_result", "tool_error"}
+
+
 def new_trace_id() -> str:
     """Generate a new trace identifier."""
     return uuid.uuid4().hex
@@ -90,6 +94,37 @@ def sanitize_payload(
     return {"value": sanitized}
 
 
+def normalize_tool_payload(event_type: str, payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Return a normalized tool payload for new trace.v0 tool events."""
+    raw = dict(payload or {})
+    if event_type not in TOOL_EVENT_TYPES:
+        return raw
+
+    tool_name = raw.get("tool_name") or raw.get("tool") or ""
+    tool_input = raw.get("tool_input")
+    if tool_input is None:
+        tool_input = {
+            k: v
+            for k, v in raw.items()
+            if k
+            not in {
+                "tool_name",
+                "tool",
+                "tool_input",
+                "tool_output_summary",
+                "success",
+                "error",
+            }
+        }
+    raw["tool_name"] = str(tool_name) if tool_name is not None else ""
+    raw["tool_input"] = tool_input if isinstance(tool_input, dict) else {"value": tool_input}
+    raw["tool_output_summary"] = str(raw.get("tool_output_summary") or "")
+    if "success" not in raw:
+        raw["success"] = True if event_type == "tool_result" else None
+    raw["error"] = raw.get("error")
+    return raw
+
+
 def sha256_text(text: str) -> str:
     """Hash a string payload to avoid logging raw sensitive text."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -112,7 +147,9 @@ class Event:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a JSON-serializable dictionary with sanitized fields."""
+        payload = normalize_tool_payload(self.event_type, self.payload)
         return {
+            "schema_version": TRACE_SCHEMA_VERSION,
             "trace_id": self.trace_id,
             "span_id": self.span_id,
             "parent_span_id": self.parent_span_id,
@@ -120,7 +157,7 @@ class Event:
             "agent": self.agent,
             "stage": self.stage,
             "event_type": self.event_type,
-            "payload": sanitize_payload(self.payload),
+            "payload": sanitize_payload(payload),
             "metrics": sanitize_payload(self.metrics),
             "outcome": sanitize_payload(
                 self.outcome,

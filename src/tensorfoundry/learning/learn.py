@@ -5,12 +5,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Optional, Set
 
 from tensorfoundry.export.dataset import export_sft
 from tensorfoundry.export.preferences import export_preferences
 from tensorfoundry.export.repairs import export_repairs
+from tensorfoundry.export.validate import validate_dataset_jsonl
 from tensorfoundry.learning.curriculum import export_curriculum
 
 
@@ -150,12 +152,40 @@ def _train_cmd(args: argparse.Namespace) -> int:
         raise SystemExit("--base-model is required for training")
 
     os.environ["BASE_MODEL"] = args.base_model
+    if args.max_steps > 0:
+        os.environ["MAX_STEPS"] = str(args.max_steps)
     if args.dataset_num_proc:
         os.environ["DATASET_NUM_PROC"] = str(args.dataset_num_proc)
     if args.instruction_part:
         os.environ["INSTRUCTION_PART"] = args.instruction_part
     if args.response_part:
         os.environ["RESPONSE_PART"] = args.response_part
+
+    if args.dry_run:
+        checks = []
+        if args.sft:
+            checks.append(validate_dataset_jsonl(args.sft_data, kind="sft"))
+        if args.dpo:
+            checks.append(validate_dataset_jsonl(args.dpo_data, kind="dpo"))
+        deps = {
+            name: find_spec(name) is not None
+            for name in ("datasets", "transformers", "trl", "unsloth")
+        }
+        payload = {
+            "dry_run": True,
+            "base_model": args.base_model,
+            "datasets": [c.to_dict() for c in checks],
+            "optional_dependencies": deps,
+            "outputs": {
+                "sft_out": args.sft_out if args.sft else None,
+                "dpo_out": args.dpo_out if args.dpo else None,
+            },
+            "smoke": bool(args.smoke),
+            "max_steps": int(args.max_steps),
+        }
+        print(json.dumps(payload, indent=2))
+        deps_ok = all(deps.values()) if args.smoke else True
+        return 0 if all(c.ok for c in checks) and deps_ok else 2
 
     if args.sft:
         os.environ["SFT_DATASET"] = args.sft_data
@@ -245,6 +275,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     tr.add_argument("--dataset-num-proc", type=int, default=1, help="Dataset worker processes")
     tr.add_argument("--instruction-part", type=str, default="", help="Override instruction separator")
     tr.add_argument("--response-part", type=str, default="", help="Override response separator")
+    tr.add_argument("--dry-run", action="store_true", help="Validate training inputs without loading models")
+    tr.add_argument("--smoke", action="store_true", help="Run a minimal training smoke when optional deps are installed")
+    tr.add_argument("--max-steps", type=int, default=0, help="Limit training steps for smoke runs (0 = trainer default)")
 
     args = parser.parse_args(argv)
     if args.command == "export":

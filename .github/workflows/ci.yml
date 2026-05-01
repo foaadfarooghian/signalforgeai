@@ -40,14 +40,22 @@ jobs:
 
       - name: Run tests
         env:
-          TF_ALLOW_NETWORK: "true"
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TENSORFOUNDRY_PROVIDER: dummy
+          TENSORFOUNDRY_MODEL_ID: dummy_good
         run: |
           pytest -q
+
+      - name: Run pilot readiness check
+        env:
+          TENSORFOUNDRY_PROVIDER: dummy
+          TENSORFOUNDRY_MODEL_ID: dummy_good
+        run: |
+          tensorfoundry-pilot-check --mode dummy --work-dir /tmp/tensorfoundry-pilot-check
 
       - name: Run Benchmark v0 suites + validate run logs
         env:
           TENSORFOUNDRY_PROVIDER: dummy
+          TENSORFOUNDRY_MODEL_ID: dummy_good
           TENSORFOUNDRY_CANDIDATE_MODELS: dummy_good,dummy_mid,dummy_bad
           TENSORFOUNDRY_BANDIT_MIN_PULLS: "5"
         run: |

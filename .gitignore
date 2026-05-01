@@ -54,6 +54,7 @@ datasets/
 !datasets/examples
 
 # Learning ops outputs
+learning/bandits/
 learning_ops/bandits/
 learning_ops/datasets/
 learning_ops/experiments/

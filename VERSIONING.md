@@ -18,6 +18,12 @@ The project is an evolving agent-engineering system where:
 Pre-1.0 does **not** mean unstable or toy-grade. It means:
 > correctness, observability, and reversibility take priority over frozen APIs.
 
+Current pilot-readiness contracts are stabilized additively:
+- new traces emit `schema_version: "trace.v0"`
+- legacy traces without `schema_version` remain valid
+- rewards remain `reward.v0`
+- exported datasets remain `sft.v0`, `prefs.v0`, `dpo.v0`, `repairs.v0`, and `curriculum.v0`
+
 ---
 
 ## What version numbers mean

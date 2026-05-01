@@ -1,210 +1,189 @@
 # TensorFoundry Roadmap
 
-This roadmap describes how TensorFoundry evolves from open-source agent building blocks into a full system for **engineering, evaluating, and improving agentic intelligence**.
+This roadmap narrows TensorFoundry to an **agent engineering + learning system**
+built around five pillars:
 
-The focus is deliberate:
-- Systems before models
-- Execution before learning
-- Reliability before scale
+1. OTel/MCP-native runtime + artifact schema
+2. Evaluation and failure analysis for multi-step/tool-using agents
+3. Dataset generation from production traces
+4. Distillation pipeline for specialist small models
+5. Benchmarking cost/latency/reliability across models and agent patterns
 
-Dates are indicative. Milestones matter more than calendars.
+The sequence is deliberate: stabilize runtime contracts first, then evaluation,
+then learning loops, then model specialization. A specialist model exchange is
+the distribution layer built on top of these pillars.
 
 ---
 
-## Phase 0 — Foundation (Now)
+## Scope (explicit)
 
-**Goal:** Establish TensorFoundry as a serious, opinionated open-source project for agent engineering.
+### In scope
+- Trace-centric runtime for tool-using agents
+- Measurable reliability and failure diagnostics
+- Deterministic trace-to-dataset pipelines
+- Reproducible specialist distillation
+- Cross-model/pattern benchmark reporting
+
+### Out of scope
+- Prompt-only abstractions
+- UI-first product work
+- Generic chatbot features
+- Leaderboards detached from task execution traces
+
+---
+
+## Workstream A — Runtime Contracts (OTel + MCP)
+
+**Goal:** Make runtime telemetry and tool interfaces interoperable by default.
 
 ### Deliverables
-- Repository structure and governance
-- Manifesto and design principles
-- Clear scope and non-goals
-- First runnable example
-
-### Status
-- Repo skeleton
-- Manifesto
-- Roadmap
-
-### Exit criteria
-- A new contributor understands what TensorFoundry is and is not
-- Repo can be cloned and executed locally
-- Direction is unambiguous
-
----
-
-## Phase 1 — Agent Templates & Orchestration (Weeks 1–4)
-
-**Goal:** Provide practical, production-oriented blueprints for building agents.
-
-### Agent templates
-- Research Agent (plan → tool use → synthesis)
-- Codebase Refactor Agent (read → plan → patch → validate)
-- Decision / Analysis Agent (assumptions → options → trade-offs)
-
-Each agent includes:
-- Explicit input/output schemas
-- State representation
-- Tool interfaces
-- Failure modes
-
-### Orchestration patterns
-- Planner → Executor → Critic
-- Retry with state mutation
-- Cost-aware model routing
-- Deterministic fallbacks
+- Canonical runtime artifact schema for:
+  - `trace.jsonl`
+  - `reward.jsonl`
+  - eval verdict artifacts
+  - dataset provenance metadata
+- OTel mapping spec:
+  - trace/span IDs, stages, events, attributes, errors
+- MCP-native tool execution contract:
+  - tool request/response envelopes
+  - retries/timeouts/error classification
 
 ### Exit criteria
-- Agents can be composed interchangeably with orchestration patterns
-- Patterns are documented with trade-offs and failure cases
-- At least one end-to-end agent demo runs reliably
+- Every run can be exported as valid OTel-compatible spans/events
+- MCP tool calls are represented consistently in trace artifacts
+- Schema versioning and migration rules are documented
 
 ---
 
-## Phase 2 — Evaluation & Logging (Weeks 3–6)
+## Workstream B — Evaluation and Failure Analysis
 
-**Goal:** Make agent behaviour measurable, comparable, and debuggable.
+**Goal:** Make multi-step agent quality diagnosable, not just scorable.
 
-### Evaluation
-- Task-based evaluation suites
-- Metrics:
-  - Task success
-  - Cost per success
-  - Latency
-  - Robustness / variance
-- Regression detection across versions
-
-### Logging
-- Canonical execution trace schema
-- Structured JSONL logs capturing:
-  - State transitions
-  - Tool usage
-  - Decisions and retries
-  - Errors and outcomes
-  - Cost and latency
+### Deliverables
+- Evaluation harness upgrades for multi-step + tool-heavy runs
+- Failure taxonomy:
+  - tool invocation failures
+  - planning/reasoning failures
+  - recovery policy failures
+  - orchestration state failures
+- Failure analysis reports:
+  - where failure began
+  - what recovery attempted
+  - why final outcome failed/succeeded
 
 ### Exit criteria
-- Every agent run emits valid structured logs
-- Agents can be evaluated consistently across runs
-- Failures are inspectable and reproducible
+- Eval output includes both score and structured failure diagnosis
+- Regression diffing identifies failure mode movement, not only pass/fail deltas
+- Runs are reproducible from stored artifacts
 
 ---
 
-## Phase 3 — Benchmarks & Community (Weeks 6–10)
+## Workstream C — Trace -> Dataset Generation
 
-**Goal:** Define what “good” looks like for agentic systems.
+**Goal:** Convert production traces into high-quality supervised signals.
 
-### Benchmarks
-- Public benchmark suite for agentic tasks
-- Tasks across:
-  - Research
-  - Code modification
-  - Operational decision-making
-- Clear scoring rubrics (outcome-focused)
-
-### Community
-- Contribution guidelines for agents and patterns
-- RFC process for major changes
-- First external contributors
+### Deliverables
+- Deterministic ETL for:
+  - SFT examples
+  - preference pairs
+  - repair trajectories
+  - critique/rubric examples
+- Provenance guarantees (row -> trace/span/case link)
+- Data quality checks:
+  - schema validity
+  - duplicate filtering
+  - leakage/split hygiene
 
 ### Exit criteria
-- Third parties can benchmark their agents against TensorFoundry tasks
-- Contributions follow consistent interfaces and standards
+- Dataset exports are reproducible from the same trace corpus
+- Every dataset row is attributable to a source run
+- Quality checks are enforced in CI or pre-release validation
 
 ---
 
-## Phase 4 — Logs → Learning (Design-first)
+## Workstream D — Specialist Distillation Pipeline
 
-**Goal:** Turn execution traces into training signal.
+**Goal:** Train small specialist models from execution-derived supervision.
 
-> This phase focuses on **infrastructure and interfaces**, not large-scale training.
-
-### Learning pipelines
-- Log → imitation dataset conversion
-- Preference extraction from successful vs failed traces
-- Curriculum construction from real executions
-
-### Model-agnostic design
-- No coupling to a single framework or provider
-- Supports:
-  - Teacher–student distillation
-  - Offline fine-tuning
-  - Continual learning loops
-
-### Current status (repo)
-- [x] Reward artifacts emitted from evaluation runs (`reward.jsonl`)
-- [x] Logs → SFT dataset export (instruction/prompt)
-- [x] Logs → preference dataset export (utility + latency weighted)
-- [x] Logs → repair pairs (failed → repaired)
-- [x] Teacher → student QLoRA SFT + DPO (experimental)
-- [x] HF provider integrated into evaluation loop
-- [x] Curriculum construction from real executions
-- [x] Canonical learn pipeline (`tensorfoundry-learn`)
-- [x] Example datasets derived from logs (`datasets/examples/`)
+### Deliverables
+- Teacher run capture and curation workflow
+- Student training pipeline (SFT first, optional preference optimization)
+- Distillation eval gate:
+  - specialist benchmark pass thresholds
+  - cost/latency improvement targets
+- Packaging path for local/private deployment
 
 ### Exit criteria
-- Example datasets generated from real agent logs
-- Clear training interfaces defined
-- Small-scale experiments reproducible
+- At least one specialist student model reaches benchmark quality gates
+- Distilled model shows favorable cost/latency at acceptable reliability
+- Training and evaluation runs are reproducible end-to-end
 
 ---
 
-## Phase 5 — Small Agent-Optimised Models (Future)
+## Workstream E — Benchmark Matrix (Cost/Latency/Reliability)
 
-**Goal:** Train and deploy small, specialised models optimised for agent execution.
+**Goal:** Enable apples-to-apples comparisons across models and agent patterns.
 
-### Focus
-- ~0.5B–1B parameter models
-- Trained on:
-  - Agent execution traces
-  - Tool usage patterns
-  - Recovery and retry behaviour
-
-### Capabilities
-- Planning and execution reliability
-- Lower inference cost
-- Private / local deployment
-
-### Non-goals
-- Competing with foundation models
-- General-purpose chat capabilities
+### Deliverables
+- Matrix runner for:
+  - model providers
+  - orchestration patterns
+  - tooling profiles
+- Unified scorecard with:
+  - task success
+  - cost per successful task
+  - latency distribution (p50/p95)
+  - reliability (failure and retry rates)
+- Frontier reports highlighting efficient operating points
 
 ### Exit criteria
-- Small models outperform larger models on defined agent benchmarks
-- Demonstrable cost and reliability gains
+- Benchmark reports can be regenerated from versioned suites and artifacts
+- Trade-off frontiers are visible by task family
+- Release decisions can reference benchmark evidence directly
 
 ---
 
-## What success looks like
+## Workstream F — Specialist Model Registry / Exchange
 
-TensorFoundry succeeds if:
-- Engineers use it to build real agents, not demos
-- Agent behaviour is measurable and improvable
-- Execution logs become a first-class training asset
-- Small models reliably execute structured tasks
+**Goal:** Publish specialist models as complete operational units.
+
+### Deliverables
+- Specialist unit manifest spec (domain model + eval + lineage + ops constraints)
+- Machine-validated schema for exchange entries
+- Registry index format with immutable artifact references
+- Packaging standards for:
+  - adapters
+  - Safetensors/GGUF weights
+  - Ollama-ready bundles
+- Governance rules for license and usage-constraint disclosure
+
+### Exit criteria
+- Every listed model has a valid unit manifest
+- Eval pack and benchmark evidence are linked in each listing
+- Trace/dataset lineage is auditable for each published version
+- Hardware profile and known failure modes are documented per unit
+- Consumers can run listed artifacts without bespoke integration work
 
 ---
 
-## What we deliberately avoid
+## Current baseline (already present in repo)
 
-- Prompt-only abstractions
-- Model leaderboards without tasks
-- Unmeasurable “intelligence”
-- Vendor lock-in
-- UI-first development
+- Structured trace emission and validation
+- Additive `trace.v0` emission with legacy trace compatibility
+- Evaluation suites + reward artifact emission
+- Trace export to SFT/preferences/repair datasets
+- Production-pilot readiness check for eval -> reward -> dataset validation
+- Provider readiness checks for dummy, hosted, and local model paths
+- Training dry-run preflight for SFT/DPO inputs
+- Learning/routing primitives and experimental training utilities
+- Cost/latency-aware evaluation reporting
 
 ---
 
-## Summary
+## Success criteria for this roadmap
 
-TensorFoundry is built bottom-up:
-1. **Agents**
-2. **Orchestration**
-3. **Evaluation**
-4. **Logs**
-5. **Learning**
-6. **Models**
-
-Each layer compounds the next.
-
-This repository starts at the foundation.
+TensorFoundry succeeds when:
+- Production traces become the canonical source for eval and learning
+- Reliability regressions are diagnosed by failure mode, not anecdotes
+- Specialist models are trained and validated against real agent workloads
+- Model/pattern choices are made from benchmark evidence, not intuition

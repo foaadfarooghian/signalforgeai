@@ -54,6 +54,60 @@ def test_valid_trace_passes(tmp_path: Path) -> None:
 
     issues = validate_trace_file(fp)
     assert issues == []
+    assert e1["schema_version"] == "trace.v0"
+
+
+def test_tool_event_payload_is_normalized_and_valid(tmp_path: Path) -> None:
+    trace_id = new_trace_id()
+    root_span = new_span_id()
+    tool_event = make_event(
+        trace_id=trace_id,
+        span_id=root_span,
+        agent_name="research_agent",
+        agent_version="0.1.0",
+        stage="executor",
+        event_type="tool_called",
+        payload={"tool": "search", "query": "tensorfoundry"},
+    ).to_dict()
+    terminal = make_event(
+        trace_id=trace_id,
+        span_id=new_span_id(),
+        parent_span_id=root_span,
+        agent_name="research_agent",
+        agent_version="0.1.0",
+        stage="system",
+        event_type="task_completed",
+        outcome={"status": "success"},
+    ).to_dict()
+
+    fp = tmp_path / "trace.jsonl"
+    _write_jsonl(fp, [tool_event, terminal])
+
+    assert tool_event["payload"]["tool_name"] == "search"
+    assert tool_event["payload"]["tool_input"] == {"query": "tensorfoundry"}
+    assert tool_event["payload"]["tool_output_summary"] == ""
+    assert tool_event["payload"]["success"] is None
+    assert "error" in tool_event["payload"]
+    assert validate_trace_file(fp) == []
+
+
+def test_legacy_trace_without_schema_version_still_validates(tmp_path: Path) -> None:
+    trace_id = new_trace_id()
+    ev = make_event(
+        trace_id=trace_id,
+        span_id=new_span_id(),
+        agent_name="research_agent",
+        agent_version="0.1.0",
+        stage="system",
+        event_type="task_completed",
+        outcome={"status": "success"},
+    ).to_dict()
+    ev.pop("schema_version")
+
+    fp = tmp_path / "trace.jsonl"
+    _write_jsonl(fp, [ev])
+
+    assert validate_trace_file(fp) == []
 
 
 def test_missing_terminal_event_fails(tmp_path: Path) -> None:

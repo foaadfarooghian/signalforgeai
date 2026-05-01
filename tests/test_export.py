@@ -7,6 +7,7 @@ from pathlib import Path
 from tensorfoundry.export.dataset import export_sft
 from tensorfoundry.export.preferences import export_preferences
 from tensorfoundry.export.repairs import export_repairs
+from tensorfoundry.export.validate import validate_dataset_jsonl
 from tensorfoundry.learning.curriculum import export_curriculum
 
 
@@ -299,3 +300,32 @@ def test_export_curriculum_assigns_easy_bucket(tmp_path: Path) -> None:
     row = json.loads(out_path.read_text(encoding="utf-8").splitlines()[0])
     assert row["bucket"] == "easy"
     assert row["difficulty"] == 1
+
+
+def test_dataset_validator_accepts_sft_export(tmp_path: Path) -> None:
+    out_path = tmp_path / "sft.jsonl"
+    _write_jsonl(
+        out_path,
+        [
+            {
+                "version": "sft.v0",
+                "instruction": "Task: test",
+                "prompt": "Task: test",
+                "response": "A useful response",
+                "meta": {"trace_id": "t1"},
+            }
+        ],
+    )
+
+    result = validate_dataset_jsonl(out_path, kind="sft")
+    assert result.ok is True
+    assert result.rows == 1
+
+
+def test_dataset_validator_rejects_empty_export(tmp_path: Path) -> None:
+    out_path = tmp_path / "prefs.jsonl"
+    out_path.write_text("", encoding="utf-8")
+
+    result = validate_dataset_jsonl(out_path, kind="prefs")
+    assert result.ok is False
+    assert "dataset has no rows" in result.issues

@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import json
 from datetime import datetime, timezone
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from tensorfoundry.logging.emitter import JsonlEmitter
@@ -28,6 +28,9 @@ class CaseResult:
     terminal_status: Optional[str]
     terminal_reason: Optional[str]
     notes: List[str]
+    failure_mode: Optional[str] = None
+    diagnosis: Dict[str, Any] = field(default_factory=dict)
+    artifact_refs: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,60 @@ def _get_model_id() -> str:
     """Resolve the current model identifier from environment variables."""
     # If you route models elsewhere, replace this later.
     return os.getenv("TENSORFOUNDRY_MODEL_ID") or "unknown"
+
+
+def _classify_exception(exc: BaseException) -> str:
+    """Classify runtime exceptions into stable failure buckets."""
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    if "url" in name or "connection" in name or "timeout" in name or "api" in name:
+        return "provider_error"
+    if "openai" in text or "ollama" in text or "hf" in text or "huggingface" in text:
+        return "provider_error"
+    if "file" in name or "path" in name or "permission" in name:
+        return "tool_error"
+    return "runtime_error"
+
+
+def _failure_mode_from_violations(
+    *,
+    violations: List[str],
+    terminal_status: Optional[str],
+    runner_error: Optional[BaseException] = None,
+) -> Optional[str]:
+    """Return a concise failure taxonomy value for reward/report artifacts."""
+    if runner_error is not None:
+        return _classify_exception(runner_error)
+    if any(v.startswith("trace_invalid:") for v in violations):
+        return "trace_invalid"
+    if "scoring_failed" in violations:
+        return "scoring_error"
+    if any(v.startswith("expectation:") for v in violations):
+        return "expectation_failed"
+    if terminal_status == "failure":
+        return "agent_failure"
+    return None
+
+
+def _diagnosis(
+    *,
+    notes: List[str],
+    violations: List[str],
+    terminal_status: Optional[str],
+    terminal_reason: Optional[str],
+    runner_error: Optional[BaseException] = None,
+) -> Dict[str, Any]:
+    """Build a small machine-readable diagnosis object."""
+    out: Dict[str, Any] = {
+        "terminal_status": terminal_status,
+        "terminal_reason": terminal_reason,
+        "violations": violations,
+        "notes": notes,
+    }
+    if runner_error is not None:
+        out["exception_type"] = type(runner_error).__name__
+        out["exception"] = str(runner_error)[:300]
+    return out
 
 
 def _load_suite(path: Path) -> Dict[str, Any]:
@@ -165,7 +222,7 @@ def run_suite(
     scoring_name = scoring_raw if isinstance(scoring_raw, str) else "default_v0"
     scoring_params_raw = suite.get("scoring_params", {})
     scoring_params = scoring_params_raw if isinstance(scoring_params_raw, dict) else {}
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     run_logs_dir = logs_dir / run_id
 
     commit_sha = _get_commit_sha()
@@ -199,9 +256,31 @@ def run_suite(
         trace_path = run_logs_dir / f"{trace_id}.jsonl"
         emitter.file_path = trace_path
 
-        # Run
+        # Run. Runtime/provider exceptions become trace/reward artifacts instead of aborting the suite.
+        runner_error: Optional[BaseException] = None
+        result_obj: Dict[str, Any] = {}
         with emitter:
-            result_obj = runner(task, inputs, emitter)
+            try:
+                result_obj = runner(task, inputs, emitter)
+            except Exception as exc:
+                runner_error = exc
+                runner_failure_mode = _classify_exception(exc)
+                emitter.emit(
+                    event_type="task_failed",
+                    stage="system",
+                    trace_id=trace_id,
+                    payload={"task": task, "error_type": type(exc).__name__},
+                    outcome={
+                        "status": "failure",
+                        "reason": "runner_exception",
+                        "failure_mode": runner_failure_mode,
+                        "diagnosis": {"exception": str(exc)[:300]},
+                    },
+                )
+                result_obj = {
+                    "trace_id": trace_id,
+                    "error": {"type": type(exc).__name__, "message": str(exc)},
+                }
         # Validate trace
         issues = validate_trace_file(trace_path)
         if issues:
@@ -212,6 +291,20 @@ def run_suite(
             input_tokens = None
             output_tokens = None
             total_tokens = None
+            violations = [f"trace_invalid:{i.code}" for i in issues]
+            failure_mode = _failure_mode_from_violations(
+                violations=violations,
+                terminal_status=None,
+                runner_error=runner_error,
+            )
+            diagnosis = _diagnosis(
+                notes=notes,
+                violations=violations,
+                terminal_status=None,
+                terminal_reason=None,
+                runner_error=runner_error,
+            )
+            artifact_refs = {"trace": str(trace_path)}
             case_results.append(
                 CaseResult(
                     case_id=case_id,
@@ -222,10 +315,12 @@ def run_suite(
                     terminal_status=None,
                     terminal_reason=None,
                     notes=notes,
+                    failure_mode=failure_mode,
+                    diagnosis=diagnosis,
+                    artifact_refs=artifact_refs,
                 )
             )
 
-            violations = [f"trace_invalid:{i.code}" for i in issues]
             rationale = "; ".join([f"{i.code} {i.message}" for i in issues])[:300]  # short
 
             rewards.append(
@@ -249,6 +344,9 @@ def run_suite(
                     violations=violations,
                     terminal_status=None,
                     terminal_reason=None,
+                    failure_mode=failure_mode,
+                    diagnosis=diagnosis,
+                    artifact_refs=artifact_refs,
                     rationale=rationale,
                 )
             )
@@ -280,12 +378,17 @@ def run_suite(
             events=events,
             scoring_params=scoring_params,
         )
-        try:
-            passed, score, notes = scorer(ctx)
-        except Exception as exc:
+        if runner_error is not None:
             passed = False
             score = 0.0
-            notes = [f"scoring_failed: {type(exc).__name__}: {exc}"]
+            notes = [f"runner_failed: {type(runner_error).__name__}: {runner_error}"]
+        else:
+            try:
+                passed, score, notes = scorer(ctx)
+            except Exception as exc:
+                passed = False
+                score = 0.0
+                notes = [f"scoring_failed: {type(exc).__name__}: {exc}"]
 
         violations = []
         # make evaluation reasons machine-readable
@@ -296,6 +399,29 @@ def run_suite(
                 violations.append("expectation:contains_any_missing")
             if n.startswith("scoring_failed"):
                 violations.append("scoring_failed")
+            if n.startswith("runner_failed"):
+                violations.append(
+                    f"runner_failed:{_classify_exception(runner_error)}"
+                    if runner_error is not None
+                    else "runner_failed:runtime_error"
+                )
+
+        if terminal_status == "failure" and "terminal:failure" not in violations:
+            violations.append("terminal:failure")
+
+        failure_mode = _failure_mode_from_violations(
+            violations=violations,
+            terminal_status=str(terminal_status) if terminal_status is not None else None,
+            runner_error=runner_error,
+        )
+        diagnosis = _diagnosis(
+            notes=notes,
+            violations=violations,
+            terminal_status=str(terminal_status) if terminal_status is not None else None,
+            terminal_reason=str(terminal_reason) if terminal_reason is not None else None,
+            runner_error=runner_error,
+        )
+        artifact_refs = {"trace": str(trace_path)}
 
         rewards.append(
             RewardV0(
@@ -324,6 +450,9 @@ def run_suite(
                 violations=violations,
                 terminal_status=str(terminal_status) if terminal_status is not None else None,
                 terminal_reason=str(terminal_reason) if terminal_reason is not None else None,
+                failure_mode=failure_mode,
+                diagnosis=diagnosis,
+                artifact_refs=artifact_refs,
                 rationale=("; ".join(notes)[:300] if notes else None),
             )
         )
@@ -338,6 +467,9 @@ def run_suite(
                 terminal_status=str(terminal_status) if terminal_status is not None else None,
                 terminal_reason=str(terminal_reason) if terminal_reason is not None else None,
                 notes=notes,
+                failure_mode=failure_mode,
+                diagnosis=diagnosis,
+                artifact_refs=artifact_refs,
             )
         )
 

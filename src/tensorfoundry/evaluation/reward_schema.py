@@ -42,6 +42,9 @@ class RewardV0:
     latency_ms: Optional[int] = None
     terminal_status: Optional[str] = None
     terminal_reason: Optional[str] = None
+    failure_mode: Optional[str] = None
+    diagnosis: dict[str, Any] = field(default_factory=dict)
+    artifact_refs: dict[str, str] = field(default_factory=dict)
     rationale: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 

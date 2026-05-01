@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tensorfoundry.learning.bandits import RoutingBanditsV0, candidate_models_from_env
 from tensorfoundry.learning.build_policy import build_routing_policy_v0
+from tensorfoundry.learning.learn import main as learn_main
 from tensorfoundry.learning.model_stats import RoutingStatsV0
 from tensorfoundry.learning.routing_policy import RoutingPolicyV0
 
@@ -68,3 +69,50 @@ def test_routing_policy_load_and_pick(tmp_path: Path) -> None:
     policy = RoutingPolicyV0.load(path)
     assert policy.pick_model("s1") == "m1"
     assert policy.pick_model("unknown") == "m0"
+
+
+def test_train_dry_run_validates_sft_and_dpo(tmp_path: Path) -> None:
+    sft = tmp_path / "sft.jsonl"
+    dpo = tmp_path / "dpo.jsonl"
+    sft.write_text(
+        json.dumps(
+            {
+                "version": "sft.v0",
+                "instruction": "Task: train",
+                "prompt": "Task: train",
+                "response": "A training response",
+                "meta": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dpo.write_text(
+        json.dumps(
+            {
+                "version": "dpo.v0",
+                "prompt": "Task: train",
+                "chosen": "Better response",
+                "rejected": "Worse response",
+                "meta": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--dpo",
+            "--sft-data",
+            str(sft),
+            "--dpo-data",
+            str(dpo),
+            "--dry-run",
+        ]
+    )
+    assert code == 0

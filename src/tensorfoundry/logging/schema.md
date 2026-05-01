@@ -51,6 +51,7 @@ Each line represents a **single event** in an agent run.
 
 ```json
 {
+  "schema_version": "trace.v0",
   "trace_id": "uuid",
   "span_id": "uuid",
   "parent_span_id": "uuid | null",
@@ -67,4 +68,27 @@ Each line represents a **single event** in an agent run.
 }
 ```
 
+`schema_version` is emitted for new traces. Legacy traces without this field
+remain valid during the v0 compatibility window.
 
+## Tool event payloads
+
+New `trace.v0` tool events normalize payloads to include:
+
+```json
+{
+  "tool_name": "string",
+  "tool_input": {},
+  "tool_output_summary": "string",
+  "success": "boolean | null",
+  "error": "string | object | null"
+}
+```
+
+## OTel export
+
+Trace JSONL files can be exported to OpenTelemetry-compatible JSON:
+
+```bash
+tensorfoundry-otel-export logs/<run_id>/<trace_id>.jsonl
+```

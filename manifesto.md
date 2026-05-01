@@ -28,17 +28,18 @@ TensorFoundry treats agents as **software systems**, subject to the same rigor a
 
 ---
 
-## Orchestration is the product
+## Runtime is the product
 
 Most agent frameworks focus on *how to talk to a model*.  
-We focus on **how systems behave over time**.
+We focus on **how systems execute over time**.
 
-Orchestration includes:
+Runtime engineering includes:
 - Planner → Executor → Critic loops
 - Cost-aware model routing
 - Retry strategies that mutate state, not just prompts
-- Multi-agent coordination and debate
 - Deterministic fallbacks when intelligence fails
+- OTel-native trace semantics for production observability
+- MCP-native tool invocation contracts
 
 This layer — not the model — is where reliability is built.
 
@@ -54,6 +55,7 @@ TensorFoundry evaluates agents on:
 - Latency
 - Robustness under perturbation
 - Regression across versions
+- Failure-mode distribution across multi-step/tool-using runs
 
 If you cannot measure whether an agent is improving, you are guessing.
 
@@ -66,13 +68,14 @@ Agents should fail loudly, measurably, and informatively.
 Static datasets are a snapshot.  
 Agent execution logs are a **living record of intelligence in action**.
 
-Every agent run should produce structured traces:
+Every agent run should produce structured traces and artifacts:
 - Decisions made
 - Tools used
 - Failures encountered
 - Retries attempted
 - Costs incurred
 - Outcomes achieved
+- Eval verdicts and reward rows
 
 These logs are not just for debugging — they are the foundation for:
 - Imitation learning
@@ -149,12 +152,21 @@ If your system cannot survive model changes, cost constraints, or partial failur
 
 ## Our direction
 
-TensorFoundry will evolve across three layers:
-1. **Agent templates** — practical, production-oriented blueprints
-2. **Orchestration and evaluation** — the reliability layer
-3. **Learning from execution** — turning logs into intelligence
+TensorFoundry is now deliberately narrowed to platform pillars:
 
-This repository begins with the first two, and lays the foundation for the third.
+1. **OTel/MCP-native runtime + artifact schema**
+2. **Evaluation and failure analysis for multi-step/tool-using agents**
+3. **Dataset generation from production traces**
+4. **Distillation pipeline for specialist small models**
+5. **Benchmarking cost, latency, and reliability across models and patterns**
+6. **Specialist model registry/exchange with full operational metadata**
+
+Execution order matters:
+- Runtime contracts first
+- Evaluation and failure diagnosis second
+- Dataset and distillation loops third
+- Benchmark-driven optimization throughout
+- Exchange publication once units are benchmarked and auditable
 
 ---
 

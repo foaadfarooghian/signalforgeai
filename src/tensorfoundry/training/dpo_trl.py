@@ -40,6 +40,7 @@ def main():
         beta=0.1,  # DPO strength
         max_length=2048,
         max_prompt_length=1024,
+        max_steps=int(os.environ.get("MAX_STEPS", "0")) if os.environ.get("MAX_STEPS") else -1,
     )
 
     trainer = DPOTrainer(

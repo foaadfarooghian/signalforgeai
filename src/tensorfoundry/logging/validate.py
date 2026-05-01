@@ -13,6 +13,8 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 
 VALID_STAGES: Set[str] = {"planner", "executor", "critic", "tool", "system"}
+TRACE_SCHEMA_VERSION = "trace.v0"
+TOOL_EVENT_TYPES: Set[str] = {"tool_called", "tool_result", "tool_error"}
 
 # Minimum top-level keys required by schema.md
 REQUIRED_KEYS: Set[str] = {
@@ -119,6 +121,18 @@ def validate_reward_events(events: Iterable[Dict[str, Any]]) -> List[ValidationI
         if not _is_str(ev.get("created_at")):
             issues.append(ValidationIssue(i, "reward_bad_type", "`created_at` must be a string."))
 
+        failure_mode = ev.get("failure_mode")
+        if failure_mode is not None and not _is_str(failure_mode):
+            issues.append(ValidationIssue(i, "reward_bad_type", "`failure_mode` must be a string when present."))
+
+        diagnosis = ev.get("diagnosis")
+        if diagnosis is not None and not _is_dict(diagnosis):
+            issues.append(ValidationIssue(i, "reward_bad_type", "`diagnosis` must be an object when present."))
+
+        artifact_refs = ev.get("artifact_refs")
+        if artifact_refs is not None and not _is_dict(artifact_refs):
+            issues.append(ValidationIssue(i, "reward_bad_type", "`artifact_refs` must be an object when present."))
+
     return issues
 
 def _detect_kind(events: List[Dict[str, Any]]) -> str:
@@ -215,6 +229,16 @@ def validate_events(
             continue  # can't do much else reliably
 
         # type checks (lightweight)
+        schema_version = ev.get("schema_version")
+        if schema_version is not None and schema_version != TRACE_SCHEMA_VERSION:
+            issues.append(
+                ValidationIssue(
+                    i,
+                    "bad_schema_version",
+                    f"Unsupported trace schema_version: {schema_version!r}",
+                )
+            )
+
         if not _is_str(ev["trace_id"]):
             issues.append(ValidationIssue(i, "bad_type", "`trace_id` must be a string."))
         if not _is_str(ev["span_id"]):
@@ -263,6 +287,37 @@ def validate_events(
         for key in ("payload", "metrics", "outcome"):
             if not _is_dict(ev[key]):
                 issues.append(ValidationIssue(i, "bad_type", f"`{key}` must be an object."))
+
+        if schema_version == TRACE_SCHEMA_VERSION and ev.get("event_type") in TOOL_EVENT_TYPES:
+            payload = ev.get("payload")
+            if isinstance(payload, dict):
+                for key in ("tool_name", "tool_input", "tool_output_summary", "success", "error"):
+                    if key not in payload:
+                        issues.append(
+                            ValidationIssue(
+                                i,
+                                "tool_payload_missing_key",
+                                f"trace.v0 tool event missing payload.{key}",
+                            )
+                        )
+                if "tool_name" in payload and not _is_str(payload.get("tool_name")):
+                    issues.append(ValidationIssue(i, "bad_type", "`payload.tool_name` must be a string."))
+                if "tool_input" in payload and not _is_dict(payload.get("tool_input")):
+                    issues.append(ValidationIssue(i, "bad_type", "`payload.tool_input` must be an object."))
+                if "tool_output_summary" in payload and not _is_str(payload.get("tool_output_summary")):
+                    issues.append(
+                        ValidationIssue(i, "bad_type", "`payload.tool_output_summary` must be a string.")
+                    )
+                success = payload.get("success")
+                if "success" in payload and success is not None and not isinstance(success, bool):
+                    issues.append(
+                        ValidationIssue(i, "bad_type", "`payload.success` must be a boolean or null.")
+                    )
+                error = payload.get("error")
+                if "error" in payload and error is not None and not (_is_str(error) or _is_dict(error)):
+                    issues.append(
+                        ValidationIssue(i, "bad_type", "`payload.error` must be a string, object, or null.")
+                    )
 
         # collect trace IDs
         if _is_str(ev["trace_id"]):

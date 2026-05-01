@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `trace.v0` schema version emission for new runtime events while preserving legacy trace validation.
+- Normalized tool event payload fields for new trace artifacts.
+- `tensorfoundry-pilot-check` for deterministic production-pilot readiness validation.
+- OTel JSON trace export via `tensorfoundry-otel-export`.
+- Dataset export validation and manifest generation.
+- Provider readiness checks for dummy, OpenAI, Ollama, and HF model IDs.
+- `tensorfoundry-learn train --dry-run` for training input and dependency preflight.
+- Optional reward diagnostics: `failure_mode`, `diagnosis`, and `artifact_refs`.
+
+### Changed
+- CI now runs offline with dummy providers by default and includes the pilot readiness check.
+- Package data now includes benchmark suites and nested pricing config artifacts.
+- Mypy is aligned to the project Python 3.11+ support floor.
+
 ### Planned
 - Dataset export (trace + reward → SFT / preference data)
 - Preference learning and distillation pipelines

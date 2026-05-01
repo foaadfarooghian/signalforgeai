@@ -45,6 +45,13 @@ def validate_reward_obj(obj: dict[str, Any]) -> None:
         if not (0.0 <= vv <= 1.0):
             raise ValueError(f"subscore {k} out of range: {vv}")
 
+    if obj.get("failure_mode") is not None and not isinstance(obj.get("failure_mode"), str):
+        raise TypeError("Key failure_mode expected str or None")
+    if obj.get("diagnosis") is not None and not isinstance(obj.get("diagnosis"), dict):
+        raise TypeError("Key diagnosis expected dict or None")
+    if obj.get("artifact_refs") is not None and not isinstance(obj.get("artifact_refs"), dict):
+        raise TypeError("Key artifact_refs expected dict or None")
+
 
 def validate_reward_jsonl(path: str | Path) -> None:
     """Validate every JSONL row in a reward file."""
