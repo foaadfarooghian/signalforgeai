@@ -21,3 +21,13 @@
 | prefs | 4 | true | `results/pilot_check/datasets/pilot.prefs.jsonl` |
 | repairs | 4 | true | `results/pilot_check/datasets/pilot.repairs.jsonl` |
 | curriculum | 8 | true | `results/pilot_check/datasets/pilot.curriculum.jsonl` |
+
+## Regression Gate
+
+- OK: `true`
+- Report: `results/pilot_check/eval_regression.md`
+- Pass-rate delta: `+0.00%`
+- Mean-score delta: `+0.0000`
+- Regressed cases: `0`
+- New failing cases: `0`
+- Worse failure modes: `0`

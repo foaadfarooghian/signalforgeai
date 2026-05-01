@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from tensorfoundry.logging.emitter import JsonlEmitter
 from tensorfoundry.logging.inspect import summarise_trace, read_jsonl
 from tensorfoundry.logging.validate import validate_trace_file
+from tensorfoundry.evaluation.diagnosis import diagnose_trace_events
 from tensorfoundry.evaluation.scorers import ScoringContext, resolve_scorer
 from tensorfoundry.evaluation.reward_schema import RewardV0
 from tensorfoundry.evaluation.reward_writer import write_rewards_jsonl
@@ -38,6 +39,7 @@ class SuiteResult:
     """Aggregate result for a full evaluation suite run."""
     suite_name: str
     agent: str
+    model_id: str
     run_id : str
     run_logs_dir: str
     num_cases: int
@@ -102,6 +104,7 @@ def _diagnosis(
     terminal_status: Optional[str],
     terminal_reason: Optional[str],
     runner_error: Optional[BaseException] = None,
+    events: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Build a small machine-readable diagnosis object."""
     out: Dict[str, Any] = {
@@ -113,6 +116,13 @@ def _diagnosis(
     if runner_error is not None:
         out["exception_type"] = type(runner_error).__name__
         out["exception"] = str(runner_error)[:300]
+    if events is not None:
+        out.update(
+            diagnose_trace_events(
+                events,
+                terminal_outcome={"status": terminal_status, "reason": terminal_reason},
+            )
+        )
     return out
 
 
@@ -303,6 +313,7 @@ def run_suite(
                 terminal_status=None,
                 terminal_reason=None,
                 runner_error=runner_error,
+                events=events,
             )
             artifact_refs = {"trace": str(trace_path)}
             case_results.append(
@@ -420,6 +431,7 @@ def run_suite(
             terminal_status=str(terminal_status) if terminal_status is not None else None,
             terminal_reason=str(terminal_reason) if terminal_reason is not None else None,
             runner_error=runner_error,
+            events=events,
         )
         artifact_refs = {"trace": str(trace_path)}
 
@@ -480,6 +492,7 @@ def run_suite(
     suite_result = SuiteResult(
         suite_name=suite_name,
         agent=agent_name,
+        model_id=model_id,
         run_id=run_id,
         run_logs_dir=str(run_logs_dir),
         num_cases=len(case_results),
@@ -527,6 +540,7 @@ def _render_summary_md(s: SuiteResult) -> str:
         f"# Suite: {s.suite_name}",
         "",
         f"- Agent: `{s.agent}`",
+        f"- Model: `{s.model_id}`",
         f"- Cases: {s.num_cases}",
         f"- Passed: {s.passed}",
         f"- Failed: {s.failed}",

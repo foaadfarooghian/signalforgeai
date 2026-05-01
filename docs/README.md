@@ -23,3 +23,14 @@ validated SFT, preference, repair, and curriculum datasets. Hosted and local
 provider checks are automated but optional unless explicitly required with
 `--require-provider hosted`, `--require-provider local`, or
 `--require-provider all`.
+
+For release checks, keep the last accepted `pilot_readiness.json` and compare
+the current run against it:
+
+```bash
+tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_current \
+  --baseline results/pilot_baseline/pilot_readiness.json
+```
+
+Baseline mode emits `eval_regression.v0` as JSON and Markdown, and the readiness
+command exits nonzero when the configured regression policy is violated.

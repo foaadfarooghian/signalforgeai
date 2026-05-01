@@ -160,3 +160,39 @@ def test_run_suite_records_invalid_trace(monkeypatch, tmp_path: Path) -> None:
     reward_path = Path(res.run_logs_dir) / "reward.jsonl"
     reward_row = json.loads(reward_path.read_text(encoding="utf-8").splitlines()[0])
     assert "trace_invalid:bad_trace" in reward_row.get("violations", [])
+
+
+def test_run_suite_records_trace_failure_origin(monkeypatch, tmp_path: Path) -> None:
+    suite = {
+        "suite_name": "tmp_runner_failure",
+        "agent": "decision_agent",
+        "cases": [
+            {
+                "id": "dec_001",
+                "task": "What should we build next?",
+                "inputs": {"constraints": [], "options": ["Build eval"]},
+                "expect": {"status": "success", "contains_any": ["build", "eval"]},
+            }
+        ],
+    }
+    suite_path = tmp_path / "suite.json"
+    suite_path.write_text(json.dumps(suite), encoding="utf-8")
+
+    def _boom(_task, _inputs, _emitter):
+        raise RuntimeError("provider exploded")
+
+    monkeypatch.setattr(harness, "get_agent_runner", lambda _agent_name: _boom)
+
+    res = run_suite(
+        suite_path=suite_path,
+        output_dir=tmp_path / "results",
+        logs_dir=tmp_path / "logs",
+    )
+
+    assert res.failed == 1
+    reward_path = Path(res.run_logs_dir) / "reward.jsonl"
+    reward_row = json.loads(reward_path.read_text(encoding="utf-8").splitlines()[0])
+    diagnosis = reward_row["diagnosis"]
+    assert diagnosis["failure_origin"]["event_type"] == "task_failed"
+    assert diagnosis["failure_origin"]["stage"] == "system"
+    assert diagnosis["recovery"]["terminal_status"] == "failure"

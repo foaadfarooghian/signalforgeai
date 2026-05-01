@@ -376,8 +376,20 @@ tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_check
 Outputs:
 - `results/pilot_check/pilot_readiness.md`
 - `results/pilot_check/pilot_readiness.json`
+- `results/pilot_check/eval_regression.md` when `--baseline` is supplied
+- `results/pilot_check/eval_regression.json` when `--baseline` is supplied
 - `results/pilot_check/logs/`
 - `results/pilot_check/datasets/manifest.json`
+
+Compare the current pilot run with an accepted baseline artifact:
+
+```bash
+tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_current \
+  --baseline results/pilot_baseline/pilot_readiness.json
+```
+
+The default regression policy is strict for dummy runs: no pass-rate drop, no
+mean-score drop, no new failing cases, and no worse failure-mode movement.
 
 Provider smoke checks are tiered. Dummy is mandatory. Hosted and local checks
 skip unless explicitly required:

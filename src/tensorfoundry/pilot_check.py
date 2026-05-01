@@ -4,11 +4,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from tensorfoundry.evaluation.harness import run_suite
+from tensorfoundry.evaluation.regression import (
+    RegressionPolicy,
+    compare_pilot_readiness,
+    load_pilot_readiness_artifact,
+    write_regression_reports,
+)
 from tensorfoundry.export.dataset import export_sft
 from tensorfoundry.export.preferences import export_preferences
 from tensorfoundry.export.repairs import export_repairs
@@ -83,10 +90,84 @@ def _write_report(payload: Dict[str, Any], report_md: Path) -> None:
     lines.extend(["", "## Datasets", "", "| kind | rows | ok | path |", "|---|---:|---:|---|"])
     for d in payload["datasets"]:
         lines.append(f"| {d['kind']} | {d['rows']} | {str(d['ok']).lower()} | `{d['path']}` |")
+    regression = payload.get("regression")
+    if isinstance(regression, dict):
+        summary_raw = regression.get("summary")
+        summary = summary_raw if isinstance(summary_raw, dict) else {}
+        lines.extend(
+            [
+                "",
+                "## Regression Gate",
+                "",
+                f"- OK: `{str(regression.get('ok')).lower()}`",
+                f"- Report: `{regression.get('report_md')}`",
+                f"- Pass-rate delta: `{float(summary.get('pass_rate_delta', 0.0)):+.2%}`",
+                f"- Mean-score delta: `{float(summary.get('mean_score_delta', 0.0)):+.4f}`",
+                f"- Regressed cases: `{int(summary.get('regressed_cases', 0))}`",
+                f"- New failing cases: `{int(summary.get('new_failing_cases', 0))}`",
+                f"- Worse failure modes: `{int(summary.get('worse_failure_mode_movements', 0))}`",
+            ]
+        )
+    failure_modes = _failure_mode_counts(payload["suites"])
+    if failure_modes:
+        lines.extend(["", "## Failure Modes", "", "| failure_mode | count |", "|---|---:|"])
+        for mode, count in failure_modes:
+            lines.append(f"| {mode} | {count} |")
+    failed_cases = _failed_cases(payload["suites"])
+    if failed_cases:
+        lines.extend(
+            [
+                "",
+                "## Case Failures",
+                "",
+                "| suite | model | case | score | failure_mode | trace | reward |",
+                "|---|---|---|---:|---|---|---|",
+            ]
+        )
+        for case in failed_cases:
+            lines.append(
+                f"| {case['suite']} | `{case['model']}` | `{case['case']}` | "
+                f"{case['score']:.3f} | {case['failure_mode']} | "
+                f"`{case['trace']}` | `{case['reward']}` |"
+            )
     if payload["issues"]:
         lines.extend(["", "## Issues", ""])
         lines.extend(f"- {issue}" for issue in payload["issues"])
     report_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _failure_mode_counts(suites: List[Dict[str, Any]]) -> List[tuple[str, int]]:
+    counts: Counter[str] = Counter()
+    for suite in suites:
+        for case in suite.get("results", []):
+            if not isinstance(case, dict) or bool(case.get("passed")):
+                continue
+            mode = case.get("failure_mode") or "none"
+            counts[str(mode)] += 1
+    return counts.most_common()
+
+
+def _failed_cases(suites: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    cases: List[Dict[str, Any]] = []
+    for suite in suites:
+        if not isinstance(suite, dict):
+            continue
+        reward_path = Path(str(suite.get("run_logs_dir", ""))) / "reward.jsonl"
+        for case in suite.get("results", []):
+            if not isinstance(case, dict) or bool(case.get("passed")):
+                continue
+            cases.append(
+                {
+                    "suite": str(suite.get("suite_name", "unknown")),
+                    "model": str(suite.get("model_id") or "unknown"),
+                    "case": str(case.get("case_id", "unknown")),
+                    "score": float(case.get("score") or 0.0),
+                    "failure_mode": str(case.get("failure_mode") or "none"),
+                    "trace": str(case.get("trace_path") or ""),
+                    "reward": str(reward_path),
+                }
+            )
+    return cases
 
 
 def run_pilot_check(
@@ -96,8 +177,14 @@ def run_pilot_check(
     require_provider: Set[str],
     hosted_model_id: str,
     local_model_id: str,
+    baseline: Optional[Path] = None,
+    max_pass_rate_drop: float = 0.0,
+    max_mean_score_drop: float = 0.0,
+    allow_new_failing_cases: bool = False,
+    allow_worse_failure_modes: bool = False,
 ) -> Dict[str, Any]:
     """Run the offline pilot loop and return a readiness payload."""
+    baseline_payload = load_pilot_readiness_artifact(baseline) if baseline is not None else None
     work_dir.mkdir(parents=True, exist_ok=True)
     logs_dir = work_dir / "logs"
     results_dir = work_dir / "results"
@@ -209,10 +296,10 @@ def run_pilot_check(
     provider_ok = all(c.ok or c.skipped for c in provider_checks)
     suites_ok = all(s["failed"] == 0 for s in suite_results)
     datasets_ok = all(r.ok for r in dataset_results)
-    ok = provider_ok and suites_ok and datasets_ok and not issues
+    readiness_ok = provider_ok and suites_ok and datasets_ok and not issues
     payload: Dict[str, Any] = {
         "version": "pilot_readiness.v0",
-        "ok": ok,
+        "ok": readiness_ok,
         "work_dir": str(work_dir),
         "logs_dir": str(logs_dir),
         "results_dir": str(results_dir),
@@ -222,6 +309,49 @@ def run_pilot_check(
         "datasets": [r.to_dict() for r in dataset_results],
         "issues": issues,
     }
+    regression_ok = True
+    if baseline_payload is not None:
+        policy = RegressionPolicy(
+            max_pass_rate_drop=max_pass_rate_drop,
+            max_mean_score_drop=max_mean_score_drop,
+            allow_new_failing_cases=allow_new_failing_cases,
+            allow_worse_failure_modes=allow_worse_failure_modes,
+        )
+        regression_payload = compare_pilot_readiness(
+            baseline_payload,
+            payload,
+            policy=policy,
+        )
+        regression_reports = write_regression_reports(
+            regression_payload,
+            json_path=work_dir / "eval_regression.json",
+            markdown_path=work_dir / "eval_regression.md",
+        )
+        regression_ok = bool(regression_payload["ok"])
+        deltas = regression_payload["aggregate_deltas"]
+        payload["regression"] = {
+            "version": regression_payload["version"],
+            "ok": regression_ok,
+            **regression_reports,
+            "summary": {
+                "pass_rate_delta": deltas["pass_rate_delta"],
+                "mean_score_delta": deltas["mean_score_delta"],
+                "changed_cases": len(regression_payload["changed_cases"]),
+                "regressed_cases": len(regression_payload["regressed_cases"]),
+                "improved_cases": len(regression_payload["improved_cases"]),
+                "new_cases": len(regression_payload["new_cases"]),
+                "new_failing_cases": len(regression_payload["new_failing_cases"]),
+                "missing_cases": len(regression_payload["missing_cases"]),
+                "worse_failure_mode_movements": len(
+                    regression_payload["worse_failure_mode_movements"]
+                ),
+            },
+            "issues": regression_payload["issues"],
+        }
+        if regression_payload["issues"]:
+            issues.extend(f"regression: {issue}" for issue in regression_payload["issues"])
+
+    payload["ok"] = readiness_ok and regression_ok
     report_json = work_dir / "pilot_readiness.json"
     report_md = work_dir / "pilot_readiness.md"
     report_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -253,6 +383,34 @@ def main(argv: Optional[list[str]] = None) -> int:
         type=str,
         default=os.getenv("TENSORFOUNDRY_LOCAL_MODEL_ID", "ollama:ministral-3:8b"),
     )
+    parser.add_argument(
+        "--baseline",
+        type=str,
+        default=None,
+        help="pilot_readiness.json file or directory containing one for regression gating",
+    )
+    parser.add_argument(
+        "--max-pass-rate-drop",
+        type=float,
+        default=0.0,
+        help="Allowed aggregate pass-rate drop versus baseline",
+    )
+    parser.add_argument(
+        "--max-mean-score-drop",
+        type=float,
+        default=0.0,
+        help="Allowed aggregate mean-score drop versus baseline",
+    )
+    parser.add_argument(
+        "--allow-new-failing-cases",
+        action="store_true",
+        help="Do not fail the regression gate for current-only failing cases",
+    )
+    parser.add_argument(
+        "--allow-worse-failure-modes",
+        action="store_true",
+        help="Do not fail the regression gate for worse failure-mode severity movements",
+    )
     args = parser.parse_args(argv)
     payload = run_pilot_check(
         work_dir=Path(args.work_dir),
@@ -260,6 +418,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         require_provider=set(args.require_provider),
         hosted_model_id=args.hosted_model_id,
         local_model_id=args.local_model_id,
+        baseline=Path(args.baseline) if args.baseline else None,
+        max_pass_rate_drop=args.max_pass_rate_drop,
+        max_mean_score_drop=args.max_mean_score_drop,
+        allow_new_failing_cases=args.allow_new_failing_cases,
+        allow_worse_failure_modes=args.allow_worse_failure_modes,
     )
     print(f"Pilot readiness: {'OK' if payload['ok'] else 'FAILED'}")
     print(f"Report: {payload['report_md']}")

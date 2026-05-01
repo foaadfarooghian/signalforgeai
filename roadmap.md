@@ -174,6 +174,7 @@ the distribution layer built on top of these pillars.
 - Trace export to SFT/preferences/repair datasets
 - Production-pilot readiness check for eval -> reward -> dataset validation
 - Provider readiness checks for dummy, hosted, and local model paths
+- Artifact-baseline regression gating for pilot readiness checks
 - Training dry-run preflight for SFT/DPO inputs
 - Learning/routing primitives and experimental training utilities
 - Cost/latency-aware evaluation reporting

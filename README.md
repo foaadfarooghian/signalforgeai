@@ -170,6 +170,21 @@ This writes:
 - `results/pilot_check/logs/` with `trace.v0` and `reward.v0` artifacts
 - `results/pilot_check/datasets/manifest.json` plus SFT, preference, repair, and curriculum exports
 
+Run a release regression gate by comparing against the last accepted readiness
+artifact:
+
+```bash
+tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_current \
+  --baseline results/pilot_baseline/pilot_readiness.json
+```
+
+When `--baseline` is supplied, the command also writes:
+- `results/pilot_current/eval_regression.md`
+- `results/pilot_current/eval_regression.json`
+
+The default deterministic gate allows no pass-rate drop, no mean-score drop, no
+new failing cases, and no worse failure-mode movement.
+
 Optional provider smoke checks can be required in configured environments:
 
 ```bash

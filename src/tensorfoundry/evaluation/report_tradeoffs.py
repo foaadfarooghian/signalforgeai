@@ -4,7 +4,7 @@ import argparse
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 def _get_float(d: Dict[str, Any], k: str) -> Optional[float]:
     v = d.get(k)
@@ -18,13 +18,13 @@ def _effective(score: float, cost: float, lat_ms: int, lambda_cost: float, mu_la
     eff = score - lambda_cost * cost - mu_latency * (lat_ms / 1000.0)
     return max(0.0, min(1.0, eff))
 
-def main() -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Summarise trade-offs from reward.jsonl files.")
     p.add_argument("root", type=str, help="logs/<run_id>/ dir OR logs/ dir (will scan reward.jsonl)")
     p.add_argument("--suite", type=str, default="", help="Filter by suite_id")
     p.add_argument("--lambda-cost", type=float, default=0.0, help="Cost penalty weight")
     p.add_argument("--mu-latency", type=float, default=0.0, help="Latency penalty weight per second")
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     root = Path(args.root)
     reward_files = []
@@ -113,26 +113,32 @@ def main() -> int:
             mean_tok = s["tok_sum"] / max(1, s["tok_n"]) if s["tok_n"] else None
             mean_eff = s["eff_sum"] / max(1, s["eff_n"]) if s["eff_n"] else None
             succ = s["success_sum"] / max(1, n)
-            rows.append((mean_eff if mean_eff is not None else -1.0, model_id, n, mean_score, mean_cost, mean_lat, mean_tok, succ))
+            rows.append(
+                (
+                    mean_eff if mean_eff is not None else -1.0,
+                    model_id,
+                    n,
+                    mean_score,
+                    mean_cost,
+                    mean_lat,
+                    mean_tok,
+                    succ,
+                    mean_eff,
+                )
+            )
 
         rows.sort(reverse=True)
         print("| model_id | n | mean_score | mean_cost_usd | mean_latency_ms | mean_total_tokens | success_rate | mean_effective |")
         print("|---|---:|---:|---:|---:|---:|---:|---:|")
-        for _, model_id, n, mean_score, mean_cost, mean_lat, mean_tok, succ in rows:
+        for _, model_id, n, mean_score, mean_cost, mean_lat, mean_tok, succ, mean_eff in rows:
             print(
                 f"| {model_id} | {n} | {mean_score:.3f} | "
                 f"{(f'{mean_cost:.6f}' if mean_cost is not None else '')} | "
                 f"{(f'{mean_lat:.0f}' if mean_lat is not None else '')} | "
                 f"{(f'{mean_tok:.0f}' if mean_tok is not None else '')} | "
                 f"{succ:.2%} | "
-                f"{(f'{( (_ if ( _:= (mean_eff:=None) ) else 0) )}' ) if False else ''}"
+                f"{(f'{mean_eff:.3f}' if mean_eff is not None else '')} |"
             )
-        # print effective in a second pass cleanly (avoid overcomplication)
-        for _, model_id, n, mean_score, mean_cost, mean_lat, mean_tok, succ in rows:
-            mean_eff = (stats[suite_id][model_id]["eff_sum"] / max(1, stats[suite_id][model_id]["eff_n"])) if stats[suite_id][model_id]["eff_n"] else None
-            # Replace the empty effective column by printing a final row line with effective included:
-            # (Keeping output readable without fussing with formatting above)
-        # (If you want, I’ll tighten formatting—kept simple on purpose.)
 
     return 0
 
