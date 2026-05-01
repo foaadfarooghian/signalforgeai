@@ -170,6 +170,15 @@ This writes:
 - `results/pilot_check/logs/` with `trace.v0` and `reward.v0` artifacts
 - `results/pilot_check/datasets/manifest.json` plus SFT, preference, repair, and curriculum exports
 
+Pilot datasets are strict-gated by default: exported rows include deterministic
+split metadata, provenance links back to trace/reward artifacts, file hashes,
+duplicate counts, and leakage checks. Validate an exported dataset directly with:
+
+```bash
+tensorfoundry-dataset-validate results/pilot_check/datasets/pilot.sft.jsonl \
+  --kind sft --quality-gate --logs-root results/pilot_check/logs
+```
+
 Run a release regression gate by comparing against the last accepted readiness
 artifact:
 

@@ -90,6 +90,26 @@ def _write_report(payload: Dict[str, Any], report_md: Path) -> None:
     lines.extend(["", "## Datasets", "", "| kind | rows | ok | path |", "|---|---:|---:|---|"])
     for d in payload["datasets"]:
         lines.append(f"| {d['kind']} | {d['rows']} | {str(d['ok']).lower()} | `{d['path']}` |")
+    lines.extend(
+        [
+            "",
+            "## Dataset Quality",
+            "",
+            "| kind | sha256 | splits | duplicates | provenance | missing refs | quality issues |",
+            "|---|---|---|---:|---:|---:|---:|",
+        ]
+    )
+    for d in payload["datasets"]:
+        digest = str(d.get("content_sha256") or "")
+        split_counts = d.get("split_counts") if isinstance(d.get("split_counts"), dict) else {}
+        split_text = ", ".join(f"{k}:{v}" for k, v in sorted(split_counts.items()))
+        lines.append(
+            f"| {d['kind']} | `{digest[:12]}` | {split_text} | "
+            f"{int(d.get('duplicate_count') or 0)} | "
+            f"{str(d.get('provenance_checked')).lower()} | "
+            f"{len(d.get('missing_artifact_refs') or [])} | "
+            f"{len(d.get('quality_issues') or [])} |"
+        )
     regression = payload.get("regression")
     if isinstance(regression, dict):
         summary_raw = regression.get("summary")
@@ -287,12 +307,47 @@ def run_pilot_check(
     )
 
     dataset_results: List[DatasetValidationResult] = [
-        validate_dataset_jsonl(sft_out, kind="sft"),
-        validate_dataset_jsonl(prefs_out, kind="prefs"),
-        validate_dataset_jsonl(repairs_out, kind="repairs"),
-        validate_dataset_jsonl(curriculum_out, kind="curriculum"),
+        validate_dataset_jsonl(
+            sft_out,
+            kind="sft",
+            logs_root=logs_dir,
+            require_provenance=True,
+            require_splits=True,
+            allow_duplicates=False,
+            allow_leakage=False,
+        ),
+        validate_dataset_jsonl(
+            prefs_out,
+            kind="prefs",
+            logs_root=logs_dir,
+            require_provenance=True,
+            require_splits=True,
+            allow_duplicates=False,
+            allow_leakage=False,
+        ),
+        validate_dataset_jsonl(
+            repairs_out,
+            kind="repairs",
+            logs_root=logs_dir,
+            require_provenance=True,
+            require_splits=True,
+            allow_duplicates=False,
+            allow_leakage=False,
+        ),
+        validate_dataset_jsonl(
+            curriculum_out,
+            kind="curriculum",
+            logs_root=logs_dir,
+            require_provenance=True,
+            require_splits=True,
+            allow_duplicates=False,
+            allow_leakage=False,
+        ),
     ]
     manifest_path = write_dataset_manifest(dataset_results, datasets_dir / "manifest.json")
+    for dataset_result in dataset_results:
+        for issue in dataset_result.issues + dataset_result.quality_issues:
+            issues.append(f"dataset {dataset_result.kind}: {issue}")
     provider_ok = all(c.ok or c.skipped for c in provider_checks)
     suites_ok = all(s["failed"] == 0 for s in suite_results)
     datasets_ok = all(r.ok for r in dataset_results)

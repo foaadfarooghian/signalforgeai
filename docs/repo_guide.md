@@ -381,6 +381,15 @@ Outputs:
 - `results/pilot_check/logs/`
 - `results/pilot_check/datasets/manifest.json`
 
+The dataset manifest includes strict quality summaries: content hashes, split
+counts, duplicate counts, provenance checks, missing refs, and quality issues.
+Run the same quality gate outside pilot-check with:
+
+```bash
+tensorfoundry-dataset-validate results/pilot_check/datasets/pilot.sft.jsonl \
+  --kind sft --quality-gate --logs-root results/pilot_check/logs
+```
+
 Compare the current pilot run with an accepted baseline artifact:
 
 ```bash

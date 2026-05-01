@@ -24,6 +24,16 @@ provider checks are automated but optional unless explicitly required with
 `--require-provider hosted`, `--require-provider local`, or
 `--require-provider all`.
 
+Dataset validation in the pilot loop runs as a hard quality gate. It checks
+schema validity, deterministic split metadata, trace/reward provenance refs,
+content hashes, duplicate payloads, and split leakage. The same strict path is
+available through:
+
+```bash
+tensorfoundry-dataset-validate results/pilot_check/datasets/pilot.sft.jsonl \
+  --kind sft --quality-gate --logs-root results/pilot_check/logs
+```
+
 For release checks, keep the last accepted `pilot_readiness.json` and compare
 the current run against it:
 

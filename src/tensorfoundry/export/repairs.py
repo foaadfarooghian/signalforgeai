@@ -19,6 +19,7 @@ from tensorfoundry.export.extract import (
     extract_step_prompt_full,
     extract_step_text_full,
 )
+from tensorfoundry.export.quality import attach_split_meta
 
 REPAIRS_SCHEMA_VERSION = "repairs.v0"
 DPO_SCHEMA_VERSION = "dpo.v0"
@@ -237,6 +238,7 @@ def export_repairs(
                     "score": best.get("score"),
                     "cost_usd": best_r.get("cost_usd"),
                     "latency_ms": best_r.get("latency_ms"),
+                    "reward_path": str(best["reward_file"]),
                     "trace_path": str(_trace_path_for_reward(best["reward_file"], best_r.get("trace_id"))),
                 },
                 "failure": {
@@ -245,9 +247,24 @@ def export_repairs(
                     "score": worst.get("score"),
                     "cost_usd": worst_r.get("cost_usd"),
                     "latency_ms": worst_r.get("latency_ms"),
+                    "reward_path": str(worst["reward_file"]),
                     "trace_path": str(_trace_path_for_reward(worst["reward_file"], worst_r.get("trace_id"))),
                 },
+                "provenance": {
+                    "inputs": {
+                        "logs_root": str(logs_root),
+                        "reward_success_jsonl": str(best["reward_file"]),
+                        "reward_failure_jsonl": str(worst["reward_file"]),
+                        "trace_success_path": str(
+                            _trace_path_for_reward(best["reward_file"], best_r.get("trace_id"))
+                        ),
+                        "trace_failure_path": str(
+                            _trace_path_for_reward(worst["reward_file"], worst_r.get("trace_id"))
+                        ),
+                    }
+                },
             }
+            attach_split_meta(meta, suite_id=suite_id, case_id=case_id)
 
             ex = RepairExample(
                 prompt=prompt_best,

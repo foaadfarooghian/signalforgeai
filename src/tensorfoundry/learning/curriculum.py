@@ -18,6 +18,7 @@ from tensorfoundry.export.extract import (
     extract_step_prompt_full,
     extract_step_text_full,
 )
+from tensorfoundry.export.quality import attach_split_meta
 
 CURRICULUM_SCHEMA_VERSION = "curriculum.v0"
 
@@ -224,6 +225,19 @@ def export_curriculum(
                     skipped += 1
                     continue
 
+                meta = {
+                    "prompt_step": step,
+                    "trace_path": str(trace_path),
+                    "provenance": {
+                        "inputs": {
+                            "logs_root": str(logs_root),
+                            "reward_jsonl": str(rf),
+                            "trace_path": str(trace_path),
+                        }
+                    },
+                }
+                attach_split_meta(meta, suite_id=r.get("suite_id"), case_id=r.get("case_id"))
+
                 row = CurriculumRow(
                     trace_id=trace_id,
                     run_id=str(r.get("run_id", "")),
@@ -242,10 +256,7 @@ def export_curriculum(
                         "latency_ms": r.get("latency_ms"),
                         "cost_usd": r.get("cost_usd"),
                     },
-                    meta={
-                        "prompt_step": step,
-                        "trace_path": str(trace_path),
-                    },
+                    meta=meta,
                 )
 
                 f.write(row.to_jsonl() + "\n")

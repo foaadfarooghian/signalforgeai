@@ -7,7 +7,9 @@ from pathlib import Path
 from tensorfoundry.export.dataset import export_sft
 from tensorfoundry.export.preferences import export_preferences
 from tensorfoundry.export.repairs import export_repairs
-from tensorfoundry.export.validate import validate_dataset_jsonl
+from tensorfoundry.export.quality import split_for_key, split_key_for_case, split_meta
+from tensorfoundry.export.validate import main as validate_main
+from tensorfoundry.export.validate import validate_dataset_jsonl, write_dataset_manifest
 from tensorfoundry.learning.curriculum import export_curriculum
 
 
@@ -95,6 +97,21 @@ def test_export_sft_writes_row(tmp_path: Path) -> None:
     assert row["instruction"].startswith("Task:")
     assert row["response"] == response
     assert row["prompt"] == row["instruction"]
+    assert row["meta"]["split_key"] == "s1:c1"
+    assert row["meta"]["split"] == split_for_key("s1:c1")
+
+    strict = validate_dataset_jsonl(
+        out_path,
+        kind="sft",
+        logs_root=logs_root,
+        require_provenance=True,
+        require_splits=True,
+        allow_duplicates=False,
+        allow_leakage=False,
+    )
+    assert strict.ok is True
+    assert strict.provenance_checked is True
+    assert strict.content_sha256
 
 
 def test_export_sft_skips_short_response(tmp_path: Path) -> None:
@@ -196,6 +213,9 @@ def test_export_preferences_pairs_best_vs_other(tmp_path: Path) -> None:
     row = json.loads(out_path.read_text(encoding="utf-8").splitlines()[0])
     assert row["preferred"] in {"a", "b"}
     assert row["meta"]["winner_model_id"] == "ollama:model_a"
+    assert row["meta"]["split_key"] == "s1:c1"
+    assert row["meta"]["provenance"]["inputs"]["reward_a_jsonl"]
+    assert row["meta"]["provenance"]["inputs"]["reward_b_jsonl"]
     chosen = row["response_a"] if row["preferred"] == "a" else row["response_b"]
     assert chosen == response_a
 
@@ -253,6 +273,9 @@ def test_export_repairs_pairs_failure_to_success(tmp_path: Path) -> None:
     assert row["failed"] == failure_resp
     assert row["repaired"] == success_resp
     assert row["meta"]["pair_type"] == "cross_model"
+    assert row["meta"]["split_key"] == "s1:c1"
+    assert row["meta"]["provenance"]["inputs"]["reward_success_jsonl"]
+    assert row["meta"]["provenance"]["inputs"]["reward_failure_jsonl"]
 
 
 def test_export_curriculum_assigns_easy_bucket(tmp_path: Path) -> None:
@@ -300,6 +323,8 @@ def test_export_curriculum_assigns_easy_bucket(tmp_path: Path) -> None:
     row = json.loads(out_path.read_text(encoding="utf-8").splitlines()[0])
     assert row["bucket"] == "easy"
     assert row["difficulty"] == 1
+    assert row["meta"]["split_key"] == "s1:c1"
+    assert row["meta"]["provenance"]["inputs"]["reward_jsonl"]
 
 
 def test_dataset_validator_accepts_sft_export(tmp_path: Path) -> None:
@@ -320,6 +345,181 @@ def test_dataset_validator_accepts_sft_export(tmp_path: Path) -> None:
     result = validate_dataset_jsonl(out_path, kind="sft")
     assert result.ok is True
     assert result.rows == 1
+
+
+def test_split_assignment_is_stable_and_case_based() -> None:
+    key = split_key_for_case("suite", "case")
+    assert key == "suite:case"
+    assert split_for_key(key) == split_for_key(key)
+    assert split_meta("suite", "case")["split_key"] == key
+
+
+def test_dataset_validator_strict_duplicate_detection_all_kinds(tmp_path: Path) -> None:
+    rows_by_kind = {
+        "sft": {
+            "version": "sft.v0",
+            "instruction": "Task",
+            "prompt": "Task",
+            "response": "Response",
+            "meta": {},
+        },
+        "prefs": {
+            "version": "prefs.v0",
+            "prompt": "Task",
+            "response_a": "A",
+            "response_b": "B",
+            "preferred": "a",
+            "meta": {},
+        },
+        "dpo": {
+            "version": "dpo.v0",
+            "prompt": "Task",
+            "chosen": "A",
+            "rejected": "B",
+            "meta": {},
+        },
+        "repairs": {
+            "version": "repairs.v0",
+            "prompt": "Task",
+            "failed": "B",
+            "repaired": "A",
+            "meta": {},
+        },
+        "curriculum": {
+            "version": "curriculum.v0",
+            "trace_id": "t1",
+            "suite_id": "s1",
+            "case_id": "c1",
+            "model_id": "m1",
+            "bucket": "easy",
+            "difficulty": 1,
+            "prompt": "Task",
+            "response": "Response",
+            "meta": {},
+        },
+    }
+
+    for kind, row in rows_by_kind.items():
+        path = tmp_path / f"{kind}.jsonl"
+        _write_jsonl(path, [row, dict(row)])
+        result = validate_dataset_jsonl(path, kind=kind, allow_duplicates=False)
+        assert result.ok is False
+        assert result.duplicate_count == 1
+        assert any("duplicate training payloads" in issue for issue in result.quality_issues)
+
+
+def test_dataset_validator_strict_detects_split_leakage(tmp_path: Path) -> None:
+    path = tmp_path / "sft.jsonl"
+    row_a = {
+        "version": "sft.v0",
+        "instruction": "Task",
+        "prompt": "Same prompt",
+        "response": "Response A",
+        "meta": {
+            "split": "train",
+            "split_key": "suite:case-a",
+            "split_policy": {"version": "case_hash_split.v0"},
+        },
+    }
+    row_b = {
+        "version": "sft.v0",
+        "instruction": "Task",
+        "prompt": "Same prompt",
+        "response": "Response B",
+        "meta": {
+            "split": "test",
+            "split_key": "suite:case-b",
+            "split_policy": {"version": "case_hash_split.v0"},
+        },
+    }
+    _write_jsonl(path, [row_a, row_b])
+
+    result = validate_dataset_jsonl(
+        path,
+        kind="sft",
+        require_splits=True,
+        allow_leakage=False,
+    )
+
+    assert result.ok is False
+    assert any("appears in multiple splits" in issue for issue in result.quality_issues)
+
+
+def test_dataset_validator_strict_detects_missing_provenance_refs(tmp_path: Path) -> None:
+    path = tmp_path / "sft.jsonl"
+    meta = split_meta("s1", "c1")
+    meta["provenance"] = {
+        "inputs": {
+            "trace_path": str(tmp_path / "logs" / "missing.jsonl"),
+            "reward_jsonl": str(tmp_path / "logs" / "reward.jsonl"),
+        }
+    }
+    _write_jsonl(
+        path,
+        [
+            {
+                "version": "sft.v0",
+                "instruction": "Task",
+                "prompt": "Task",
+                "response": "Response",
+                "meta": meta,
+            }
+        ],
+    )
+
+    result = validate_dataset_jsonl(
+        path,
+        kind="sft",
+        logs_root=tmp_path / "logs",
+        require_provenance=True,
+        require_splits=True,
+    )
+
+    assert result.ok is False
+    assert result.provenance_checked is True
+    assert len(result.missing_artifact_refs) == 2
+
+
+def test_dataset_manifest_includes_quality_summary(tmp_path: Path) -> None:
+    path = tmp_path / "sft.jsonl"
+    meta = split_meta("s1", "c1")
+    _write_jsonl(
+        path,
+        [
+            {
+                "version": "sft.v0",
+                "instruction": "Task",
+                "prompt": "Task",
+                "response": "Response",
+                "meta": meta,
+            }
+        ],
+    )
+    result = validate_dataset_jsonl(path, kind="sft", require_splits=True)
+    manifest_path = write_dataset_manifest([result], tmp_path / "manifest.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    dataset = manifest["datasets"][0]
+
+    assert dataset["content_sha256"]
+    assert dataset["split_counts"] == {meta["split"]: 1}
+    assert dataset["duplicate_count"] == 0
+    assert "quality_issues" in dataset
+
+
+def test_dataset_validate_cli_quality_gate_fails_on_duplicate(tmp_path: Path) -> None:
+    path = tmp_path / "sft.jsonl"
+    row = {
+        "version": "sft.v0",
+        "instruction": "Task",
+        "prompt": "Task",
+        "response": "Response",
+        "meta": {},
+    }
+    _write_jsonl(path, [row, dict(row)])
+
+    code = validate_main([str(path), "--kind", "sft", "--quality-gate"])
+
+    assert code == 1
 
 
 def test_dataset_validator_rejects_empty_export(tmp_path: Path) -> None:

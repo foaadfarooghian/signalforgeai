@@ -27,6 +27,7 @@ from tensorfoundry.export.extract import (
     extract_step_text_full,
 )
 from tensorfoundry.export._json import dumps_row
+from tensorfoundry.export.quality import attach_split_meta
 
 # ----------------------------
 # Models
@@ -376,76 +377,78 @@ def export_preferences(
                         a, b = loser, winner
                         preferred = "b"
 
+                meta = {
+                    "suite_id": suite_id,
+                    "case_id": case_id,
+                    "lambda_cost": lambda_cost,
+                    "mu_latency": mu_latency,
+                    "prompt_step": a.prompt_step,
+                    "prompt_normalize": prompt_normalize,
+                    "a": {
+                        "model_id": a.model_id,
+                        "trace_id": a.trace_id,
+                        "score": a.score,
+                        "cost_usd": a.cost_usd,
+                        "latency_ms": a.latency_ms,
+                        "total_tokens": a.total_tokens,
+                        "effective": a.effective,
+                        "trace_path": a.trace_path,
+                        "reward_path": a.reward_path,
+                        "prompt_step": a.prompt_step,
+                    },
+                    "b": {
+                        "model_id": b.model_id,
+                        "trace_id": b.trace_id,
+                        "score": b.score,
+                        "cost_usd": b.cost_usd,
+                        "latency_ms": b.latency_ms,
+                        "total_tokens": b.total_tokens,
+                        "effective": b.effective,
+                        "trace_path": b.trace_path,
+                        "reward_path": b.reward_path,
+                        "prompt_step": b.prompt_step,
+                    },
+                    "deltas": {
+                        "score": a.score - b.score,
+                        "cost_usd": (a.cost_usd if a.cost_usd is not None else 0.0)
+                        - (b.cost_usd if b.cost_usd is not None else 0.0),
+                        "latency_ms": (a.latency_ms if a.latency_ms is not None else 0)
+                        - (b.latency_ms if b.latency_ms is not None else 0),
+                        "effective": a.effective - b.effective,
+                    },
+                    "winner_model_id": winner.model_id,
+                    "provenance": {
+                        "inputs": {
+                            "logs_root": str(logs_root),
+                            "reward_a_jsonl": a.reward_path,
+                            "reward_b_jsonl": b.reward_path,
+                            "trace_a_path": a.trace_path,
+                            "trace_b_path": b.trace_path,
+                        }
+                    },
+                    "extractor": {
+                        "schema": PREFS_SCHEMA_VERSION,
+                        "prompt_source": prompt_source,
+                        "prompt_normalize": prompt_normalize,
+                        "min_score": float(min_score),
+                        "success_only": bool(success_only),
+                        "lambda_cost": float(lambda_cost),
+                        "mu_latency": float(mu_latency),
+                        "max_abs_score_gap": float(max_abs_score_gap),
+                        "pairing": "best_vs_first_close_runner_up",
+                        "min_models_per_case": 2,
+                        "deterministic": bool(deterministic),
+                        "sort_key": "suite_id,case_id,winner_model_id",
+                    },
+                }
+                attach_split_meta(meta, suite_id=suite_id, case_id=case_id)
+
                 ex = PreferenceExample(
                     prompt=prompt0,
                     response_a=a.response,
                     response_b=b.response,
                     preferred=preferred,
-                    meta={
-                        "suite_id": suite_id,
-                        "case_id": case_id,
-                        "lambda_cost": lambda_cost,
-                        "mu_latency": mu_latency,
-                        "prompt_step": a.prompt_step,
-                        "prompt_normalize": prompt_normalize,
-                        "a": {
-                            "model_id": a.model_id,
-                            "trace_id": a.trace_id,
-                            "score": a.score,
-                            "cost_usd": a.cost_usd,
-                            "latency_ms": a.latency_ms,
-                            "total_tokens": a.total_tokens,
-                            "effective": a.effective,
-                            "trace_path": a.trace_path,
-                            "reward_path": a.reward_path,
-                            "prompt_step": a.prompt_step,
-                        },
-                        "b": {
-                            "model_id": b.model_id,
-                            "trace_id": b.trace_id,
-                            "score": b.score,
-                            "cost_usd": b.cost_usd,
-                            "latency_ms": b.latency_ms,
-                            "total_tokens": b.total_tokens,
-                            "effective": b.effective,
-                            "trace_path": b.trace_path,
-                            "reward_path": b.reward_path,
-                            "prompt_step": b.prompt_step,
-                        },
-                        "deltas": {
-                            "score": a.score - b.score,
-                            "cost_usd": (a.cost_usd if a.cost_usd is not None else 0.0)
-                                        - (b.cost_usd if b.cost_usd is not None else 0.0),
-                            "latency_ms": (a.latency_ms if a.latency_ms is not None else 0)
-                                        - (b.latency_ms if b.latency_ms is not None else 0),
-                            "effective": a.effective - b.effective,
-                        },
-                        # optional: explicit winner for sanity checks
-                        "winner_model_id": winner.model_id,
-                        "provenance": {
-                            "inputs": {
-                                "logs_root": str(logs_root),
-                                "reward_jsonl": str(rf),  # for BOTH candidates you can store both; see below
-                                "trace_a_path": a.trace_path,
-                                "trace_b_path": b.trace_path
-                            }
-                            },
-                            "extractor": {
-                            "schema": PREFS_SCHEMA_VERSION,
-                            "prompt_source": prompt_source,
-                            "prompt_normalize": prompt_normalize,
-                            "min_score": float(min_score),
-                            "success_only": bool(success_only),
-                            "lambda_cost": float(lambda_cost),
-                            "mu_latency": float(mu_latency),
-                            "max_abs_score_gap": float(max_abs_score_gap),
-                            "pairing": "best_vs_first_close_runner_up",
-                            "min_models_per_case": 2,
-                            "deterministic": bool(deterministic),
-                            "sort_key": "suite_id,case_id,winner_model_id"
-                            }
-                    },
-
+                    meta=meta,
                 )
 
                 if output_format == "dpo":

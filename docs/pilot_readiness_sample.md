@@ -22,6 +22,15 @@
 | repairs | 4 | true | `results/pilot_check/datasets/pilot.repairs.jsonl` |
 | curriculum | 8 | true | `results/pilot_check/datasets/pilot.curriculum.jsonl` |
 
+## Dataset Quality
+
+| kind | sha256 | splits | duplicates | provenance | missing refs | quality issues |
+|---|---|---|---:|---:|---:|---:|
+| sft | `503de10ca51c` | test:4, train:4 | 0 | true | 0 | 0 |
+| prefs | `52409c4fcf78` | test:2, train:2 | 0 | true | 0 | 0 |
+| repairs | `3957d0299232` | test:2, train:2 | 0 | true | 0 | 0 |
+| curriculum | `bbc60bce79cd` | test:4, train:4 | 0 | true | 0 | 0 |
+
 ## Regression Gate
 
 - OK: `true`

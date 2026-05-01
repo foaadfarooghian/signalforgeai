@@ -21,6 +21,11 @@ def test_pilot_check_dummy_mode_produces_readiness_artifacts(tmp_path: Path) -> 
     assert Path(payload["dataset_manifest"]).exists()
     assert {d["kind"] for d in payload["datasets"]} == {"sft", "prefs", "repairs", "curriculum"}
     assert all(d["rows"] > 0 for d in payload["datasets"])
+    assert all(d["content_sha256"] for d in payload["datasets"])
+    assert all(d["provenance_checked"] is True for d in payload["datasets"])
+    assert all(d["duplicate_count"] == 0 for d in payload["datasets"])
+    assert all(not d["quality_issues"] for d in payload["datasets"])
+    assert "Dataset Quality" in Path(payload["report_md"]).read_text(encoding="utf-8")
     assert "regression" not in payload
 
 

@@ -20,6 +20,7 @@ from tensorfoundry.export.extract import (
     extract_step_text_full
 )
 from tensorfoundry.export._json import dumps_row
+from tensorfoundry.export.quality import attach_split_meta
 # ----------------------------
 # Models
 # ----------------------------
@@ -209,6 +210,7 @@ def export_sft(
                         "trace_path": str(trace_path),
                     }
                 }
+                attach_split_meta(meta, suite_id=r.get("suite_id"), case_id=r.get("case_id"))
 
                 meta["extractor"] = {
                     "schema": SFT_SCHEMA_VERSION,   # optional but nice
