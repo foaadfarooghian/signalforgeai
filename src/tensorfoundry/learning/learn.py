@@ -20,6 +20,7 @@ from tensorfoundry.training.readiness import (
     check_optional_training_dependencies,
     load_training_preflight_report,
     monotonic_seconds,
+    summarize_dpo_parent_run,
     utc_now,
     write_training_run,
     write_training_preflight,
@@ -173,6 +174,7 @@ def _train_cmd(args: argparse.Namespace) -> int:
 
     preflight_payload: dict[str, object] | None = None
     preflight_path: Path | None = None
+    dpo_parent_run, dpo_parent_issues = _dpo_parent_run(args)
     if args.dry_run:
         payload = _training_preflight_payload(args, dry_run=True)
         if args.report_out:
@@ -201,13 +203,17 @@ def _train_cmd(args: argparse.Namespace) -> int:
             except ValueError as exc:
                 payload["ok"] = False
                 payload["issues"] = _payload_issues(payload) + [str(exc)]
+        if dpo_parent_issues:
+            payload["ok"] = False
+            payload["issues"] = _payload_issues(payload) + dpo_parent_issues
         if not payload["ok"]:
             if args.run_report_out:
-                status = "blocked_missing_dependencies" if args.smoke else "preflight_failed"
+                status = _blocked_training_status(args, dpo_parent_issues)
                 run_payload = _training_run_payload(
                     args,
                     preflight_payload=payload,
                     preflight_path=preflight_path,
+                    dpo_parent_run=dpo_parent_run,
                     status=status,
                     started_at=utc_now(),
                     duration_seconds=0.0,
@@ -231,7 +237,7 @@ def _train_cmd(args: argparse.Namespace) -> int:
     if args.dpo and not issues:
         os.environ["DPO_DATASET"] = args.dpo_data
         os.environ["OUT_DIR"] = args.dpo_out
-        os.environ["SFT_DIR"] = args.sft_dir or args.sft_out
+        os.environ["SFT_DIR"] = args.sft_dir or _dpo_parent_adapter(dpo_parent_run) or args.sft_out
         try:
             _run_dpo_training()
         except (Exception, SystemExit) as exc:
@@ -243,6 +249,7 @@ def _train_cmd(args: argparse.Namespace) -> int:
             args,
             preflight_payload=preflight_payload,
             preflight_path=preflight_path,
+            dpo_parent_run=dpo_parent_run,
             status=status,
             started_at=started_at,
             duration_seconds=monotonic_seconds() - started,
@@ -271,6 +278,7 @@ def _training_preflight_payload(args: argparse.Namespace, *, dry_run: bool) -> d
         "dpo": bool(args.dpo),
         "sft_data": args.sft_data if args.sft else None,
         "dpo_data": args.dpo_data if args.dpo else None,
+        "sft_run": args.sft_run or None,
         "dataset_num_proc": int(args.dataset_num_proc),
         "instruction_part": args.instruction_part or None,
         "response_part": args.response_part or None,
@@ -300,6 +308,7 @@ def _training_run_payload(
     started_at: str,
     duration_seconds: float,
     issues: list[str],
+    dpo_parent_run: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return build_training_run(
         base_model=args.base_model,
@@ -308,7 +317,9 @@ def _training_run_payload(
         outputs={
             "sft_out": args.sft_out if args.sft else None,
             "dpo_out": args.dpo_out if args.dpo else None,
-            "sft_dir": (args.sft_dir or args.sft_out) if args.dpo else None,
+            "sft_dir": (args.sft_dir or _dpo_parent_adapter(dpo_parent_run) or args.sft_out)
+            if args.dpo
+            else None,
         },
         optional_dependencies=check_optional_training_dependencies(),
         config={
@@ -316,6 +327,7 @@ def _training_run_payload(
             "dpo": bool(args.dpo),
             "sft_data": args.sft_data if args.sft else None,
             "dpo_data": args.dpo_data if args.dpo else None,
+            "sft_run": args.sft_run or None,
             "dataset_num_proc": int(args.dataset_num_proc),
             "instruction_part": args.instruction_part or None,
             "response_part": args.response_part or None,
@@ -323,6 +335,7 @@ def _training_run_payload(
             "max_steps": int(args.max_steps),
             "quality_gate": bool(args.quality_gate),
         },
+        dpo_parent_run=dpo_parent_run,
         status=status,
         started_at=started_at,
         duration_seconds=duration_seconds,
@@ -350,6 +363,48 @@ def _training_exception_message(exc: BaseException) -> str:
     if isinstance(exc, SystemExit):
         return str(exc.code or "training exited")
     return str(exc)
+
+
+def _dpo_parent_run(args: argparse.Namespace) -> tuple[dict[str, object] | None, list[str]]:
+    if not args.dpo:
+        return None, []
+    if args.sft_run:
+        try:
+            payload = summarize_dpo_parent_run(args.sft_run)
+        except ValueError as exc:
+            return None, [str(exc)]
+        return payload, []
+    if args.sft:
+        return {
+            "path": None,
+            "version": "training_run.v0",
+            "ok": True,
+            "status": "same_command",
+            "base_model": args.base_model,
+            "training_stage": "sft",
+            "adapter_refs": [args.sft_out],
+            "file_checksums": {},
+        }, []
+    if args.run_report_out:
+        return None, ["--sft-run is required for DPO run evidence when --sft is not part of the same command"]
+    return None, []
+
+
+def _dpo_parent_adapter(parent: dict[str, object] | None) -> str:
+    if not parent:
+        return ""
+    refs = parent.get("adapter_refs")
+    if isinstance(refs, list) and refs:
+        return str(refs[0])
+    return ""
+
+
+def _blocked_training_status(args: argparse.Namespace, dpo_parent_issues: list[str]) -> str:
+    if dpo_parent_issues:
+        return "blocked_dpo_parent_run"
+    if args.smoke:
+        return "blocked_missing_dependencies"
+    return "preflight_failed"
 
 
 def _payload_issues(payload: dict[str, object]) -> list[str]:
@@ -456,6 +511,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     tr.add_argument("--sft-out", type=str, default="artifacts/synth_sft_lora", help="SFT output directory")
     tr.add_argument("--dpo-out", type=str, default="artifacts/synth_dpo_lora", help="DPO output directory")
     tr.add_argument("--sft-dir", type=str, default="", help="SFT adapter dir for DPO (defaults to --sft-out)")
+    tr.add_argument("--sft-run", type=str, default="", help="Successful training_run.v0 report for DPO parent SFT adapter")
 
     tr.add_argument("--dataset-num-proc", type=int, default=1, help="Dataset worker processes")
     tr.add_argument("--instruction-part", type=str, default="", help="Override instruction separator")

@@ -289,6 +289,157 @@ def test_train_sft_run_writes_training_run_evidence(
     assert str(sft_out / "adapter_model.safetensors") in payload["file_checksums"]
 
 
+def test_train_dpo_run_uses_successful_sft_run_parent(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    logs_root = tmp_path / "logs"
+    _sft, dpo = _write_strict_training_datasets(tmp_path, logs_root)
+    sft_out = tmp_path / "sft_lora"
+    sft_run = _write_sft_run_report(tmp_path, sft_out)
+    dpo_out = tmp_path / "dpo_lora"
+    run_report = tmp_path / "training_run.json"
+    deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+
+    def fake_dpo_training() -> None:
+        assert os.environ["SFT_DIR"] == str(sft_out)
+        out = Path(os.environ["OUT_DIR"])
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "adapter_model.safetensors").write_text("dpo-weights", encoding="utf-8")
+
+    def fail_sft_training() -> None:
+        raise AssertionError("SFT should not run for DPO-only execution")
+
+    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fail_sft_training)
+    monkeypatch.setattr("tensorfoundry.learning.learn._run_dpo_training", fake_dpo_training)
+    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--dpo",
+            "--dpo-data",
+            str(dpo),
+            "--sft-run",
+            str(sft_run),
+            "--dpo-out",
+            str(dpo_out),
+            "--quality-gate",
+            "--logs-root",
+            str(logs_root),
+            "--run-report-out",
+            str(run_report),
+            "--smoke",
+            "--max-steps",
+            "1",
+        ]
+    )
+
+    assert code == 0
+    payload = json.loads(run_report.read_text(encoding="utf-8"))
+    assert payload["training_stage"] == "dpo"
+    assert payload["dpo_parent_run"]["path"] == str(sft_run)
+    assert payload["artifact_refs"]["adapters"] == [str(dpo_out)]
+    assert payload["final_adapter_refs"] == [str(dpo_out)]
+    assert str(dpo_out / "adapter_model.safetensors") in payload["file_checksums"]
+
+
+def test_train_dpo_run_report_requires_sft_run_parent(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    dpo = tmp_path / "dpo.jsonl"
+    dpo.write_text(
+        json.dumps(
+            {
+                "version": "dpo.v0",
+                "prompt": "Task: train",
+                "chosen": "Better response",
+                "rejected": "Worse response",
+                "meta": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "training_run.json"
+    deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+
+    def fail_if_called() -> None:
+        raise AssertionError("DPO should not launch without parent SFT evidence")
+
+    monkeypatch.setattr("tensorfoundry.learning.learn._run_dpo_training", fail_if_called)
+    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--dpo",
+            "--dpo-data",
+            str(dpo),
+            "--run-report-out",
+            str(report),
+        ]
+    )
+
+    assert code == 2
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["status"] == "blocked_dpo_parent_run"
+    assert any("--sft-run is required" in issue for issue in payload["issues"])
+
+
+def test_train_dpo_run_report_rejects_failed_sft_parent(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _sft, dpo = _write_strict_training_datasets(tmp_path, tmp_path / "logs")
+    sft_run = tmp_path / "failed_sft_training_run.json"
+    sft_run.write_text(
+        json.dumps(
+            {
+                "version": "training_run.v0",
+                "ok": False,
+                "status": "failed",
+                "artifact_refs": {"adapters": [str(tmp_path / "sft_lora")]},
+                "issues": ["SFT failed"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    report = tmp_path / "training_run.json"
+    deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+
+    def fail_if_called() -> None:
+        raise AssertionError("DPO should not launch with failed parent SFT evidence")
+
+    monkeypatch.setattr("tensorfoundry.learning.learn._run_dpo_training", fail_if_called)
+    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--dpo",
+            "--dpo-data",
+            str(dpo),
+            "--sft-run",
+            str(sft_run),
+            "--run-report-out",
+            str(report),
+        ]
+    )
+
+    assert code == 2
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["status"] == "blocked_dpo_parent_run"
+    assert any("training run is not ok" in issue for issue in payload["issues"])
+
+
 def test_train_sft_run_smoke_missing_deps_writes_blocked_report(
     tmp_path: Path,
     monkeypatch,
@@ -364,6 +515,22 @@ def test_training_output_scan_hashes_files_and_ignores_unset_outputs(tmp_path: P
     assert payload["missing_outputs"] == []
 
 
+def test_training_output_scan_prefers_dpo_adapter_as_final(tmp_path: Path) -> None:
+    sft = tmp_path / "sft_lora"
+    dpo = tmp_path / "dpo_lora"
+    sft.mkdir()
+    dpo.mkdir()
+    (sft / "adapter_model.safetensors").write_text("sft", encoding="utf-8")
+    (dpo / "adapter_model.safetensors").write_text("dpo", encoding="utf-8")
+
+    payload = scan_training_output_artifacts({"sft_out": str(sft), "dpo_out": str(dpo)})
+
+    assert payload["artifact_refs_by_role"]["sft_out"] == [str(sft)]
+    assert payload["artifact_refs_by_role"]["dpo_out"] == [str(dpo)]
+    assert payload["artifact_refs"]["adapters"] == [str(dpo)]
+    assert payload["final_adapter_refs"] == [str(dpo)]
+
+
 def _write_strict_training_datasets(tmp_path: Path, logs_root: Path) -> tuple[Path, Path]:
     run_dir = logs_root / "run1"
     run_dir.mkdir(parents=True)
@@ -421,3 +588,39 @@ def _write_strict_training_datasets(tmp_path: Path, logs_root: Path) -> tuple[Pa
         encoding="utf-8",
     )
     return sft, dpo
+
+
+def _write_sft_run_report(tmp_path: Path, sft_out: Path) -> Path:
+    sft_out.mkdir(parents=True)
+    artifact = sft_out / "adapter_model.safetensors"
+    artifact.write_text("sft-weights", encoding="utf-8")
+    digest = _sha256(artifact)
+    report = tmp_path / "sft_training_run.json"
+    report.write_text(
+        json.dumps(
+            {
+                "version": "training_run.v0",
+                "ok": True,
+                "status": "succeeded",
+                "base_model": "dummy/base",
+                "training_stage": "sft",
+                "artifact_refs": {
+                    "adapters": [str(sft_out)],
+                    "safetensors": [],
+                    "gguf": [],
+                    "ollama": {"modelfile": "", "tag": ""},
+                },
+                "final_adapter_refs": [str(sft_out)],
+                "file_checksums": {str(artifact): digest},
+                "issues": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return report
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()

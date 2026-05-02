@@ -111,7 +111,7 @@ Build a local exchange unit from release evidence:
 ```bash
 tensorfoundry-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
-  --training-run results/training/training_run.json \
+  --training-run results/training/dpo_training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
@@ -149,6 +149,9 @@ tensorfoundry-exchange index \
 
 `--training-run` is optional. When supplied, `training_run.v0` output artifacts
 and checksums are copied into the unit unless explicit artifact refs are passed.
+For SFT-only release evidence, point it at the SFT run report. When DPO evidence
+exists, point it at the DPO run report so `final_adapter_refs`, parent SFT
+lineage, and DPO output checksums become the packaged exchange evidence.
 `package-check` emits `specialist_package.v0` evidence for adapter, Safetensors,
 GGUF, and Ollama references. `smoke-run` emits `specialist_smoke.v0` evidence
 for the consumer-facing load/generate path. The default smoke mode is

@@ -8,6 +8,7 @@ evaluation, trace-to-learning, and benchmarking.
 - `pilot_readiness_sample.md`: example output from the production-pilot readiness check.
 - `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
 - `training_run_sample.json`: example `training_run.v0` SFT execution evidence.
+- `training_run_dpo_sample.json`: example `training_run.v0` DPO execution evidence.
 - `distillation_recipe_sample.json`: example `distillation_recipe.v0` gate recipe.
 - `benchmark_matrix_sample.json`: example offline `benchmark_matrix.v0` config.
 - `specialist_model_unit_sample.json`: example `specialist_model_unit.v0` manifest.
@@ -80,7 +81,22 @@ tensorfoundry-learn train --base-model hf/org/base --sft \
   --sft-out results/training/sft_lora \
   --quality-gate --logs-root results/pilot_check/logs \
   --report-out results/pilot_check/training_preflight.json \
-  --run-report-out results/training/training_run.json \
+  --run-report-out results/training/sft_training_run.json \
+  --smoke --max-steps 1
+```
+
+DPO smoke evidence is also optional. It requires the successful SFT
+`training_run.v0` report through `--sft-run`, records parent lineage, and makes
+the DPO adapter the final exchange artifact:
+
+```bash
+tensorfoundry-learn train --base-model hf/org/base --dpo \
+  --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
+  --sft-run results/training/sft_training_run.json \
+  --dpo-out results/training/dpo_lora \
+  --quality-gate --logs-root results/pilot_check/logs \
+  --report-out results/pilot_check/training_preflight.json \
+  --run-report-out results/training/dpo_training_run.json \
   --smoke --max-steps 1
 ```
 
@@ -111,7 +127,7 @@ Build a local exchange unit from the generated evidence:
 ```bash
 tensorfoundry-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
-  --training-run results/training/training_run.json \
+  --training-run results/training/dpo_training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \

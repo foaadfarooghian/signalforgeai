@@ -7,8 +7,10 @@
   "completed_at": "2026-05-02T00:00:01Z",
   "duration_seconds": 1.0,
   "base_model": "dummy/base",
+  "training_stage": "sft",
   "preflight_path": "results/pilot_check/training_preflight.json",
   "preflight_ok": true,
+  "dpo_parent_run": null,
   "datasets": [
     {
       "role": "sft",
@@ -50,6 +52,15 @@
       "tag": ""
     }
   },
+  "artifact_refs_by_role": {
+    "sft_out": [
+      "results/training/sft_lora"
+    ],
+    "dpo_out": []
+  },
+  "final_adapter_refs": [
+    "results/training/sft_lora"
+  ],
   "output_artifacts": [
     {
       "role": "sft_out",

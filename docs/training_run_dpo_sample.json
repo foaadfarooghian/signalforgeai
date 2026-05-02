@@ -1,0 +1,113 @@
+{
+  "version": "training_run.v0",
+  "ok": true,
+  "status": "succeeded",
+  "created_at": "2026-05-02T00:00:10Z",
+  "started_at": "2026-05-02T00:00:10Z",
+  "completed_at": "2026-05-02T00:00:11Z",
+  "duration_seconds": 1.0,
+  "base_model": "dummy/base",
+  "training_stage": "dpo",
+  "preflight_path": "results/pilot_check/training_preflight.json",
+  "preflight_ok": true,
+  "dpo_parent_run": {
+    "path": "results/training/sft_training_run.json",
+    "version": "training_run.v0",
+    "ok": true,
+    "status": "succeeded",
+    "base_model": "dummy/base",
+    "training_stage": "sft",
+    "adapter_refs": [
+      "results/training/sft_lora"
+    ],
+    "file_checksums": {
+      "results/training/sft_lora/adapter_model.safetensors": "16a02d20888f0000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "datasets": [
+    {
+      "role": "dpo",
+      "kind": "dpo",
+      "path": "results/pilot_check/datasets/pilot.dpo.jsonl",
+      "rows": 4,
+      "ok": true,
+      "content_sha256": "88e8eacfd5d0000000000000000000000000000000000000000000000000000",
+      "split_counts": {
+        "train": 3,
+        "test": 1
+      },
+      "duplicate_count": 0,
+      "provenance_checked": true
+    }
+  ],
+  "dataset_hashes": {
+    "dpo": "88e8eacfd5d0000000000000000000000000000000000000000000000000000"
+  },
+  "split_counts": {
+    "dpo": {
+      "train": 3,
+      "test": 1
+    }
+  },
+  "outputs": {
+    "sft_out": null,
+    "dpo_out": "results/training/dpo_lora",
+    "sft_dir": "results/training/sft_lora"
+  },
+  "artifact_refs": {
+    "adapters": [
+      "results/training/dpo_lora"
+    ],
+    "safetensors": [],
+    "gguf": [],
+    "ollama": {
+      "modelfile": "",
+      "tag": ""
+    }
+  },
+  "artifact_refs_by_role": {
+    "sft_out": [],
+    "dpo_out": [
+      "results/training/dpo_lora"
+    ]
+  },
+  "final_adapter_refs": [
+    "results/training/dpo_lora"
+  ],
+  "output_artifacts": [
+    {
+      "role": "dpo_out",
+      "path": "results/training/dpo_lora/adapter_model.safetensors",
+      "sha256": "3d3f4d02dbb90000000000000000000000000000000000000000000000000000",
+      "bytes": 11
+    }
+  ],
+  "file_checksums": {
+    "results/training/dpo_lora/adapter_model.safetensors": "3d3f4d02dbb90000000000000000000000000000000000000000000000000000"
+  },
+  "missing_outputs": [],
+  "optional_dependencies": {
+    "torch": true,
+    "datasets": true,
+    "transformers": true,
+    "trl": true,
+    "unsloth": true
+  },
+  "dependencies_ok": true,
+  "missing_dependencies": [],
+  "smoke_bounded": true,
+  "command_config": {
+    "sft": false,
+    "dpo": true,
+    "sft_data": null,
+    "dpo_data": "results/pilot_check/datasets/pilot.dpo.jsonl",
+    "sft_run": "results/training/sft_training_run.json",
+    "dataset_num_proc": 1,
+    "instruction_part": null,
+    "response_part": null,
+    "smoke": true,
+    "max_steps": 1,
+    "quality_gate": true
+  },
+  "issues": []
+}

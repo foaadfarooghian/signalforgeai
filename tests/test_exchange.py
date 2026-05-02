@@ -157,6 +157,23 @@ def test_build_unit_maps_training_run_evidence_and_artifacts(tmp_path: Path) -> 
     assert validate_manifest(manifest, release_ready=True).ok is True
 
 
+def test_build_unit_prefers_dpo_adapter_from_training_run(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    manifest = _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="",
+        training_run_path=paths["training_run_dpo"],
+    )
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    run_payload = json.loads(paths["training_run_dpo"].read_text(encoding="utf-8"))
+
+    assert payload["training_run_evidence"]["status"] == "succeeded"
+    assert payload["artifacts"]["adapters"] == run_payload["final_adapter_refs"]
+    assert payload["artifacts"]["adapters"] == [str(paths["dpo_out"])]
+
+
 def test_registry_index_rejects_duplicate_unit_versions(tmp_path: Path) -> None:
     paths = _write_evidence(tmp_path)
     first = _build_unit(tmp_path / "first", paths, artifact_ref="hf://example/model.safetensors")
@@ -428,6 +445,10 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     training_out.mkdir(parents=True)
     adapter_file = training_out / "adapter_model.safetensors"
     adapter_file.write_text("weights", encoding="utf-8")
+    dpo_out = tmp_path / "training" / "dpo_lora"
+    dpo_out.mkdir(parents=True)
+    dpo_adapter_file = dpo_out / "adapter_model.safetensors"
+    dpo_adapter_file.write_text("dpo-weights", encoding="utf-8")
     recipe = tmp_path / "distillation_recipe.json"
     recipe.write_text("{}", encoding="utf-8")
     training_preflight = tmp_path / "training_preflight.json"
@@ -481,6 +502,51 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                     }
                 ],
                 "file_checksums": {str(adapter_file): sha256_file(adapter_file)},
+                "issues": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    training_run_dpo = tmp_path / "training_run_dpo.json"
+    training_run_dpo.write_text(
+        json.dumps(
+            {
+                "version": "training_run.v0",
+                "ok": True,
+                "status": "succeeded",
+                "base_model": "dummy/base",
+                "training_stage": "dpo",
+                "preflight_path": str(training_preflight),
+                "preflight_ok": True,
+                "dpo_parent_run": {
+                    "path": str(training_run),
+                    "ok": True,
+                    "adapter_refs": [str(training_out)],
+                },
+                "datasets": [{"role": "dpo", "path": str(dataset)}],
+                "dataset_hashes": {"dpo": "b" * 64},
+                "split_counts": {"dpo": {"train": 1}},
+                "outputs": {"sft_out": None, "dpo_out": str(dpo_out), "sft_dir": str(training_out)},
+                "artifact_refs": {
+                    "adapters": [str(dpo_out)],
+                    "safetensors": [],
+                    "gguf": [],
+                    "ollama": {"modelfile": "", "tag": ""},
+                },
+                "artifact_refs_by_role": {
+                    "sft_out": [],
+                    "dpo_out": [str(dpo_out)],
+                },
+                "final_adapter_refs": [str(dpo_out)],
+                "output_artifacts": [
+                    {
+                        "role": "dpo_out",
+                        "path": str(dpo_adapter_file),
+                        "sha256": sha256_file(dpo_adapter_file),
+                        "bytes": dpo_adapter_file.stat().st_size,
+                    }
+                ],
+                "file_checksums": {str(dpo_adapter_file): sha256_file(dpo_adapter_file)},
                 "issues": [],
             }
         ),
@@ -542,6 +608,8 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     return {
         "training_preflight": training_preflight,
         "training_run": training_run,
+        "training_run_dpo": training_run_dpo,
+        "dpo_out": dpo_out,
         "distillation_eval": distillation_eval,
         "benchmark_matrix": benchmark_matrix,
     }

@@ -222,7 +222,22 @@ tensorfoundry-learn train --base-model hf/org/base --sft \
   --sft-out results/training/sft_lora \
   --quality-gate --logs-root results/pilot_check/logs \
   --report-out results/pilot_check/training_preflight.json \
-  --run-report-out results/training/training_run.json \
+  --run-report-out results/training/sft_training_run.json \
+  --smoke --max-steps 1
+```
+
+DPO evidence is opt-in and must point at successful parent SFT run evidence.
+When a DPO run is present, pass its run report to exchange packaging so the
+final adapter refs and checksums describe the preference-optimized artifact:
+
+```bash
+tensorfoundry-learn train --base-model hf/org/base --dpo \
+  --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
+  --sft-run results/training/sft_training_run.json \
+  --dpo-out results/training/dpo_lora \
+  --quality-gate --logs-root results/pilot_check/logs \
+  --report-out results/pilot_check/training_preflight.json \
+  --run-report-out results/training/dpo_training_run.json \
   --smoke --max-steps 1
 ```
 
@@ -264,7 +279,7 @@ Build and index a local specialist exchange unit from the release evidence:
 ```bash
 tensorfoundry-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
-  --training-run results/training/training_run.json \
+  --training-run results/training/dpo_training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \

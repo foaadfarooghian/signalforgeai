@@ -114,6 +114,9 @@ the distribution layer built on top of these pillars.
 - SFT training run evidence:
   - opt-in `training_run.v0` execution report
   - output artifact refs and checksums for exchange packaging
+- DPO/preference optimization run evidence:
+  - DPO-only runs require successful parent SFT `training_run.v0` evidence
+  - DPO run reports record parent lineage and final adapter refs
 - Evidence-only distillation eval gate:
   - baseline/teacher vs candidate specialist suite comparison
   - pass-rate, mean-score, and failure-mode movement thresholds
@@ -200,6 +203,7 @@ MVP.
 - Artifact-baseline regression gating for pilot readiness checks
 - Strict dataset quality gates for provenance, splits, duplicates, and leakage
 - Training dry-run preflight for SFT/DPO inputs
+- Optional SFT and DPO `training_run.v0` evidence for exchange packaging
 - Evidence-only distillation eval gate for candidate specialists
 - Learning/routing primitives and experimental training utilities
 - Cost/latency-aware evaluation reporting

@@ -216,6 +216,7 @@ def build_training_run(
     outputs: Mapping[str, Optional[str]],
     optional_dependencies: Mapping[str, bool],
     config: Mapping[str, Any],
+    dpo_parent_run: Mapping[str, Any] | None = None,
     status: str,
     started_at: str,
     duration_seconds: float,
@@ -231,6 +232,7 @@ def build_training_run(
         run_issues.append("training preflight is not ok")
     if status == "succeeded" and not artifact_scan["artifact_refs"]["adapters"]:
         run_issues.append("no training output artifacts found")
+    stage = _training_stage(config)
     deps = dict(optional_dependencies)
     missing_dependencies = sorted(name for name, ok in deps.items() if not ok)
     return {
@@ -242,13 +244,17 @@ def build_training_run(
         "completed_at": completed_at,
         "duration_seconds": round(float(duration_seconds), 6),
         "base_model": base_model,
+        "training_stage": stage,
         "preflight_path": str(preflight_path) if preflight_path is not None else None,
         "preflight_ok": bool(preflight_ok),
+        "dpo_parent_run": dict(dpo_parent_run) if isinstance(dpo_parent_run, Mapping) else None,
         "datasets": _preflight_datasets(preflight),
         "dataset_hashes": _preflight_dataset_hashes(preflight),
         "split_counts": _preflight_split_counts(preflight),
         "outputs": dict(outputs),
         "artifact_refs": artifact_scan["artifact_refs"],
+        "artifact_refs_by_role": artifact_scan["artifact_refs_by_role"],
+        "final_adapter_refs": artifact_scan["final_adapter_refs"],
         "output_artifacts": artifact_scan["output_artifacts"],
         "file_checksums": artifact_scan["file_checksums"],
         "missing_outputs": artifact_scan["missing_outputs"],
@@ -265,12 +271,7 @@ def scan_training_output_artifacts(
     outputs: Mapping[str, Optional[str]],
 ) -> Dict[str, Any]:
     """Scan training output dirs for runnable refs and checksum-worthy files."""
-    artifact_refs: Dict[str, Any] = {
-        "adapters": [],
-        "safetensors": [],
-        "gguf": [],
-        "ollama": {"modelfile": "", "tag": ""},
-    }
+    refs_by_role: Dict[str, list[str]] = {"sft_out": [], "dpo_out": []}
     output_artifacts: list[Dict[str, Any]] = []
     file_checksums: Dict[str, str] = {}
     missing_outputs: list[str] = []
@@ -282,18 +283,46 @@ def scan_training_output_artifacts(
         if not root.exists():
             missing_outputs.append(str(root))
             continue
-        artifact_refs["adapters"].append(str(root))
+        refs_by_role[role].append(str(root))
         if root.is_file():
             _record_output_file(root, role, output_artifacts, file_checksums)
             continue
         for file_path in sorted(path for path in root.rglob("*") if path.is_file()):
             if file_path.suffix.lower() in TRAINING_OUTPUT_SUFFIXES:
                 _record_output_file(file_path, role, output_artifacts, file_checksums)
+    final_adapter_refs = refs_by_role["dpo_out"] or refs_by_role["sft_out"]
+    artifact_refs: Dict[str, Any] = {
+        "adapters": list(final_adapter_refs),
+        "safetensors": [],
+        "gguf": [],
+        "ollama": {"modelfile": "", "tag": ""},
+    }
     return {
         "artifact_refs": artifact_refs,
+        "artifact_refs_by_role": refs_by_role,
+        "final_adapter_refs": list(final_adapter_refs),
         "output_artifacts": output_artifacts,
         "file_checksums": file_checksums,
         "missing_outputs": missing_outputs,
+    }
+
+
+def summarize_dpo_parent_run(path: str | Path) -> Dict[str, Any]:
+    """Load a successful SFT run report and summarize it as DPO parent evidence."""
+    payload = load_training_run_report(path)
+    adapters = _adapter_refs(payload)
+    if not adapters:
+        raise ValueError(f"DPO parent SFT run has no adapter refs: {path}")
+    checksums = payload.get("file_checksums")
+    return {
+        "path": str(path),
+        "version": TRAINING_RUN_VERSION,
+        "ok": True,
+        "status": str(payload.get("status") or ""),
+        "base_model": str(payload.get("base_model") or ""),
+        "training_stage": str(payload.get("training_stage") or ""),
+        "adapter_refs": adapters,
+        "file_checksums": dict(checksums) if isinstance(checksums, Mapping) else {},
     }
 
 
@@ -327,6 +356,28 @@ def _collect_issues(dataset_checks: Sequence[TrainingDatasetCheck]) -> list[str]
         for issue in check.result.quality_issues:
             issues.append(f"{check.role}: {issue}")
     return issues
+
+
+def _training_stage(config: Mapping[str, Any]) -> str:
+    if config.get("sft") and config.get("dpo"):
+        return "sft_dpo"
+    if config.get("dpo"):
+        return "dpo"
+    if config.get("sft"):
+        return "sft"
+    return "unknown"
+
+
+def _adapter_refs(payload: Mapping[str, Any]) -> list[str]:
+    final_refs = payload.get("final_adapter_refs")
+    if isinstance(final_refs, list) and final_refs:
+        return [str(value) for value in final_refs if str(value)]
+    artifact_refs = payload.get("artifact_refs")
+    if isinstance(artifact_refs, Mapping):
+        adapters = artifact_refs.get("adapters")
+        if isinstance(adapters, list):
+            return [str(value) for value in adapters if str(value)]
+    return []
 
 
 def _record_output_file(
