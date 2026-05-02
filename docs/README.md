@@ -9,6 +9,8 @@ evaluation, trace-to-learning, and benchmarking.
 - `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
 - `distillation_recipe_sample.json`: example `distillation_recipe.v0` gate recipe.
 - `benchmark_matrix_sample.json`: example offline `benchmark_matrix.v0` config.
+- `specialist_model_unit_sample.json`: example `specialist_model_unit.v0` manifest.
+- `specialist_registry_index_sample.json`: example `specialist_registry_index.v0` index.
 - `specs/specialist_model_unit.schema.json`: machine-readable manifest schema for exchange units.
 - `../roadmap.md`: active workstreams and exit criteria.
 - `../manifesto.md`: product philosophy and explicit non-goals.
@@ -89,3 +91,32 @@ tensorfoundry-benchmark-matrix \
 
 The matrix emits `benchmark_matrix.v0` JSON and Markdown with scorecards for
 success, cost, latency, reliability, and effective-score frontier picks.
+
+Build a local exchange unit from the generated evidence:
+
+```bash
+tensorfoundry-exchange build-unit \
+  --training-preflight results/pilot_check/training_preflight.json \
+  --distillation-eval results/distillation_gate/distillation_eval.json \
+  --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
+  --out results/exchange/pilot-specialist.unit.json \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.1.0 --domain pilot \
+  --model-family dummy --model-size 0B --model-format safetensors \
+  --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
+  --usage-constraint "not for production decisions without review" \
+  --failure-mode dummy_only \
+  --failure-description "Dummy artifacts only prove exchange plumbing." \
+  --failure-mitigation "Replace dummy refs before release." \
+  --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
+  --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
+  --ollama-tag tensorfoundry/pilot-specialist:0.1.0
+```
+
+Then validate and index it:
+
+```bash
+tensorfoundry-exchange validate \
+  --manifest results/exchange/pilot-specialist.unit.json --release-ready
+tensorfoundry-exchange index \
+  --registry-dir results/exchange --out results/exchange/index.json --release-ready
+```

@@ -1,0 +1,42 @@
+{
+  "version": "specialist_registry_index.v0",
+  "ok": true,
+  "generated_at": "2026-05-02T00:00:00Z",
+  "registry_dir": "results/exchange",
+  "release_ready": true,
+  "units": [
+    {
+      "id": "pilot-specialist",
+      "version": "0.1.0",
+      "name": "Pilot Specialist",
+      "domain": "pilot",
+      "schema_version": "specialist_model_unit.v0",
+      "manifest_path": "results/exchange/pilot-specialist.unit.json",
+      "valid": true,
+      "model": {
+        "family": "dummy",
+        "size": "0B",
+        "format": "safetensors",
+        "base_model": "dummy/base"
+      },
+      "score": 0.95,
+      "reliability": 1.0,
+      "latency_ms_p50": 42,
+      "cost_per_success_usd": 0.0,
+      "artifact_formats": [
+        "adapters",
+        "safetensors",
+        "gguf",
+        "ollama"
+      ],
+      "evidence": {
+        "report_path": "results/distillation_gate/distillation_eval.md",
+        "distillation_eval_path": "results/distillation_gate/distillation_eval.json",
+        "benchmark_matrix_path": "results/benchmark_matrix/benchmark_matrix.json",
+        "training_preflight": "results/pilot_check/training_preflight.json"
+      },
+      "checksums": {}
+    }
+  ],
+  "issues": []
+}

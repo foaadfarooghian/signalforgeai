@@ -160,10 +160,12 @@ the distribution layer built on top of these pillars.
 
 **Goal:** Publish specialist models as complete operational units.
 
+**Status:** Active implementation after benchmark matrix reports.
+
 ### Deliverables
-- Specialist unit manifest spec (domain model + eval + lineage + ops constraints)
-- Machine-validated schema for exchange entries
-- Registry index format with immutable artifact references
+- `specialist_model_unit.v0` manifest spec (domain model + eval + lineage + ops constraints)
+- Machine-validated schema and release-ready checks for exchange entries
+- `specialist_registry_index.v0` file-based registry index with immutable artifact references
 - Packaging standards for:
   - adapters
   - Safetensors/GGUF weights

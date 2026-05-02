@@ -469,6 +469,41 @@ mean effective score, and named frontier picks. Dummy rows are mandatory for
 offline release evidence; hosted, local, and HF rows skip unless passed with
 `--require-provider`.
 
+Build a local specialist exchange unit from pilot, distillation, and benchmark
+evidence:
+
+```bash
+tensorfoundry-exchange build-unit \
+  --training-preflight results/pilot_check/training_preflight.json \
+  --distillation-eval results/distillation_gate/distillation_eval.json \
+  --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
+  --out results/exchange/pilot-specialist.unit.json \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.1.0 --domain pilot \
+  --model-family dummy --model-size 0B --model-format safetensors \
+  --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
+  --usage-constraint "not for production decisions without review" \
+  --failure-mode dummy_only \
+  --failure-description "Dummy artifacts only prove exchange plumbing." \
+  --failure-mitigation "Replace dummy refs before release." \
+  --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
+  --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
+  --ollama-tag tensorfoundry/pilot-specialist:0.1.0
+```
+
+Validate and index release-ready manifests:
+
+```bash
+tensorfoundry-exchange validate \
+  --manifest results/exchange/pilot-specialist.unit.json --release-ready
+
+tensorfoundry-exchange index \
+  --registry-dir results/exchange --out results/exchange/index.json --release-ready
+```
+
+The exchange CLI performs schema validation, local checksum verification,
+evidence-link checks, duplicate `(id, version)` rejection, and file-based
+`specialist_registry_index.v0` generation. It does not upload or bundle weights.
+
 ## Examples and Reference Workflows
 
 Examples live in `examples/`:
@@ -543,6 +578,7 @@ Defined in `pyproject.toml`:
 - `tensorfoundry-pricing-validate` -> `src/tensorfoundry/models/pricing/validate_openai_pricing.py`
 - `tensorfoundry-distill-check` -> `src/tensorfoundry/distillation/check.py`
 - `tensorfoundry-benchmark-matrix` -> `src/tensorfoundry/evaluation/matrix.py`
+- `tensorfoundry-exchange` -> `src/tensorfoundry/exchange/cli.py`
 
 There are also module CLIs:
 

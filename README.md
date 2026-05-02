@@ -89,8 +89,10 @@ Each exchange unit includes:
 - License and usage constraints
 - Ready-to-run artifacts (adapters, Safetensors/GGUF, Ollama packaging)
 
-See `docs/model_exchange.md` and
-`docs/specs/specialist_model_unit.schema.json` for the draft contract.
+Use `tensorfoundry-exchange` to build and validate `specialist_model_unit.v0`
+manifests from training, distillation, and benchmark evidence. See
+`docs/model_exchange.md`, `docs/specialist_model_unit_sample.json`, and
+`docs/specs/specialist_model_unit.schema.json` for the contract.
 
 Good early domains:
 
@@ -243,6 +245,32 @@ This writes `benchmark_matrix.v0` JSON and Markdown with task success, cost per
 successful task, latency p50/p95, reliability fields, mean effective score, and
 frontier picks. Dummy rows are deterministic and mandatory; hosted/local/HF rows
 skip unless their provider is explicitly required.
+
+Build and index a local specialist exchange unit from the release evidence:
+
+```bash
+tensorfoundry-exchange build-unit \
+  --training-preflight results/pilot_check/training_preflight.json \
+  --distillation-eval results/distillation_gate/distillation_eval.json \
+  --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
+  --out results/exchange/pilot-specialist.unit.json \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.1.0 --domain pilot \
+  --model-family dummy --model-size 0B --model-format safetensors \
+  --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
+  --usage-constraint "not for production decisions without review" \
+  --failure-mode dummy_only \
+  --failure-description "Dummy artifacts only prove exchange plumbing." \
+  --failure-mitigation "Replace dummy refs before release." \
+  --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
+  --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
+  --ollama-tag tensorfoundry/pilot-specialist:0.1.0
+
+tensorfoundry-exchange validate \
+  --manifest results/exchange/pilot-specialist.unit.json --release-ready
+
+tensorfoundry-exchange index \
+  --registry-dir results/exchange --out results/exchange/index.json --release-ready
+```
 
 ---
 

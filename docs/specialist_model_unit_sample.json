@@ -1,0 +1,90 @@
+{
+  "schema_version": "specialist_model_unit.v0",
+  "id": "pilot-specialist",
+  "name": "Pilot Specialist",
+  "version": "0.1.0",
+  "domain": "pilot",
+  "summary": "Example exchange unit built from TensorFoundry pilot, distillation, and benchmark evidence.",
+  "model": {
+    "family": "dummy",
+    "size": "0B",
+    "format": "safetensors",
+    "base_model": "dummy/base"
+  },
+  "eval_pack": {
+    "suite_id": "benchmark_v0_decision",
+    "report_path": "artifact://pilot/distillation_eval.md",
+    "score": 0.95,
+    "reliability": 1.0,
+    "latency_ms_p50": 42,
+    "cost_per_success_usd": 0.0,
+    "benchmark_run_ids": [
+      "artifact://pilot/benchmark/logs/benchmark_v0_decision/dummy_good"
+    ],
+    "distillation_eval_path": "artifact://pilot/distillation_eval.json",
+    "benchmark_matrix_path": "artifact://pilot/benchmark_matrix.json"
+  },
+  "lineage": {
+    "trace_sources": [
+      "artifact://pilot/logs",
+      "artifact://pilot/distillation/logs/candidate"
+    ],
+    "dataset_sources": [
+      "artifact://pilot/datasets/pilot.sft.jsonl",
+      "artifact://pilot/datasets/pilot.dpo.jsonl"
+    ],
+    "distillation_recipe": "artifact://pilot/distillation_recipe.json",
+    "training_preflight": "artifact://pilot/training_preflight.json",
+    "dataset_hashes": {
+      "sft": "503de10ca51c0000000000000000000000000000000000000000000000000000",
+      "dpo": "88e8eacfd5d0000000000000000000000000000000000000000000000000000"
+    },
+    "split_counts": {
+      "sft": {
+        "train": 4,
+        "test": 4
+      },
+      "dpo": {
+        "train": 2,
+        "test": 2
+      }
+    }
+  },
+  "hardware_profile": {
+    "target": "cpu",
+    "ram_gb": 0,
+    "latency_ms_p50": 42,
+    "latency_ms_p95": 90
+  },
+  "failure_modes": [
+    {
+      "id": "dummy_only",
+      "description": "This sample uses dummy artifact references and is not a real specialist model.",
+      "mitigation": "Replace artifact refs with immutable model artifacts before release.",
+      "severity": "low"
+    }
+  ],
+  "license": {
+    "model_license": "Apache-2.0",
+    "dataset_license": "CC-BY-4.0"
+  },
+  "usage_constraints": [
+    "not for production decisions without review"
+  ],
+  "artifacts": {
+    "adapters": [
+      "hf://tensorfoundry/pilot-specialist-lora"
+    ],
+    "safetensors": [
+      "hf://tensorfoundry/pilot-specialist/model.safetensors"
+    ],
+    "gguf": [
+      "hf://tensorfoundry/pilot-specialist/model-q4.gguf"
+    ],
+    "ollama": {
+      "modelfile": "hf://tensorfoundry/pilot-specialist/Modelfile",
+      "tag": "tensorfoundry/pilot-specialist:0.1.0"
+    },
+    "checksums": {}
+  }
+}
