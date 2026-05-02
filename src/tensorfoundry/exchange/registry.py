@@ -72,6 +72,8 @@ def _unit_index_entry(
     model = _dict(manifest.get("model"))
     artifacts = _dict(manifest.get("artifacts"))
     lineage = _dict(manifest.get("lineage"))
+    package_evidence = _dict(manifest.get("package_evidence"))
+    smoke_evidence = _dict(manifest.get("smoke_run_evidence"))
     return {
         "id": manifest.get("id"),
         "version": manifest.get("version"),
@@ -91,7 +93,11 @@ def _unit_index_entry(
             "distillation_eval_path": eval_pack.get("distillation_eval_path"),
             "benchmark_matrix_path": eval_pack.get("benchmark_matrix_path"),
             "training_preflight": lineage.get("training_preflight"),
+            "package_evidence": package_evidence.get("path"),
+            "smoke_run_evidence": smoke_evidence.get("path"),
         },
+        "package_evidence": package_evidence,
+        "smoke_run_evidence": smoke_evidence,
         "checksums": _dict(artifacts.get("checksums")),
     }
 

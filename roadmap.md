@@ -160,7 +160,8 @@ the distribution layer built on top of these pillars.
 
 **Goal:** Publish specialist models as complete operational units.
 
-**Status:** Active implementation after benchmark matrix reports.
+**Status:** Packaging and consumer smoke checks in progress after the registry
+MVP.
 
 ### Deliverables
 - `specialist_model_unit.v0` manifest spec (domain model + eval + lineage + ops constraints)
@@ -170,6 +171,8 @@ the distribution layer built on top of these pillars.
   - adapters
   - Safetensors/GGUF weights
   - Ollama-ready bundles
+- `specialist_package.v0` evidence for artifact checksums and bundle viability
+- `specialist_smoke.v0` evidence for deterministic consumer load/generate checks
 - Governance rules for license and usage-constraint disclosure
 
 ### Exit criteria
@@ -177,7 +180,8 @@ the distribution layer built on top of these pillars.
 - Eval pack and benchmark evidence are linked in each listing
 - Trace/dataset lineage is auditable for each published version
 - Hardware profile and known failure modes are documented per unit
-- Consumers can run listed artifacts without bespoke integration work
+- Consumers can run listed artifacts through a documented smoke path without
+  bespoke integration work
 
 ---
 

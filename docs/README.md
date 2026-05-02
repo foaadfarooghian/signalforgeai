@@ -112,9 +112,19 @@ tensorfoundry-exchange build-unit \
   --ollama-tag tensorfoundry/pilot-specialist:0.1.0
 ```
 
-Then validate and index it:
+Attach packaging evidence, run the offline consumer smoke check, then validate
+and index it:
 
 ```bash
+tensorfoundry-exchange package-check \
+  --manifest results/exchange/pilot-specialist.unit.json \
+  --out results/exchange/specialist_package.json \
+  --package-type auto --release-ready --update-manifest
+
+tensorfoundry-exchange smoke-run \
+  --manifest results/exchange/pilot-specialist.unit.json \
+  --work-dir results/exchange/smoke --update-manifest
+
 tensorfoundry-exchange validate \
   --manifest results/exchange/pilot-specialist.unit.json --release-ready
 tensorfoundry-exchange index \

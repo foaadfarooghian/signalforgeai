@@ -71,6 +71,27 @@
   "usage_constraints": [
     "not for production decisions without review"
   ],
+  "package_evidence": {
+    "version": "specialist_package.v0",
+    "path": "artifact://pilot/specialist_package.json",
+    "ok": true,
+    "package_types": [
+      "adapters",
+      "safetensors",
+      "gguf",
+      "ollama"
+    ],
+    "artifact_count": 5,
+    "issues": []
+  },
+  "smoke_run_evidence": {
+    "version": "specialist_smoke.v0",
+    "path": "artifact://pilot/specialist_smoke.json",
+    "ok": true,
+    "mode": "dummy",
+    "model_id": "dummy_good",
+    "issues": []
+  },
   "artifacts": {
     "adapters": [
       "hf://tensorfoundry/pilot-specialist-lora"

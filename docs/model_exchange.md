@@ -126,9 +126,19 @@ tensorfoundry-exchange build-unit \
   --ollama-tag tensorfoundry/pilot-specialist:0.1.0
 ```
 
-Validate and index local units:
+Attach package evidence, run a consumer smoke check, then validate and index
+local units:
 
 ```bash
+tensorfoundry-exchange package-check \
+  --manifest results/exchange/pilot-specialist.unit.json \
+  --out results/exchange/specialist_package.json \
+  --package-type auto --release-ready --update-manifest
+
+tensorfoundry-exchange smoke-run \
+  --manifest results/exchange/pilot-specialist.unit.json \
+  --work-dir results/exchange/smoke --update-manifest
+
 tensorfoundry-exchange validate \
   --manifest results/exchange/pilot-specialist.unit.json --release-ready
 
@@ -136,17 +146,25 @@ tensorfoundry-exchange index \
   --registry-dir results/exchange --out results/exchange/index.json --release-ready
 ```
 
+`package-check` emits `specialist_package.v0` evidence for adapter,
+Safetensors, GGUF, and Ollama references. `smoke-run` emits
+`specialist_smoke.v0` evidence for the consumer-facing load/generate path. The
+default smoke mode is deterministic dummy execution; Ollama and HF modes remain
+optional unless explicitly required.
+
 `--release-ready` is stricter than schema validation: it checks evidence links,
-local artifact checksums, usage constraints, failure modes, and runnable artifact
-refs. URI artifact refs are accepted without network access.
+local artifact checksums, package evidence, usage constraints, failure modes,
+and runnable artifact refs. URI artifact refs are accepted without network
+access.
 
 ## Registry lifecycle
 
-1. Build and package the specialist unit.
-2. Validate manifest schema and artifact integrity.
-3. Run eval pack and benchmark matrix checks.
-4. Publish with versioned metadata and immutable artifact references.
-5. Track failure mode drift and reliability regressions over time.
+1. Build the specialist unit from training, distillation, and benchmark evidence.
+2. Attach package evidence for runnable artifact refs.
+3. Run the consumer smoke check for the intended load path.
+4. Validate manifest schema, evidence links, and artifact integrity.
+5. Publish with versioned metadata and immutable artifact references.
+6. Track failure mode drift and reliability regressions over time.
 
 ## Publication gates (recommended)
 

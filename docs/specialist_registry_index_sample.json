@@ -33,7 +33,28 @@
         "report_path": "results/distillation_gate/distillation_eval.md",
         "distillation_eval_path": "results/distillation_gate/distillation_eval.json",
         "benchmark_matrix_path": "results/benchmark_matrix/benchmark_matrix.json",
-        "training_preflight": "results/pilot_check/training_preflight.json"
+        "training_preflight": "results/pilot_check/training_preflight.json",
+        "package_evidence": "results/exchange/specialist_package.json",
+        "smoke_run_evidence": "results/exchange/smoke/specialist_smoke.json"
+      },
+      "package_evidence": {
+        "version": "specialist_package.v0",
+        "path": "results/exchange/specialist_package.json",
+        "ok": true,
+        "package_types": [
+          "safetensors",
+          "ollama"
+        ],
+        "artifact_count": 3,
+        "issues": []
+      },
+      "smoke_run_evidence": {
+        "version": "specialist_smoke.v0",
+        "path": "results/exchange/smoke/specialist_smoke.json",
+        "ok": true,
+        "mode": "dummy",
+        "model_id": "dummy_good",
+        "issues": []
       },
       "checksums": {}
     }

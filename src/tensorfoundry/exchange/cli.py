@@ -5,7 +5,9 @@ import argparse
 from pathlib import Path
 from typing import List, Optional
 
+from tensorfoundry.exchange.package import run_package_check
 from tensorfoundry.exchange.registry import build_registry_index
+from tensorfoundry.exchange.smoke import run_smoke_check
 from tensorfoundry.exchange.unit import build_specialist_unit
 from tensorfoundry.exchange.validation import validate_manifest
 
@@ -59,6 +61,29 @@ def main(argv: Optional[List[str]] = None) -> int:
     index.add_argument("--registry-dir", required=True, type=str)
     index.add_argument("--out", required=True, type=str)
     index.add_argument("--release-ready", action="store_true")
+
+    package = sub.add_parser("package-check", help="Validate package artifact refs and write package evidence.")
+    package.add_argument("--manifest", required=True, type=str)
+    package.add_argument("--out", required=True, type=str)
+    package.add_argument("--artifacts-root", type=str, default=None)
+    package.add_argument(
+        "--package-type",
+        action="append",
+        default=[],
+        choices=["auto", "adapter", "adapters", "safetensors", "gguf", "ollama"],
+    )
+    package.add_argument("--release-ready", action="store_true")
+    package.add_argument("--update-manifest", action="store_true")
+
+    smoke = sub.add_parser("smoke-run", help="Run a consumer smoke check and write smoke evidence.")
+    smoke.add_argument("--manifest", required=True, type=str)
+    smoke.add_argument("--work-dir", required=True, type=str)
+    smoke.add_argument("--mode", choices=["dummy", "ollama", "hf"], default="dummy")
+    smoke.add_argument("--model-id", type=str, default=None)
+    smoke.add_argument("--package-evidence", type=str, default=None)
+    smoke.add_argument("--artifacts-root", type=str, default=None)
+    smoke.add_argument("--require-provider", action="store_true")
+    smoke.add_argument("--update-manifest", action="store_true")
 
     args = parser.parse_args(argv)
     if args.command == "validate":
@@ -128,6 +153,47 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         print(f"Specialist registry index: {'OK' if payload['ok'] else 'FAILED'}")
         print(f"Index: {args.out}")
+        for issue in payload["issues"]:
+            print(f"- {issue}")
+        return 0 if payload["ok"] else 1
+
+    if args.command == "package-check":
+        try:
+            payload = run_package_check(
+                manifest_path=args.manifest,
+                out_path=args.out,
+                artifacts_root=args.artifacts_root,
+                package_types=args.package_type or None,
+                release_ready=bool(args.release_ready),
+                update_manifest=bool(args.update_manifest),
+            )
+        except ValueError as exc:
+            print(f"Specialist package check: FAILED ({exc})")
+            return 1
+        print(f"Specialist package check: {'OK' if payload['ok'] else 'FAILED'}")
+        print(f"Evidence: {args.out}")
+        for issue in payload["issues"]:
+            print(f"- {issue}")
+        return 0 if payload["ok"] else 1
+
+    if args.command == "smoke-run":
+        try:
+            payload = run_smoke_check(
+                manifest_path=args.manifest,
+                work_dir=args.work_dir,
+                mode=args.mode,
+                model_id=args.model_id,
+                package_evidence_path=args.package_evidence,
+                artifacts_root=args.artifacts_root,
+                require_provider=bool(args.require_provider),
+                update_manifest=bool(args.update_manifest),
+            )
+        except ValueError as exc:
+            print(f"Specialist smoke run: FAILED ({exc})")
+            return 1
+        print(f"Specialist smoke run: {'OK' if payload['ok'] else 'FAILED'}")
+        print(f"Report JSON: {payload['report_json']}")
+        print(f"Report Markdown: {payload['report_md']}")
         for issue in payload["issues"]:
             print(f"- {issue}")
         return 0 if payload["ok"] else 1

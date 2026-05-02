@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 from tensorfoundry.exchange.cli import main as exchange_main
+from tensorfoundry.exchange.package import SPECIALIST_PACKAGE_VERSION, run_package_check
 from tensorfoundry.exchange.registry import build_registry_index
+from tensorfoundry.exchange.smoke import SPECIALIST_SMOKE_VERSION, run_smoke_check
 from tensorfoundry.exchange.unit import build_specialist_unit
 from tensorfoundry.exchange.validation import (
     SPECIALIST_MODEL_UNIT_VERSION,
@@ -159,7 +161,184 @@ def test_exchange_cli_subcommands_return_nonzero_on_validation_failures(tmp_path
     assert code == 1
 
 
-def _build_unit(tmp_path: Path, paths: dict[str, Path], *, artifact_ref: str) -> Path:
+def test_package_check_computes_checksums_and_attaches_evidence(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    artifact = tmp_path / "artifacts" / "model.safetensors"
+    artifact.parent.mkdir()
+    artifact.write_text("weights", encoding="utf-8")
+    manifest = _build_unit(tmp_path, paths, artifact_ref="model.safetensors")
+    evidence = tmp_path / "package.json"
+
+    payload = run_package_check(
+        manifest_path=manifest,
+        out_path=evidence,
+        artifacts_root=artifact.parent,
+        package_types=["safetensors"],
+        release_ready=True,
+        update_manifest=True,
+    )
+
+    updated = json.loads(manifest.read_text(encoding="utf-8"))
+    assert payload["version"] == SPECIALIST_PACKAGE_VERSION
+    assert payload["ok"] is True
+    assert payload["artifacts"][0]["sha256"] == sha256_file(artifact)
+    assert updated["package_evidence"]["path"] == str(evidence)
+    assert updated["package_evidence"]["ok"] is True
+
+
+def test_package_check_fails_missing_local_release_artifact(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    manifest = _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="missing.safetensors",
+        release_ready=False,
+    )
+
+    payload = run_package_check(
+        manifest_path=manifest,
+        out_path=tmp_path / "package.json",
+        artifacts_root=tmp_path / "artifacts",
+        package_types=["safetensors"],
+        release_ready=True,
+    )
+
+    assert payload["ok"] is False
+    assert any("local package ref missing" in issue for issue in payload["issues"])
+
+
+def test_package_check_validates_local_ollama_modelfile(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    modelfile = artifact_root / "Modelfile"
+    modelfile.write_text("PARAMETER temperature 0\n", encoding="utf-8")
+    manifest = _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+        ollama_modelfile="Modelfile",
+    )
+
+    payload = run_package_check(
+        manifest_path=manifest,
+        out_path=tmp_path / "package.json",
+        artifacts_root=artifact_root,
+        package_types=["ollama"],
+        release_ready=True,
+    )
+
+    assert payload["ok"] is False
+    assert any("missing FROM line" in issue for issue in payload["issues"])
+
+
+def test_smoke_run_writes_evidence_and_attaches_manifest_ref(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    manifest = _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+    )
+    package_payload = run_package_check(
+        manifest_path=manifest,
+        out_path=tmp_path / "package.json",
+        package_types=["safetensors"],
+        release_ready=True,
+        update_manifest=True,
+    )
+
+    payload = run_smoke_check(
+        manifest_path=manifest,
+        work_dir=tmp_path / "smoke",
+        package_evidence_path=tmp_path / "package.json",
+        update_manifest=True,
+    )
+    updated = json.loads(manifest.read_text(encoding="utf-8"))
+
+    assert package_payload["ok"] is True
+    assert payload["version"] == SPECIALIST_SMOKE_VERSION
+    assert payload["ok"] is True
+    assert payload["mode"] == "dummy"
+    assert Path(payload["report_json"]).exists()
+    assert updated["smoke_run_evidence"]["path"] == payload["report_json"]
+
+
+def test_registry_index_includes_package_and_smoke_evidence(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    manifest = _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+    )
+    run_package_check(
+        manifest_path=manifest,
+        out_path=tmp_path / "package.json",
+        package_types=["safetensors"],
+        release_ready=True,
+        update_manifest=True,
+    )
+    run_smoke_check(
+        manifest_path=manifest,
+        work_dir=tmp_path / "smoke",
+        update_manifest=True,
+    )
+
+    index = build_registry_index(
+        registry_dir=tmp_path / "registry",
+        out_path=tmp_path / "index.json",
+        release_ready=True,
+    )
+
+    unit = index["units"][0]
+    assert index["ok"] is True
+    assert unit["package_evidence"]["version"] == SPECIALIST_PACKAGE_VERSION
+    assert unit["smoke_run_evidence"]["version"] == SPECIALIST_SMOKE_VERSION
+
+
+def test_exchange_package_and_smoke_cli(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    manifest = _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+    )
+
+    package_code = exchange_main(
+        [
+            "package-check",
+            "--manifest",
+            str(manifest),
+            "--out",
+            str(tmp_path / "package.json"),
+            "--package-type",
+            "safetensors",
+            "--release-ready",
+            "--update-manifest",
+        ]
+    )
+    smoke_code = exchange_main(
+        [
+            "smoke-run",
+            "--manifest",
+            str(manifest),
+            "--work-dir",
+            str(tmp_path / "smoke"),
+            "--update-manifest",
+        ]
+    )
+
+    assert package_code == 0
+    assert smoke_code == 0
+
+
+def _build_unit(
+    tmp_path: Path,
+    paths: dict[str, Path],
+    *,
+    artifact_ref: str,
+    ollama_modelfile: str = "hf://tensorfoundry/example/Modelfile",
+    release_ready: bool = True,
+) -> Path:
     out_dir = tmp_path / "registry"
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / "unit.json"
@@ -183,10 +362,10 @@ def _build_unit(tmp_path: Path, paths: dict[str, Path], *, artifact_ref: str) ->
         failure_mitigation="Replace dummy artifact refs before release.",
         failure_severity="low",
         safetensors_refs=[artifact_ref],
-        ollama_modelfile="hf://tensorfoundry/example/Modelfile",
+        ollama_modelfile=ollama_modelfile,
         ollama_tag="tensorfoundry/pilot-specialist:0.1.0",
         artifacts_root=tmp_path / "artifacts",
-        release_ready=True,
+        release_ready=release_ready,
     )
     return out
 

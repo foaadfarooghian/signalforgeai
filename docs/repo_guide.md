@@ -490,9 +490,19 @@ tensorfoundry-exchange build-unit \
   --ollama-tag tensorfoundry/pilot-specialist:0.1.0
 ```
 
-Validate and index release-ready manifests:
+Attach package evidence, run the consumer smoke check, then validate and index
+release-ready manifests:
 
 ```bash
+tensorfoundry-exchange package-check \
+  --manifest results/exchange/pilot-specialist.unit.json \
+  --out results/exchange/specialist_package.json \
+  --package-type auto --release-ready --update-manifest
+
+tensorfoundry-exchange smoke-run \
+  --manifest results/exchange/pilot-specialist.unit.json \
+  --work-dir results/exchange/smoke --update-manifest
+
 tensorfoundry-exchange validate \
   --manifest results/exchange/pilot-specialist.unit.json --release-ready
 
@@ -501,7 +511,8 @@ tensorfoundry-exchange index \
 ```
 
 The exchange CLI performs schema validation, local checksum verification,
-evidence-link checks, duplicate `(id, version)` rejection, and file-based
+package evidence generation, offline consumer smoke evidence, evidence-link
+checks, duplicate `(id, version)` rejection, and file-based
 `specialist_registry_index.v0` generation. It does not upload or bundle weights.
 
 ## Examples and Reference Workflows

@@ -282,6 +282,78 @@
         "type": "string"
       }
     },
+    "package_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "path",
+        "ok",
+        "package_types"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "specialist_package.v0"
+        },
+        "path": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "package_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "smoke_run_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "path",
+        "ok",
+        "mode"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "specialist_smoke.v0"
+        },
+        "path": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
