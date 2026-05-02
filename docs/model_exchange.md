@@ -111,6 +111,7 @@ Build a local exchange unit from release evidence:
 ```bash
 tensorfoundry-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
+  --training-run results/training/training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
@@ -146,11 +147,13 @@ tensorfoundry-exchange index \
   --registry-dir results/exchange --out results/exchange/index.json --release-ready
 ```
 
-`package-check` emits `specialist_package.v0` evidence for adapter,
-Safetensors, GGUF, and Ollama references. `smoke-run` emits
-`specialist_smoke.v0` evidence for the consumer-facing load/generate path. The
-default smoke mode is deterministic dummy execution; Ollama and HF modes remain
-optional unless explicitly required.
+`--training-run` is optional. When supplied, `training_run.v0` output artifacts
+and checksums are copied into the unit unless explicit artifact refs are passed.
+`package-check` emits `specialist_package.v0` evidence for adapter, Safetensors,
+GGUF, and Ollama references. `smoke-run` emits `specialist_smoke.v0` evidence
+for the consumer-facing load/generate path. The default smoke mode is
+deterministic dummy execution; Ollama and HF modes remain optional unless
+explicitly required.
 
 `--release-ready` is stricter than schema validation: it checks evidence links,
 local artifact checksums, package evidence, usage constraints, failure modes,

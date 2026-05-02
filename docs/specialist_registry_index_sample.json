@@ -34,8 +34,17 @@
         "distillation_eval_path": "results/distillation_gate/distillation_eval.json",
         "benchmark_matrix_path": "results/benchmark_matrix/benchmark_matrix.json",
         "training_preflight": "results/pilot_check/training_preflight.json",
+        "training_run_evidence": "results/training/training_run.json",
         "package_evidence": "results/exchange/specialist_package.json",
         "smoke_run_evidence": "results/exchange/smoke/specialist_smoke.json"
+      },
+      "training_run_evidence": {
+        "version": "training_run.v0",
+        "path": "results/training/training_run.json",
+        "ok": true,
+        "status": "succeeded",
+        "artifact_count": 2,
+        "issues": []
       },
       "package_evidence": {
         "version": "specialist_package.v0",

@@ -13,6 +13,7 @@ from tensorfoundry.exchange.validation import (
     sha256_file,
     validate_manifest,
 )
+from tensorfoundry.training.readiness import TRAINING_RUN_VERSION
 
 
 def test_valid_specialist_unit_passes_release_ready_validation(tmp_path: Path) -> None:
@@ -133,6 +134,27 @@ def test_build_unit_maps_training_distillation_and_benchmark_evidence(tmp_path: 
     assert payload["eval_pack"]["latency_ms_p50"] == 42
     assert payload["eval_pack"]["distillation_eval_path"] == str(paths["distillation_eval"].resolve())
     assert payload["eval_pack"]["benchmark_matrix_path"] == str(paths["benchmark_matrix"].resolve())
+
+
+def test_build_unit_maps_training_run_evidence_and_artifacts(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    manifest = _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="",
+        training_run_path=paths["training_run"],
+    )
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    run_payload = json.loads(paths["training_run"].read_text(encoding="utf-8"))
+    adapter_dir = run_payload["artifact_refs"]["adapters"][0]
+    adapter_file = run_payload["output_artifacts"][0]["path"]
+
+    assert payload["training_run_evidence"]["version"] == TRAINING_RUN_VERSION
+    assert payload["training_run_evidence"]["path"] == str(paths["training_run"].resolve())
+    assert payload["artifacts"]["adapters"] == [adapter_dir]
+    assert payload["artifacts"]["checksums"][adapter_file] == run_payload["file_checksums"][adapter_file]
+    assert validate_manifest(manifest, release_ready=True).ok is True
 
 
 def test_registry_index_rejects_duplicate_unit_versions(tmp_path: Path) -> None:
@@ -295,6 +317,27 @@ def test_registry_index_includes_package_and_smoke_evidence(tmp_path: Path) -> N
     assert unit["smoke_run_evidence"]["version"] == SPECIALIST_SMOKE_VERSION
 
 
+def test_registry_index_includes_training_run_evidence(tmp_path: Path) -> None:
+    paths = _write_evidence(tmp_path)
+    _build_unit(
+        tmp_path,
+        paths,
+        artifact_ref="",
+        training_run_path=paths["training_run"],
+    )
+
+    index = build_registry_index(
+        registry_dir=tmp_path / "registry",
+        out_path=tmp_path / "index.json",
+        release_ready=True,
+    )
+
+    unit = index["units"][0]
+    assert index["ok"] is True
+    assert unit["training_run_evidence"]["version"] == TRAINING_RUN_VERSION
+    assert unit["evidence"]["training_run_evidence"] == str(paths["training_run"].resolve())
+
+
 def test_exchange_package_and_smoke_cli(tmp_path: Path) -> None:
     paths = _write_evidence(tmp_path)
     manifest = _build_unit(
@@ -336,6 +379,7 @@ def _build_unit(
     paths: dict[str, Path],
     *,
     artifact_ref: str,
+    training_run_path: Path | None = None,
     ollama_modelfile: str = "hf://tensorfoundry/example/Modelfile",
     release_ready: bool = True,
 ) -> Path:
@@ -346,6 +390,7 @@ def _build_unit(
         training_preflight_path=paths["training_preflight"],
         distillation_eval_path=paths["distillation_eval"],
         benchmark_matrix_path=paths["benchmark_matrix"],
+        training_run_path=training_run_path,
         out_path=out,
         unit_id="pilot-specialist",
         name="Pilot Specialist",
@@ -379,6 +424,10 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
         path.mkdir(parents=True)
     dataset = datasets / "pilot.sft.jsonl"
     dataset.write_text("{}\n", encoding="utf-8")
+    training_out = tmp_path / "training" / "sft_lora"
+    training_out.mkdir(parents=True)
+    adapter_file = training_out / "adapter_model.safetensors"
+    adapter_file.write_text("weights", encoding="utf-8")
     recipe = tmp_path / "distillation_recipe.json"
     recipe.write_text("{}", encoding="utf-8")
     training_preflight = tmp_path / "training_preflight.json"
@@ -399,6 +448,40 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
                     "logs_root": str(logs),
                     "outputs": {"sft_out": str(tmp_path / "training" / "sft")},
                 },
+            }
+        ),
+        encoding="utf-8",
+    )
+    training_run = tmp_path / "training_run.json"
+    training_run.write_text(
+        json.dumps(
+            {
+                "version": "training_run.v0",
+                "ok": True,
+                "status": "succeeded",
+                "base_model": "dummy/base",
+                "preflight_path": str(training_preflight),
+                "preflight_ok": True,
+                "datasets": [{"role": "sft", "path": str(dataset)}],
+                "dataset_hashes": {"sft": "a" * 64},
+                "split_counts": {"sft": {"train": 1}},
+                "outputs": {"sft_out": str(training_out), "dpo_out": None, "sft_dir": None},
+                "artifact_refs": {
+                    "adapters": [str(training_out)],
+                    "safetensors": [],
+                    "gguf": [],
+                    "ollama": {"modelfile": "", "tag": ""},
+                },
+                "output_artifacts": [
+                    {
+                        "role": "sft_out",
+                        "path": str(adapter_file),
+                        "sha256": sha256_file(adapter_file),
+                        "bytes": adapter_file.stat().st_size,
+                    }
+                ],
+                "file_checksums": {str(adapter_file): sha256_file(adapter_file)},
+                "issues": [],
             }
         ),
         encoding="utf-8",
@@ -458,6 +541,7 @@ def _write_evidence(tmp_path: Path) -> dict[str, Path]:
     (benchmark / "logs" / "run-1").mkdir()
     return {
         "training_preflight": training_preflight,
+        "training_run": training_run,
         "distillation_eval": distillation_eval,
         "benchmark_matrix": benchmark_matrix,
     }

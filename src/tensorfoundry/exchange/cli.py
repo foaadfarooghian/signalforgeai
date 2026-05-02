@@ -26,6 +26,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     build.add_argument("--training-preflight", required=True, type=str)
     build.add_argument("--distillation-eval", required=True, type=str)
     build.add_argument("--benchmark-matrix", required=True, type=str)
+    build.add_argument("--training-run", type=str, default=None)
     build.add_argument("--out", required=True, type=str)
     build.add_argument("--id", required=True, type=str)
     build.add_argument("--name", required=True, type=str)
@@ -106,6 +107,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 training_preflight_path=args.training_preflight,
                 distillation_eval_path=args.distillation_eval,
                 benchmark_matrix_path=args.benchmark_matrix,
+                training_run_path=args.training_run,
                 out_path=args.out,
                 unit_id=args.id,
                 name=args.name,

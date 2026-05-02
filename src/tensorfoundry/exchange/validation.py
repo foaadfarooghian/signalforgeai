@@ -274,6 +274,10 @@ def _evidence_refs(manifest: Mapping[str, Any]) -> List[str]:
             values = lineage.get(key)
             if isinstance(values, list):
                 refs.extend(str(value) for value in values if str(value))
+    for key in ("training_run_evidence", "package_evidence", "smoke_run_evidence"):
+        evidence = manifest.get(key)
+        if isinstance(evidence, dict) and str(evidence.get("path") or ""):
+            refs.append(str(evidence["path"]))
     return refs
 
 

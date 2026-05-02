@@ -14,7 +14,7 @@ from tensorfoundry.exchange.validation import (
     sha256_file,
     validate_manifest,
 )
-from tensorfoundry.training.readiness import TRAINING_PREFLIGHT_VERSION
+from tensorfoundry.training.readiness import TRAINING_PREFLIGHT_VERSION, TRAINING_RUN_VERSION
 
 
 def build_specialist_unit(
@@ -23,6 +23,7 @@ def build_specialist_unit(
     distillation_eval_path: str | Path,
     benchmark_matrix_path: str | Path,
     out_path: str | Path,
+    training_run_path: str | Path | None = None,
     unit_id: str,
     name: str,
     version: str,
@@ -57,8 +58,10 @@ def build_specialist_unit(
     training_path = Path(training_preflight_path).resolve()
     distill_path = Path(distillation_eval_path).resolve()
     benchmark_path = Path(benchmark_matrix_path).resolve()
+    run_path = Path(training_run_path).resolve() if training_run_path is not None else None
     out = Path(out_path)
     training = _load_evidence(training_path, TRAINING_PREFLIGHT_VERSION)
+    training_run = _load_evidence(run_path, TRAINING_RUN_VERSION) if run_path is not None else {}
     distill = _load_evidence(distill_path, DISTILLATION_EVAL_VERSION)
     benchmark = _load_evidence(benchmark_path, BENCHMARK_MATRIX_VERSION)
     usage_constraints_list = [str(value) for value in usage_constraints if str(value)]
@@ -75,11 +78,13 @@ def build_specialist_unit(
     )
     benchmark_metrics = _dict(benchmark_row.get("metrics") if benchmark_row else {})
 
-    checksums = parse_checksum_args(checksum_args or [])
+    run_artifacts = _training_run_artifacts(training_run)
+    checksums = {str(k): str(v) for k, v in _dict(training_run.get("file_checksums")).items()}
+    checksums.update(parse_checksum_args(checksum_args or []))
     artifact_refs: Dict[str, Any] = {
-        "adapters": [str(value) for value in adapter_refs or [] if str(value)],
-        "safetensors": [str(value) for value in safetensors_refs or [] if str(value)],
-        "gguf": [str(value) for value in gguf_refs or [] if str(value)],
+        "adapters": _explicit_or_training_refs(adapter_refs, run_artifacts, "adapters"),
+        "safetensors": _explicit_or_training_refs(safetensors_refs, run_artifacts, "safetensors"),
+        "gguf": _explicit_or_training_refs(gguf_refs, run_artifacts, "gguf"),
     }
     artifact_refs["ollama"] = {
         "modelfile": str(ollama_modelfile or ""),
@@ -168,6 +173,19 @@ def build_specialist_unit(
         manifest["hardware_profile"]["vram_gb"] = float(vram_gb)
     if throughput_tokens_per_s is not None:
         manifest["hardware_profile"]["throughput_tokens_per_s"] = float(throughput_tokens_per_s)
+    if run_path is not None:
+        manifest["training_run_evidence"] = {
+            "version": TRAINING_RUN_VERSION,
+            "path": str(run_path),
+            "ok": bool(training_run.get("ok")),
+            "status": str(training_run.get("status") or ""),
+            "artifact_count": len(training_run.get("output_artifacts", []))
+            if isinstance(training_run.get("output_artifacts"), list)
+            else 0,
+            "issues": list(training_run.get("issues", []))
+            if isinstance(training_run.get("issues"), list)
+            else [],
+        }
 
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -191,6 +209,25 @@ def _load_evidence(path: Path, expected_version: str) -> Dict[str, Any]:
     if payload.get("ok") is not True:
         raise ValueError(f"evidence is not ok: {path}")
     return payload
+
+
+def _training_run_artifacts(training_run: Mapping[str, Any]) -> Dict[str, Any]:
+    refs = training_run.get("artifact_refs")
+    return dict(refs) if isinstance(refs, dict) else {}
+
+
+def _explicit_or_training_refs(
+    values: Optional[Iterable[str]],
+    training_artifacts: Mapping[str, Any],
+    key: str,
+) -> List[str]:
+    explicit = [str(value) for value in values or [] if str(value)]
+    if explicit:
+        return explicit
+    fallback = training_artifacts.get(key)
+    if isinstance(fallback, list):
+        return [str(value) for value in fallback if str(value)]
+    return []
 
 
 def _matching_benchmark_row(

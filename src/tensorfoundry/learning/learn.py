@@ -15,8 +15,13 @@ from tensorfoundry.export.validate import validate_dataset_jsonl
 from tensorfoundry.learning.curriculum import export_curriculum
 from tensorfoundry.training.readiness import (
     TrainingDatasetCheck,
+    build_training_run,
     build_training_preflight,
     check_optional_training_dependencies,
+    load_training_preflight_report,
+    monotonic_seconds,
+    utc_now,
+    write_training_run,
     write_training_preflight,
 )
 
@@ -166,43 +171,90 @@ def _train_cmd(args: argparse.Namespace) -> int:
     if args.response_part:
         os.environ["RESPONSE_PART"] = args.response_part
 
+    preflight_payload: dict[str, object] | None = None
+    preflight_path: Path | None = None
     if args.dry_run:
         payload = _training_preflight_payload(args, dry_run=True)
         if args.report_out:
             write_training_preflight(payload, args.report_out)
+        if args.run_report_out:
+            run_payload = _training_run_payload(
+                args,
+                preflight_payload=payload,
+                preflight_path=args.report_out or None,
+                status="dry_run_only",
+                started_at=utc_now(),
+                duration_seconds=0.0,
+                issues=["training run evidence requires non-dry-run execution"],
+            )
+            write_training_run(run_payload, args.run_report_out)
         print(json.dumps(payload, indent=2))
         return 0 if payload["ok"] else 2
 
-    if args.quality_gate or args.report_out:
+    if args.quality_gate or args.report_out or args.run_report_out or args.smoke:
         payload = _training_preflight_payload(args, dry_run=False)
+        preflight_payload = payload
         if args.report_out:
-            write_training_preflight(payload, args.report_out)
+            preflight_path = write_training_preflight(payload, args.report_out)
+            try:
+                load_training_preflight_report(preflight_path)
+            except ValueError as exc:
+                payload["ok"] = False
+                payload["issues"] = _payload_issues(payload) + [str(exc)]
         if not payload["ok"]:
+            if args.run_report_out:
+                status = "blocked_missing_dependencies" if args.smoke else "preflight_failed"
+                run_payload = _training_run_payload(
+                    args,
+                    preflight_payload=payload,
+                    preflight_path=preflight_path,
+                    status=status,
+                    started_at=utc_now(),
+                    duration_seconds=0.0,
+                    issues=_payload_issues(payload),
+                )
+                write_training_run(run_payload, args.run_report_out)
             print(json.dumps(payload, indent=2))
             return 2
 
+    started_at = utc_now()
+    started = monotonic_seconds()
+    issues: list[str] = []
     if args.sft:
         os.environ["SFT_DATASET"] = args.sft_data
         os.environ["OUT_DIR"] = args.sft_out
         try:
-            from tensorfoundry.training.sft_unsloth import main as sft_main
-        except ImportError as exc:
-            raise SystemExit(
-                "Training deps missing. Install with: pip install -e '.[train]'"
-            ) from exc
-        sft_main()
+            _run_sft_training()
+        except (Exception, SystemExit) as exc:
+            issues.append(_training_exception_message(exc))
 
-    if args.dpo:
+    if args.dpo and not issues:
         os.environ["DPO_DATASET"] = args.dpo_data
         os.environ["OUT_DIR"] = args.dpo_out
         os.environ["SFT_DIR"] = args.sft_dir or args.sft_out
         try:
-            from tensorfoundry.training.dpo_trl import main as dpo_main
-        except ImportError as exc:
-            raise SystemExit(
-                "Training deps missing. Install with: pip install -e '.[train]'"
-            ) from exc
-        dpo_main()
+            _run_dpo_training()
+        except (Exception, SystemExit) as exc:
+            issues.append(_training_exception_message(exc))
+
+    if args.run_report_out:
+        status = "failed" if issues else "succeeded"
+        run_payload = _training_run_payload(
+            args,
+            preflight_payload=preflight_payload,
+            preflight_path=preflight_path,
+            status=status,
+            started_at=started_at,
+            duration_seconds=monotonic_seconds() - started,
+            issues=issues,
+        )
+        write_training_run(run_payload, args.run_report_out)
+        if not run_payload["ok"]:
+            print(json.dumps(run_payload, indent=2))
+            return 2
+
+    if issues:
+        raise SystemExit("; ".join(issues))
 
     return 0
 
@@ -237,6 +289,74 @@ def _training_preflight_payload(args: argparse.Namespace, *, dry_run: bool) -> d
         dry_run=dry_run,
         config=config,
     )
+
+
+def _training_run_payload(
+    args: argparse.Namespace,
+    *,
+    preflight_payload: dict[str, object] | None,
+    preflight_path: str | Path | None,
+    status: str,
+    started_at: str,
+    duration_seconds: float,
+    issues: list[str],
+) -> dict[str, object]:
+    return build_training_run(
+        base_model=args.base_model,
+        preflight=preflight_payload,
+        preflight_path=preflight_path,
+        outputs={
+            "sft_out": args.sft_out if args.sft else None,
+            "dpo_out": args.dpo_out if args.dpo else None,
+            "sft_dir": (args.sft_dir or args.sft_out) if args.dpo else None,
+        },
+        optional_dependencies=check_optional_training_dependencies(),
+        config={
+            "sft": bool(args.sft),
+            "dpo": bool(args.dpo),
+            "sft_data": args.sft_data if args.sft else None,
+            "dpo_data": args.dpo_data if args.dpo else None,
+            "dataset_num_proc": int(args.dataset_num_proc),
+            "instruction_part": args.instruction_part or None,
+            "response_part": args.response_part or None,
+            "smoke": bool(args.smoke),
+            "max_steps": int(args.max_steps),
+            "quality_gate": bool(args.quality_gate),
+        },
+        status=status,
+        started_at=started_at,
+        duration_seconds=duration_seconds,
+        issues=issues,
+    )
+
+
+def _run_sft_training() -> None:
+    try:
+        from tensorfoundry.training.sft_unsloth import main as sft_main
+    except ImportError as exc:
+        raise SystemExit("Training deps missing. Install with: pip install -e '.[train]'") from exc
+    sft_main()
+
+
+def _run_dpo_training() -> None:
+    try:
+        from tensorfoundry.training.dpo_trl import main as dpo_main
+    except ImportError as exc:
+        raise SystemExit("Training deps missing. Install with: pip install -e '.[train]'") from exc
+    dpo_main()
+
+
+def _training_exception_message(exc: BaseException) -> str:
+    if isinstance(exc, SystemExit):
+        return str(exc.code or "training exited")
+    return str(exc)
+
+
+def _payload_issues(payload: dict[str, object]) -> list[str]:
+    issues = payload.get("issues")
+    if not isinstance(issues, list):
+        return []
+    return [str(issue) for issue in issues]
 
 
 def _training_dataset_checks(args: argparse.Namespace) -> list[TrainingDatasetCheck]:
@@ -346,6 +466,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     tr.add_argument("--quality-gate", action="store_true", help="Run strict dataset provenance/split/dedup/leakage checks")
     tr.add_argument("--logs-root", type=str, default="", help="Logs root used to resolve dataset provenance refs")
     tr.add_argument("--report-out", type=str, default="", help="Write training_preflight.v0 JSON evidence")
+    tr.add_argument("--run-report-out", type=str, default="", help="Write training_run.v0 JSON evidence")
 
     args = parser.parse_args(argv)
     if args.command == "export":

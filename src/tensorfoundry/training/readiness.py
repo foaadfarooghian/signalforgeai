@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib.util import find_spec
@@ -14,7 +15,9 @@ from tensorfoundry.export.validate import DatasetValidationResult
 TRAINING_PREFLIGHT_VERSION = "training_preflight.v0"
 TRAINING_ARTIFACT_VERSION = "training_artifact.v0"
 TRAINING_SMOKE_VERSION = "training_smoke.v0"
+TRAINING_RUN_VERSION = "training_run.v0"
 TRAINING_DEPENDENCIES = ("torch", "datasets", "transformers", "trl", "unsloth")
+TRAINING_OUTPUT_SUFFIXES = (".safetensors", ".bin", ".json", ".model", ".txt")
 
 
 @dataclass(frozen=True)
@@ -175,6 +178,125 @@ def write_training_preflight(payload: Mapping[str, Any], path: str | Path) -> Pa
     return out
 
 
+def load_training_preflight_report(path: str | Path) -> Dict[str, Any]:
+    """Load and validate a successful `training_preflight.v0` report."""
+    payload = _load_json_object(path, label="training preflight")
+    if payload.get("version") != TRAINING_PREFLIGHT_VERSION:
+        raise ValueError(
+            f"unsupported training preflight version: {payload.get('version')!r}"
+        )
+    if payload.get("ok") is not True:
+        raise ValueError(f"training preflight is not ok: {path}")
+    return payload
+
+
+def load_training_run_report(path: str | Path) -> Dict[str, Any]:
+    """Load and validate a successful `training_run.v0` report."""
+    payload = _load_json_object(path, label="training run")
+    if payload.get("version") != TRAINING_RUN_VERSION:
+        raise ValueError(f"unsupported training run version: {payload.get('version')!r}")
+    if payload.get("ok") is not True:
+        raise ValueError(f"training run is not ok: {path}")
+    return payload
+
+
+def write_training_run(payload: Mapping[str, Any], path: str | Path) -> Path:
+    """Write a training run report JSON file."""
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return out
+
+
+def build_training_run(
+    *,
+    base_model: str,
+    preflight: Mapping[str, Any] | None,
+    preflight_path: str | Path | None,
+    outputs: Mapping[str, Optional[str]],
+    optional_dependencies: Mapping[str, bool],
+    config: Mapping[str, Any],
+    status: str,
+    started_at: str,
+    duration_seconds: float,
+    issues: Sequence[str] = (),
+    completed_at: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build `training_run.v0` evidence for an attempted training execution."""
+    completed_at = completed_at or utc_now()
+    preflight_ok = preflight is None or preflight.get("ok") is True
+    artifact_scan = scan_training_output_artifacts(outputs)
+    run_issues = list(issues)
+    if not preflight_ok:
+        run_issues.append("training preflight is not ok")
+    if status == "succeeded" and not artifact_scan["artifact_refs"]["adapters"]:
+        run_issues.append("no training output artifacts found")
+    deps = dict(optional_dependencies)
+    missing_dependencies = sorted(name for name, ok in deps.items() if not ok)
+    return {
+        "version": TRAINING_RUN_VERSION,
+        "ok": bool(status == "succeeded" and preflight_ok and not run_issues),
+        "status": status,
+        "created_at": completed_at,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "duration_seconds": round(float(duration_seconds), 6),
+        "base_model": base_model,
+        "preflight_path": str(preflight_path) if preflight_path is not None else None,
+        "preflight_ok": bool(preflight_ok),
+        "datasets": _preflight_datasets(preflight),
+        "dataset_hashes": _preflight_dataset_hashes(preflight),
+        "split_counts": _preflight_split_counts(preflight),
+        "outputs": dict(outputs),
+        "artifact_refs": artifact_scan["artifact_refs"],
+        "output_artifacts": artifact_scan["output_artifacts"],
+        "file_checksums": artifact_scan["file_checksums"],
+        "missing_outputs": artifact_scan["missing_outputs"],
+        "optional_dependencies": deps,
+        "dependencies_ok": not missing_dependencies,
+        "missing_dependencies": missing_dependencies,
+        "smoke_bounded": bool(config.get("smoke") and int(config.get("max_steps") or 0) == 1),
+        "command_config": dict(config),
+        "issues": run_issues,
+    }
+
+
+def scan_training_output_artifacts(
+    outputs: Mapping[str, Optional[str]],
+) -> Dict[str, Any]:
+    """Scan training output dirs for runnable refs and checksum-worthy files."""
+    artifact_refs: Dict[str, Any] = {
+        "adapters": [],
+        "safetensors": [],
+        "gguf": [],
+        "ollama": {"modelfile": "", "tag": ""},
+    }
+    output_artifacts: list[Dict[str, Any]] = []
+    file_checksums: Dict[str, str] = {}
+    missing_outputs: list[str] = []
+    for role in ("sft_out", "dpo_out"):
+        value = outputs.get(role)
+        if not value:
+            continue
+        root = Path(str(value))
+        if not root.exists():
+            missing_outputs.append(str(root))
+            continue
+        artifact_refs["adapters"].append(str(root))
+        if root.is_file():
+            _record_output_file(root, role, output_artifacts, file_checksums)
+            continue
+        for file_path in sorted(path for path in root.rglob("*") if path.is_file()):
+            if file_path.suffix.lower() in TRAINING_OUTPUT_SUFFIXES:
+                _record_output_file(file_path, role, output_artifacts, file_checksums)
+    return {
+        "artifact_refs": artifact_refs,
+        "output_artifacts": output_artifacts,
+        "file_checksums": file_checksums,
+        "missing_outputs": missing_outputs,
+    }
+
+
 def _dataset_payload(check: TrainingDatasetCheck) -> Dict[str, Any]:
     payload = check.result.to_dict()
     payload["role"] = check.role
@@ -205,3 +327,68 @@ def _collect_issues(dataset_checks: Sequence[TrainingDatasetCheck]) -> list[str]
         for issue in check.result.quality_issues:
             issues.append(f"{check.role}: {issue}")
     return issues
+
+
+def _record_output_file(
+    path: Path,
+    role: str,
+    output_artifacts: list[Dict[str, Any]],
+    file_checksums: Dict[str, str],
+) -> None:
+    digest = _sha256_file(path)
+    file_checksums[str(path)] = digest
+    output_artifacts.append(
+        {
+            "role": role,
+            "path": str(path),
+            "sha256": digest,
+            "bytes": path.stat().st_size,
+        }
+    )
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _load_json_object(path: str | Path, *, label: str) -> Dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must be a JSON object: {path}")
+    return payload
+
+
+def _preflight_artifact(preflight: Mapping[str, Any] | None) -> Mapping[str, Any]:
+    if not isinstance(preflight, Mapping):
+        return {}
+    artifact = preflight.get("artifact_manifest")
+    return artifact if isinstance(artifact, Mapping) else {}
+
+
+def _preflight_datasets(preflight: Mapping[str, Any] | None) -> list[Dict[str, Any]]:
+    artifact = _preflight_artifact(preflight)
+    datasets = artifact.get("datasets")
+    if isinstance(datasets, list):
+        return [dict(row) for row in datasets if isinstance(row, Mapping)]
+    return []
+
+
+def _preflight_dataset_hashes(preflight: Mapping[str, Any] | None) -> Dict[str, Any]:
+    hashes = _preflight_artifact(preflight).get("dataset_hashes")
+    return dict(hashes) if isinstance(hashes, Mapping) else {}
+
+
+def _preflight_split_counts(preflight: Mapping[str, Any] | None) -> Dict[str, Any]:
+    splits = _preflight_artifact(preflight).get("split_counts")
+    return dict(splits) if isinstance(splits, Mapping) else {}
+
+
+def monotonic_seconds() -> float:
+    """Expose a monotonic clock for CLI timing and tests."""
+    return time.perf_counter()

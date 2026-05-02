@@ -111,6 +111,9 @@ the distribution layer built on top of these pillars.
   - strict SFT/DPO dataset checks
   - optional dependency and smoke-readiness status
   - minimal `training_artifact.v0` manifest for later exchange packaging
+- SFT training run evidence:
+  - opt-in `training_run.v0` execution report
+  - output artifact refs and checksums for exchange packaging
 - Evidence-only distillation eval gate:
   - baseline/teacher vs candidate specialist suite comparison
   - pass-rate, mean-score, and failure-mode movement thresholds
@@ -123,6 +126,7 @@ the distribution layer built on top of these pillars.
 
 ### Exit criteria
 - Training inputs can be validated reproducibly without loading models
+- Opt-in SFT runs produce auditable training evidence without becoming a CI gate
 - Candidate specialist models can be eval-gated before exchange packaging
 - At least one specialist student model reaches benchmark quality gates
 - Distilled model shows favorable cost/latency at acceptable reliability

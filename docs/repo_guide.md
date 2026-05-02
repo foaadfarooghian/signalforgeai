@@ -368,6 +368,9 @@ without this field remain valid. New tool events are normalized with
    `training_preflight.v0` evidence with strict dataset validation, hashes,
    split summaries, dependency status, and a minimal `training_artifact.v0`
    manifest.
+5. `--run-report-out ... --smoke --max-steps 1` records optional
+   `training_run.v0` SFT evidence in release environments with `[train]`
+   dependencies installed. It is not part of the mandatory offline gate.
 
 Example preflight:
 
@@ -377,6 +380,18 @@ tensorfoundry-learn train --base-model dummy/base --sft --dpo \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --dry-run --quality-gate --logs-root results/pilot_check/logs \
   --report-out results/pilot_check/training_preflight.json
+```
+
+Example optional SFT smoke evidence:
+
+```bash
+tensorfoundry-learn train --base-model hf/org/base --sft \
+  --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
+  --sft-out results/training/sft_lora \
+  --quality-gate --logs-root results/pilot_check/logs \
+  --report-out results/pilot_check/training_preflight.json \
+  --run-report-out results/training/training_run.json \
+  --smoke --max-steps 1
 ```
 
 Distillation gate recipes use `distillation_recipe.v0`. They point at the
@@ -475,6 +490,7 @@ evidence:
 ```bash
 tensorfoundry-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
+  --training-run results/training/training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
@@ -511,8 +527,9 @@ tensorfoundry-exchange index \
 ```
 
 The exchange CLI performs schema validation, local checksum verification,
-package evidence generation, offline consumer smoke evidence, evidence-link
-checks, duplicate `(id, version)` rejection, and file-based
+optional training run evidence mapping, package evidence generation, offline
+consumer smoke evidence, evidence-link checks, duplicate `(id, version)`
+rejection, and file-based
 `specialist_registry_index.v0` generation. It does not upload or bundle weights.
 
 ## Examples and Reference Workflows

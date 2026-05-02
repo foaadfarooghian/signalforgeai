@@ -282,6 +282,41 @@
         "type": "string"
       }
     },
+    "training_run_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "path",
+        "ok",
+        "status"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "training_run.v0"
+        },
+        "path": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "artifact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "package_evidence": {
       "type": "object",
       "additionalProperties": false,

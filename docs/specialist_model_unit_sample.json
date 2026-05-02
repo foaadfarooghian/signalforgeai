@@ -71,6 +71,14 @@
   "usage_constraints": [
     "not for production decisions without review"
   ],
+  "training_run_evidence": {
+    "version": "training_run.v0",
+    "path": "artifact://pilot/training_run.json",
+    "ok": true,
+    "status": "succeeded",
+    "artifact_count": 2,
+    "issues": []
+  },
   "package_evidence": {
     "version": "specialist_package.v0",
     "path": "artifact://pilot/specialist_package.json",

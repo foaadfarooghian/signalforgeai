@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+
+import pytest
 
 from tensorfoundry.export.quality import split_meta
 from tensorfoundry.learning.bandits import RoutingBanditsV0, candidate_models_from_env
@@ -9,6 +12,10 @@ from tensorfoundry.learning.build_policy import build_routing_policy_v0
 from tensorfoundry.learning.learn import main as learn_main
 from tensorfoundry.learning.model_stats import RoutingStatsV0
 from tensorfoundry.learning.routing_policy import RoutingPolicyV0
+from tensorfoundry.training.readiness import (
+    load_training_preflight_report,
+    scan_training_output_artifacts,
+)
 
 
 def test_bandits_update_from_rewards_creates_arm() -> None:
@@ -226,6 +233,135 @@ def test_train_dry_run_smoke_reports_missing_optional_deps(
     assert payload["smoke_evidence"]["version"] == "training_smoke.v0"
     assert payload["smoke_evidence"]["status"] == "blocked_missing_dependencies"
     assert payload["smoke_evidence"]["would_launch_training"] is False
+
+
+def test_train_sft_run_writes_training_run_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    logs_root = tmp_path / "logs"
+    sft, _dpo = _write_strict_training_datasets(tmp_path, logs_root)
+    report = tmp_path / "training_preflight.json"
+    run_report = tmp_path / "training_run.json"
+    sft_out = tmp_path / "sft_lora"
+    deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+
+    def fake_sft_training() -> None:
+        out = Path(os.environ["OUT_DIR"])
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "adapter_model.safetensors").write_text("weights", encoding="utf-8")
+        (out / "adapter_config.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fake_sft_training)
+    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--sft-data",
+            str(sft),
+            "--sft-out",
+            str(sft_out),
+            "--quality-gate",
+            "--logs-root",
+            str(logs_root),
+            "--report-out",
+            str(report),
+            "--run-report-out",
+            str(run_report),
+            "--smoke",
+            "--max-steps",
+            "1",
+        ]
+    )
+
+    assert code == 0
+    payload = json.loads(run_report.read_text(encoding="utf-8"))
+    assert payload["version"] == "training_run.v0"
+    assert payload["ok"] is True
+    assert payload["status"] == "succeeded"
+    assert payload["smoke_bounded"] is True
+    assert payload["preflight_path"] == str(report)
+    assert payload["artifact_refs"]["adapters"] == [str(sft_out)]
+    assert str(sft_out / "adapter_model.safetensors") in payload["file_checksums"]
+
+
+def test_train_sft_run_smoke_missing_deps_writes_blocked_report(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sft = tmp_path / "sft.jsonl"
+    sft.write_text(
+        json.dumps(
+            {
+                "version": "sft.v0",
+                "instruction": "Task: train",
+                "prompt": "Task: train",
+                "response": "A training response",
+                "meta": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "training_run.json"
+    deps = {name: False for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+
+    def fail_if_called() -> None:
+        raise AssertionError("trainer should not launch when smoke dependencies are missing")
+
+    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fail_if_called)
+    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--sft-data",
+            str(sft),
+            "--smoke",
+            "--max-steps",
+            "1",
+            "--run-report-out",
+            str(report),
+        ]
+    )
+
+    assert code == 2
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["version"] == "training_run.v0"
+    assert payload["ok"] is False
+    assert payload["status"] == "blocked_missing_dependencies"
+    assert any("missing optional training dependencies" in issue for issue in payload["issues"])
+
+
+def test_failed_preflight_report_is_rejected(tmp_path: Path) -> None:
+    report = tmp_path / "training_preflight.json"
+    report.write_text(
+        json.dumps({"version": "training_preflight.v0", "ok": False}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="not ok"):
+        load_training_preflight_report(report)
+
+
+def test_training_output_scan_hashes_files_and_ignores_unset_outputs(tmp_path: Path) -> None:
+    out = tmp_path / "sft_lora"
+    out.mkdir()
+    artifact = out / "adapter_model.safetensors"
+    artifact.write_text("weights", encoding="utf-8")
+
+    payload = scan_training_output_artifacts({"sft_out": str(out), "dpo_out": None})
+
+    assert payload["artifact_refs"]["adapters"] == [str(out)]
+    assert str(artifact) in payload["file_checksums"]
+    assert payload["missing_outputs"] == []
 
 
 def _write_strict_training_datasets(tmp_path: Path, logs_root: Path) -> tuple[Path, Path]:
