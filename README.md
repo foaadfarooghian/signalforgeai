@@ -203,6 +203,24 @@ tensorfoundry-pilot-check --require-provider hosted
 tensorfoundry-pilot-check --require-provider local
 ```
 
+Run the one-command offline release-candidate evidence gate:
+
+```bash
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate
+```
+
+This writes `release_candidate.v0` JSON and Markdown plus the full child
+evidence bundle: pilot readiness, mock SFT/DPO `training_run.v0`, distillation
+eval, benchmark matrix, specialist unit, package check, consumer smoke run, and
+registry index. To use real opt-in training evidence, pass the final run report:
+
+```bash
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate \
+  --dpo-run results/training/dpo_training_run.json
+```
+
 Training remains experimental, but preflight evidence is available without loading models:
 
 ```bash

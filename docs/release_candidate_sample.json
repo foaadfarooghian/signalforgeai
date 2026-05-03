@@ -1,0 +1,157 @@
+{
+  "version": "release_candidate.v0",
+  "ok": true,
+  "created_at": "2026-05-03T00:00:00Z",
+  "identity": {
+    "id": "pilot-specialist",
+    "name": "Pilot Specialist",
+    "version": "0.1.0",
+    "domain": "pilot"
+  },
+  "mode": "dummy",
+  "work_dir": "results/release_candidate",
+  "command_config": {
+    "mode": "dummy",
+    "suites": [
+      "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json"
+    ],
+    "resolved_suites": [
+      "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json"
+    ],
+    "baseline_model_id": "dummy_good",
+    "candidate_model_id": "dummy_good",
+    "comparison_model_ids": [],
+    "matrix_config": null,
+    "sft_run": null,
+    "dpo_run": null,
+    "require_provider": [],
+    "training_base_model": "dummy/base"
+  },
+  "gate_results": [
+    {
+      "name": "pilot_readiness",
+      "ok": true,
+      "path": "results/release_candidate/pilot/pilot_readiness.json",
+      "issues": []
+    },
+    {
+      "name": "training_evidence",
+      "ok": true,
+      "path": "results/release_candidate/training/dpo_training_run.json",
+      "issues": []
+    },
+    {
+      "name": "distillation_eval",
+      "ok": true,
+      "path": "results/release_candidate/distillation/distillation_eval.json",
+      "issues": []
+    },
+    {
+      "name": "benchmark_matrix",
+      "ok": true,
+      "path": "results/release_candidate/benchmark/benchmark_matrix.json",
+      "issues": []
+    },
+    {
+      "name": "specialist_unit",
+      "ok": true,
+      "path": "results/release_candidate/exchange/unit.json",
+      "issues": []
+    },
+    {
+      "name": "package_check",
+      "ok": true,
+      "path": "results/release_candidate/exchange/specialist_package.json",
+      "issues": []
+    },
+    {
+      "name": "smoke_run",
+      "ok": true,
+      "path": "results/release_candidate/exchange/smoke/specialist_smoke.json",
+      "issues": []
+    },
+    {
+      "name": "registry_index",
+      "ok": true,
+      "path": "results/release_candidate/exchange/index.json",
+      "issues": []
+    }
+  ],
+  "evidence_paths": {
+    "pilot_readiness": "results/release_candidate/pilot/pilot_readiness.json",
+    "training_preflight": "results/release_candidate/pilot/training_preflight.json",
+    "training_run": "results/release_candidate/training/dpo_training_run.json",
+    "distillation_eval": "results/release_candidate/distillation/distillation_eval.json",
+    "benchmark_matrix": "results/release_candidate/benchmark/benchmark_matrix.json",
+    "specialist_unit": "results/release_candidate/exchange/unit.json",
+    "package_evidence": "results/release_candidate/exchange/specialist_package.json",
+    "smoke_run": "results/release_candidate/exchange/smoke/specialist_smoke.json",
+    "registry_index": "results/release_candidate/exchange/index.json"
+  },
+  "artifact_refs": {
+    "adapters": [
+      "results/release_candidate/training/dpo_lora"
+    ],
+    "safetensors": [],
+    "gguf": [],
+    "ollama": {
+      "modelfile": "",
+      "tag": ""
+    },
+    "checksums": {
+      "results/release_candidate/training/dpo_lora/adapter_model.safetensors": "c87a3455aebbe509dfa57e36a5399fcd75f874ac3fb3070dd538dc75e9060e94"
+    }
+  },
+  "checksums": {
+    "results/release_candidate/training/dpo_lora/adapter_model.safetensors": "c87a3455aebbe509dfa57e36a5399fcd75f874ac3fb3070dd538dc75e9060e94"
+  },
+  "provider_status": {
+    "pilot": [
+      {
+        "model_id": "dummy_good",
+        "provider": "dummy",
+        "ok": true,
+        "required": true,
+        "skipped": false,
+        "reason": "",
+        "details": null
+      }
+    ],
+    "benchmark_matrix": [
+      {
+        "suite": "benchmark_v0_decision",
+        "model_id": "dummy_good",
+        "provider": "dummy",
+        "provider_ok": true,
+        "provider_required": true,
+        "provider_skipped": false,
+        "skipped": false,
+        "issue": null
+      }
+    ],
+    "smoke": {
+      "model_id": "dummy_good",
+      "provider": "dummy",
+      "ok": true,
+      "required": true,
+      "skipped": false,
+      "reason": "",
+      "details": null
+    }
+  },
+  "training_evidence": {
+    "ok": true,
+    "mode": "mock",
+    "final_stage": "dpo",
+    "final_run_path": "results/release_candidate/training/dpo_training_run.json",
+    "sft_run_path": "results/release_candidate/training/sft_training_run.json",
+    "dpo_run_path": "results/release_candidate/training/dpo_training_run.json",
+    "runs": {
+      "sft": "results/release_candidate/training/sft_training_run.json",
+      "dpo": "results/release_candidate/training/dpo_training_run.json"
+    },
+    "issues": []
+  },
+  "issues": [],
+  "warnings": []
+}

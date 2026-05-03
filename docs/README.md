@@ -9,6 +9,7 @@ evaluation, trace-to-learning, and benchmarking.
 - `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
 - `training_run_sample.json`: example `training_run.v0` SFT execution evidence.
 - `training_run_dpo_sample.json`: example `training_run.v0` DPO execution evidence.
+- `release_candidate_sample.json`: example `release_candidate.v0` bundled gate evidence.
 - `distillation_recipe_sample.json`: example `distillation_recipe.v0` gate recipe.
 - `benchmark_matrix_sample.json`: example offline `benchmark_matrix.v0` config.
 - `specialist_model_unit_sample.json`: example `specialist_model_unit.v0` manifest.
@@ -51,6 +52,31 @@ tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_current \
 
 Baseline mode emits `eval_regression.v0` as JSON and Markdown, and the readiness
 command exits nonzero when the configured regression policy is violated.
+
+## Release candidate gate
+
+Run the complete deterministic release-candidate bundle with:
+
+```bash
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate
+```
+
+The command writes `release_candidate.json` and `release_candidate.md`, then
+stores child evidence under stable subdirectories for pilot readiness, mock
+SFT/DPO training runs, distillation eval, benchmark matrix, specialist exchange
+manifest, package check, smoke run, and registry index. Existing real training
+evidence can replace generated mock evidence:
+
+```bash
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate \
+  --sft-run results/training/sft_training_run.json
+
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate \
+  --dpo-run results/training/dpo_training_run.json
+```
 
 ## Training readiness
 

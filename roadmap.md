@@ -141,7 +141,7 @@ the distribution layer built on top of these pillars.
 
 **Goal:** Enable apples-to-apples comparisons across models and agent patterns.
 
-**Status:** Active implementation after the distillation eval gate.
+**Status:** Implemented for the offline/frontier evidence slice.
 
 ### Deliverables
 - `benchmark_matrix.v0` matrix runner for:
@@ -167,8 +167,8 @@ the distribution layer built on top of these pillars.
 
 **Goal:** Publish specialist models as complete operational units.
 
-**Status:** Packaging and consumer smoke checks in progress after the registry
-MVP.
+**Status:** File registry, package evidence, and consumer smoke evidence are
+implemented for the offline release path.
 
 ### Deliverables
 - `specialist_model_unit.v0` manifest spec (domain model + eval + lineage + ops constraints)
@@ -192,6 +192,25 @@ MVP.
 
 ---
 
+## Active Phase — Release Candidate Evidence Bundling
+
+**Goal:** Prove the full pilot-to-exchange chain with one deterministic
+offline gate.
+
+### Deliverables
+- `release_candidate.v0` JSON and Markdown evidence
+- One command for pilot readiness, training evidence, distillation eval,
+  benchmark matrix, exchange unit, package check, smoke run, and registry index
+- Mock SFT/DPO adapter evidence for mandatory offline runs
+- Optional override path for real SFT/DPO `training_run.v0` artifacts
+
+### Exit criteria
+- Fresh clones can produce a complete release-candidate evidence bundle offline
+- Degraded candidates fail the gate with actionable child-gate issues
+- Real training evidence can be substituted without changing downstream steps
+
+---
+
 ## Current baseline (already present in repo)
 
 - Structured trace emission and validation
@@ -205,6 +224,9 @@ MVP.
 - Training dry-run preflight for SFT/DPO inputs
 - Optional SFT and DPO `training_run.v0` evidence for exchange packaging
 - Evidence-only distillation eval gate for candidate specialists
+- Benchmark matrix and frontier reports
+- Specialist exchange unit validation, package evidence, smoke evidence, and registry index
+- One-command release-candidate evidence gate
 - Learning/routing primitives and experimental training utilities
 - Cost/latency-aware evaluation reporting
 

@@ -549,6 +549,30 @@ consumer smoke evidence, evidence-link checks, duplicate `(id, version)`
 rejection, and file-based
 `specialist_registry_index.v0` generation. It does not upload or bundle weights.
 
+Run the complete release-candidate bundle as one deterministic offline gate:
+
+```bash
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate
+```
+
+That command orchestrates the existing library APIs directly and writes
+`release_candidate.v0` evidence. It resets only its generated subdirectories,
+then produces pilot readiness, mock SFT/DPO training run evidence, distillation
+eval, benchmark matrix, specialist unit, package check, consumer smoke, and
+registry index outputs. To use opt-in real training artifacts, supply either the
+parent SFT run or the final DPO run:
+
+```bash
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate \
+  --sft-run results/training/sft_training_run.json
+
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate \
+  --dpo-run results/training/dpo_training_run.json
+```
+
 ## Examples and Reference Workflows
 
 Examples live in `examples/`:
