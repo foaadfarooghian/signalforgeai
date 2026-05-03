@@ -65,17 +65,23 @@ tensorfoundry-release-candidate-check \
 The command writes `release_candidate.json` and `release_candidate.md`, then
 stores child evidence under stable subdirectories for pilot readiness, mock
 SFT/DPO training runs, distillation eval, benchmark matrix, specialist exchange
-manifest, package check, smoke run, and registry index. Existing real training
-evidence can replace generated mock evidence:
+manifest, package check, smoke run, and registry index.
+
+Use `--require-real-training-evidence` when release review must prove a
+non-mock training artifact. SFT-only release evidence is supported by making the
+SFT run final:
 
 ```bash
 tensorfoundry-release-candidate-check \
   --work-dir results/release_candidate \
-  --sft-run results/training/sft_training_run.json
+  --sft-run results/training/sft_training_run.json \
+  --final-training-stage sft \
+  --require-real-training-evidence
 
 tensorfoundry-release-candidate-check \
   --work-dir results/release_candidate \
-  --dpo-run results/training/dpo_training_run.json
+  --dpo-run results/training/dpo_training_run.json \
+  --require-real-training-evidence
 ```
 
 ## Training readiness

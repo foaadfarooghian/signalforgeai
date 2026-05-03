@@ -9,7 +9,12 @@ from tensorfoundry.release.candidate import (
     run_release_candidate_check,
     write_release_training_evidence,
 )
-from tensorfoundry.training.readiness import load_training_run_report
+from tensorfoundry.training.readiness import (
+    build_training_run,
+    load_training_run_report,
+    utc_now,
+    write_training_run,
+)
 
 
 def test_mock_training_evidence_writes_sft_and_dpo_runs(tmp_path: Path) -> None:
@@ -80,9 +85,68 @@ def test_dpo_run_override_is_selected_as_final(tmp_path: Path) -> None:
     )
 
     assert payload["ok"] is True
-    assert payload["mode"] == "external"
+    assert payload["mode"] == "external_dpo"
+    assert payload["real_training_evidence"] is False
     assert payload["final_run_path"] == str(Path(str(initial["dpo_run_path"])).resolve())
     assert not (tmp_path / "override" / "dpo_lora").exists()
+
+
+def test_real_sft_final_evidence_can_be_required(tmp_path: Path) -> None:
+    preflight_path = _write_preflight(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    real_sft_run = _write_real_sft_run(tmp_path, preflight_path)
+
+    payload = write_release_training_evidence(
+        preflight=preflight,
+        preflight_path=preflight_path,
+        training_dir=tmp_path / "override",
+        base_model="dummy/base",
+        sft_run=real_sft_run,
+        final_training_stage="sft",
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is True
+    assert payload["mode"] == "external_sft"
+    assert payload["real_training_evidence"] is True
+    assert payload["final_stage"] == "sft"
+    assert payload["final_run_path"] == str(real_sft_run.resolve())
+    assert not (tmp_path / "override" / "dpo_lora").exists()
+
+
+def test_release_candidate_requires_real_training_evidence(tmp_path: Path) -> None:
+    code = release_main(
+        [
+            "--work-dir",
+            str(tmp_path),
+            "--require-real-training-evidence",
+        ]
+    )
+
+    payload = json.loads((tmp_path / "release_candidate.json").read_text(encoding="utf-8"))
+    assert code == 1
+    assert payload["ok"] is False
+    assert payload["training_evidence"]["real_training_evidence"] is False
+    assert any("real training evidence required" in issue for issue in payload["issues"])
+
+
+def test_release_candidate_accepts_real_sft_as_final_training_evidence(tmp_path: Path) -> None:
+    preflight_path = _write_preflight(tmp_path)
+    real_sft_run = _write_real_sft_run(tmp_path, preflight_path)
+    work_dir = tmp_path / "release"
+
+    payload = run_release_candidate_check(
+        work_dir=work_dir,
+        sft_run=real_sft_run,
+        final_training_stage="sft",
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is True
+    assert payload["training_evidence"]["real_training_evidence"] is True
+    assert payload["training_evidence"]["final_stage"] == "sft"
+    assert payload["training_evidence"]["final_run_path"] == str(real_sft_run.resolve())
+    assert payload["artifact_refs"]["adapters"] == [str(tmp_path / "real_sft_lora")]
 
 
 def test_release_candidate_check_runs_offline_and_writes_bundle(tmp_path: Path) -> None:
@@ -189,3 +253,29 @@ def _write_preflight(tmp_path: Path) -> Path:
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
+
+
+def _write_real_sft_run(tmp_path: Path, preflight_path: Path) -> Path:
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    out_dir = tmp_path / "real_sft_lora"
+    out_dir.mkdir(parents=True)
+    (out_dir / "adapter_model.safetensors").write_text("real-sft-weights", encoding="utf-8")
+    payload = build_training_run(
+        base_model="dummy/base",
+        preflight=preflight,
+        preflight_path=preflight_path,
+        outputs={"sft_out": str(out_dir), "dpo_out": None, "sft_dir": None},
+        optional_dependencies={},
+        config={
+            "source": "test-real-sft",
+            "sft": True,
+            "dpo": False,
+            "smoke": True,
+            "max_steps": 1,
+            "quality_gate": True,
+        },
+        status="succeeded",
+        started_at=utc_now(),
+        duration_seconds=0.0,
+    )
+    return write_training_run(payload, tmp_path / "real_sft_training_run.json")

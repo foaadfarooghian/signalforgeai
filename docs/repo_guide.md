@@ -560,17 +560,22 @@ That command orchestrates the existing library APIs directly and writes
 `release_candidate.v0` evidence. It resets only its generated subdirectories,
 then produces pilot readiness, mock SFT/DPO training run evidence, distillation
 eval, benchmark matrix, specialist unit, package check, consumer smoke, and
-registry index outputs. To use opt-in real training artifacts, supply either the
-parent SFT run or the final DPO run:
+registry index outputs.
+
+Release environments can require non-mock training evidence. For SFT-only
+evidence, make the SFT run the final packaged artifact:
 
 ```bash
 tensorfoundry-release-candidate-check \
   --work-dir results/release_candidate \
-  --sft-run results/training/sft_training_run.json
+  --sft-run results/training/sft_training_run.json \
+  --final-training-stage sft \
+  --require-real-training-evidence
 
 tensorfoundry-release-candidate-check \
   --work-dir results/release_candidate \
-  --dpo-run results/training/dpo_training_run.json
+  --dpo-run results/training/dpo_training_run.json \
+  --require-real-training-evidence
 ```
 
 ## Examples and Reference Workflows

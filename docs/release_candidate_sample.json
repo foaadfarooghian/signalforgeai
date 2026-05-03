@@ -24,6 +24,8 @@
     "matrix_config": null,
     "sft_run": null,
     "dpo_run": null,
+    "final_training_stage": "auto",
+    "require_real_training_evidence": false,
     "require_provider": [],
     "training_base_model": "dummy/base"
   },
@@ -146,6 +148,9 @@
     "final_run_path": "results/release_candidate/training/dpo_training_run.json",
     "sft_run_path": "results/release_candidate/training/sft_training_run.json",
     "dpo_run_path": "results/release_candidate/training/dpo_training_run.json",
+    "real_training_evidence": false,
+    "parent_real_training_evidence": false,
+    "require_real_training_evidence": false,
     "runs": {
       "sft": "results/release_candidate/training/sft_training_run.json",
       "dpo": "results/release_candidate/training/dpo_training_run.json"

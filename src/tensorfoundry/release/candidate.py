@@ -65,6 +65,8 @@ def run_release_candidate_check(
     matrix_config: str | Path | None = None,
     sft_run: str | Path | None = None,
     dpo_run: str | Path | None = None,
+    final_training_stage: str = "auto",
+    require_real_training_evidence: bool = False,
     require_provider: Optional[Iterable[str]] = None,
 ) -> Dict[str, Any]:
     """Run the full offline release-candidate evidence chain."""
@@ -89,6 +91,8 @@ def run_release_candidate_check(
         "matrix_config": str(matrix_config) if matrix_config is not None else None,
         "sft_run": str(sft_run) if sft_run is not None else None,
         "dpo_run": str(dpo_run) if dpo_run is not None else None,
+        "final_training_stage": final_training_stage,
+        "require_real_training_evidence": bool(require_real_training_evidence),
         "require_provider": sorted(required_providers),
         "training_base_model": training_base_model,
     }
@@ -137,6 +141,8 @@ def run_release_candidate_check(
             base_model=training_base_model,
             sft_run=sft_run,
             dpo_run=dpo_run,
+            final_training_stage=final_training_stage,
+            require_real_training_evidence=require_real_training_evidence,
         )
         _add_gate(gates, "training_evidence", training_payload.get("ok"), training_payload.get("final_run_path"), training_payload.get("issues"))
         if not training_payload.get("ok"):
@@ -202,6 +208,7 @@ def run_release_candidate_check(
 
     try:
         final_training_run = str(training_payload.get("final_run_path") or "")
+        real_training = bool(training_payload.get("real_training_evidence"))
         unit_manifest = build_specialist_unit(
             training_preflight_path=preflight_path,
             training_run_path=final_training_run,
@@ -212,7 +219,11 @@ def run_release_candidate_check(
             name=name,
             version=version,
             domain=domain,
-            summary="Offline release-candidate evidence bundle.",
+            summary=(
+                "Release-candidate evidence bundle with external training evidence."
+                if real_training
+                else "Offline release-candidate evidence bundle."
+            ),
             model_family="dummy",
             model_size="0B",
             model_format="safetensors",
@@ -220,9 +231,17 @@ def run_release_candidate_check(
             model_license="Apache-2.0",
             dataset_license="CC-BY-4.0",
             usage_constraints=["not for production decisions without review"],
-            failure_mode="offline_mock",
-            failure_description="Offline mock artifacts prove release evidence plumbing only.",
-            failure_mitigation="Replace mock artifacts with real trained model refs before production release.",
+            failure_mode="release_candidate" if real_training else "offline_mock",
+            failure_description=(
+                "External training evidence is linked, but the candidate still requires domain review."
+                if real_training
+                else "Offline mock artifacts prove release evidence plumbing only."
+            ),
+            failure_mitigation=(
+                "Review linked eval, benchmark, package, and smoke evidence before production use."
+                if real_training
+                else "Replace mock artifacts with real trained model refs before production release."
+            ),
             release_ready=True,
         )
         _add_gate(gates, "specialist_unit", True, paths["unit"], [])
@@ -322,8 +341,14 @@ def write_release_training_evidence(
     base_model: str,
     sft_run: str | Path | None = None,
     dpo_run: str | Path | None = None,
+    final_training_stage: str = "auto",
+    require_real_training_evidence: bool = False,
 ) -> Dict[str, Any]:
     """Write or load release training evidence and return the selected final run."""
+    if final_training_stage not in {"auto", "sft", "dpo"}:
+        raise ValueError(f"unsupported final training stage: {final_training_stage}")
+    if dpo_run is not None and final_training_stage == "sft":
+        raise ValueError("--final-training-stage sft cannot be combined with --dpo-run")
     out_dir = Path(training_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     issues: List[str] = []
@@ -333,21 +358,46 @@ def write_release_training_evidence(
     if dpo_run is not None:
         payload = load_training_run_report(dpo_run)
         _require_adapter_refs(payload, str(dpo_run))
+        real = _is_real_training_run(payload)
+        if require_real_training_evidence and not real:
+            issues.append(_real_training_required_issue())
         return {
-            "ok": True,
-            "mode": "external",
+            "ok": not issues,
+            "mode": "external_dpo",
             "final_stage": str(payload.get("training_stage") or "unknown"),
             "final_run_path": str(Path(dpo_run).resolve()),
             "sft_run_path": str(Path(sft_run).resolve()) if sft_run is not None else None,
             "dpo_run_path": str(Path(dpo_run).resolve()),
             "runs": {"dpo": str(Path(dpo_run).resolve())},
+            "real_training_evidence": real,
+            "parent_real_training_evidence": None,
+            "require_real_training_evidence": bool(require_real_training_evidence),
             "issues": issues,
         }
 
     if sft_run is not None:
+        sft_payload = load_training_run_report(sft_run)
+        _require_adapter_refs(sft_payload, str(sft_run))
         parent = summarize_dpo_parent_run(sft_run)
         sft_path = Path(sft_run).resolve()
         runs["sft"] = str(sft_path)
+        parent_real = _is_real_training_run(sft_payload)
+        if final_training_stage == "sft":
+            if require_real_training_evidence and not parent_real:
+                issues.append(_real_training_required_issue())
+            return {
+                "ok": not issues,
+                "mode": "external_sft",
+                "final_stage": str(sft_payload.get("training_stage") or "sft"),
+                "final_run_path": str(sft_path),
+                "sft_run_path": str(sft_path),
+                "dpo_run_path": None,
+                "runs": runs,
+                "real_training_evidence": parent_real,
+                "parent_real_training_evidence": parent_real,
+                "require_real_training_evidence": bool(require_real_training_evidence),
+                "issues": issues,
+            }
     else:
         sft_path = out_dir / "sft_training_run.json"
         parent_payload = _write_mock_sft_run(
@@ -359,8 +409,25 @@ def write_release_training_evidence(
         )
         parent = summarize_dpo_parent_run(sft_path)
         runs["sft"] = str(sft_path)
+        parent_real = False
         if not parent_payload.get("ok"):
             issues.extend(str(issue) for issue in _list(parent_payload.get("issues")))
+        if final_training_stage == "sft":
+            if require_real_training_evidence:
+                issues.append(_real_training_required_issue())
+            return {
+                "ok": not issues,
+                "mode": mode,
+                "final_stage": "sft",
+                "final_run_path": str(sft_path),
+                "sft_run_path": str(sft_path),
+                "dpo_run_path": None,
+                "runs": runs,
+                "real_training_evidence": False,
+                "parent_real_training_evidence": False,
+                "require_real_training_evidence": bool(require_real_training_evidence),
+                "issues": issues,
+            }
 
     dpo_path = out_dir / "dpo_training_run.json"
     dpo_payload = _write_mock_dpo_run(
@@ -375,6 +442,8 @@ def write_release_training_evidence(
     runs["dpo"] = str(dpo_path)
     if not dpo_payload.get("ok"):
         issues.extend(str(issue) for issue in _list(dpo_payload.get("issues")))
+    if require_real_training_evidence:
+        issues.append(_real_training_required_issue())
 
     return {
         "ok": not issues,
@@ -384,6 +453,9 @@ def write_release_training_evidence(
         "sft_run_path": runs.get("sft"),
         "dpo_run_path": str(dpo_path),
         "runs": runs,
+        "real_training_evidence": False,
+        "parent_real_training_evidence": parent_real,
+        "require_real_training_evidence": bool(require_real_training_evidence),
         "issues": issues,
     }
 
@@ -668,6 +740,9 @@ def _training_summary(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "final_run_path": payload.get("final_run_path"),
         "sft_run_path": payload.get("sft_run_path"),
         "dpo_run_path": payload.get("dpo_run_path"),
+        "real_training_evidence": bool(payload.get("real_training_evidence")),
+        "parent_real_training_evidence": payload.get("parent_real_training_evidence"),
+        "require_real_training_evidence": bool(payload.get("require_real_training_evidence")),
         "runs": _dict(payload.get("runs")),
         "issues": _list(payload.get("issues")),
     }
@@ -683,6 +758,21 @@ def _optional_dependencies(preflight: Mapping[str, Any]) -> Dict[str, bool]:
 def _require_adapter_refs(payload: Mapping[str, Any], path: str) -> None:
     if not _adapter_refs(payload):
         raise ValueError(f"training run has no adapter refs: {path}")
+
+
+def _is_real_training_run(payload: Mapping[str, Any]) -> bool:
+    config = payload.get("command_config")
+    return not (
+        isinstance(config, Mapping)
+        and str(config.get("training_evidence_mode") or "").lower() == "mock"
+    )
+
+
+def _real_training_required_issue() -> str:
+    return (
+        "real training evidence required; pass --dpo-run or "
+        "--sft-run with --final-training-stage sft from a non-mock training_run.v0"
+    )
 
 
 def _adapter_refs(payload: Mapping[str, Any]) -> List[str]:
@@ -756,6 +846,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--sft-run", type=str, default=None, help="Existing successful SFT training_run.v0")
     parser.add_argument("--dpo-run", type=str, default=None, help="Existing successful DPO training_run.v0")
     parser.add_argument(
+        "--final-training-stage",
+        choices=["auto", "sft", "dpo"],
+        default="auto",
+        help="Select which training run is packaged as final evidence",
+    )
+    parser.add_argument(
+        "--require-real-training-evidence",
+        action="store_true",
+        help="Fail if the final training run was generated by mock release evidence",
+    )
+    parser.add_argument(
         "--require-provider",
         action="append",
         default=[],
@@ -779,6 +880,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         matrix_config=args.matrix_config,
         sft_run=args.sft_run,
         dpo_run=args.dpo_run,
+        final_training_stage=args.final_training_stage,
+        require_real_training_evidence=bool(args.require_real_training_evidence),
         require_provider=args.require_provider,
     )
     print(f"Release candidate: {'OK' if payload['ok'] else 'FAILED'}")

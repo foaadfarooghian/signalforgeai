@@ -203,11 +203,13 @@ offline gate.
   benchmark matrix, exchange unit, package check, smoke run, and registry index
 - Mock SFT/DPO adapter evidence for mandatory offline runs
 - Optional override path for real SFT/DPO `training_run.v0` artifacts
+- Strict reviewer mode that fails when final training evidence is mock-generated
 
 ### Exit criteria
 - Fresh clones can produce a complete release-candidate evidence bundle offline
 - Degraded candidates fail the gate with actionable child-gate issues
 - Real training evidence can be substituted without changing downstream steps
+- Release reviewers can require non-mock SFT or DPO training evidence explicitly
 
 ---
 
@@ -227,6 +229,7 @@ offline gate.
 - Benchmark matrix and frontier reports
 - Specialist exchange unit validation, package evidence, smoke evidence, and registry index
 - One-command release-candidate evidence gate
+- Optional non-mock training evidence requirement for release-candidate reviews
 - Learning/routing primitives and experimental training utilities
 - Cost/latency-aware evaluation reporting
 
