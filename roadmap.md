@@ -192,7 +192,7 @@ implemented for the offline release path.
 
 ---
 
-## Active Phase — Release Candidate Evidence Bundling
+## Completed Slice — Release Candidate Evidence Bundling
 
 **Goal:** Prove the full pilot-to-exchange chain with one deterministic
 offline gate.
@@ -213,6 +213,26 @@ offline gate.
 
 ---
 
+## Active Phase — Real Specialist Candidate Evidence
+
+**Goal:** Run opt-in non-mock training evidence through the same release-candidate
+gate and evaluate/package the trained adapter as the candidate specialist.
+
+### Deliverables
+- `tensorfoundry-release-candidate-check --run-training` for real SFT evidence
+- Optional `--run-dpo` second stage using the SFT run as parent evidence
+- Derived HF adapter candidate id for distillation and benchmark evidence
+- Release-candidate reports that record training mode, final stage, adapter refs,
+  checksums, provider status, and candidate model id
+
+### Exit criteria
+- Offline mock release-candidate behavior remains unchanged
+- Release environments can run bounded SFT evidence without shelling out
+- The trained adapter is used as the distillation and benchmark candidate by default
+- Training or provider failures make the release-candidate gate fail clearly
+
+---
+
 ## Current baseline (already present in repo)
 
 - Structured trace emission and validation
@@ -230,6 +250,7 @@ offline gate.
 - Specialist exchange unit validation, package evidence, smoke evidence, and registry index
 - One-command release-candidate evidence gate
 - Optional non-mock training evidence requirement for release-candidate reviews
+- Opt-in release-candidate SFT/DPO training execution and trained-adapter evaluation
 - Learning/routing primitives and experimental training utilities
 - Cost/latency-aware evaluation reporting
 

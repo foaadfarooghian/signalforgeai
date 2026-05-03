@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional, Set
 
@@ -25,6 +26,36 @@ from tensorfoundry.training.readiness import (
     write_training_run,
     write_training_preflight,
 )
+
+
+@dataclass(frozen=True)
+class TrainingRunConfig:
+    """Configuration for the reusable training execution path."""
+
+    base_model: str = ""
+    sft: bool = False
+    dpo: bool = False
+    sft_data: str = "datasets/synth_train.sft.ready.jsonl"
+    dpo_data: str = "datasets/synth_train.dpo.ready.jsonl"
+    sft_out: str = "artifacts/synth_sft_lora"
+    dpo_out: str = "artifacts/synth_dpo_lora"
+    sft_dir: str = ""
+    sft_run: str = ""
+    dataset_num_proc: int = 1
+    instruction_part: str = ""
+    response_part: str = ""
+    dry_run: bool = False
+    smoke: bool = False
+    max_steps: int = 0
+    quality_gate: bool = False
+    logs_root: str = ""
+    report_out: str = ""
+    run_report_out: str = ""
+
+
+def run_training(config: TrainingRunConfig) -> int:
+    """Run training using the same implementation as `tensorfoundry-learn train`."""
+    return _train_cmd(argparse.Namespace(**asdict(config)))
 
 
 def _default_out(out_dir: Path, suite: Optional[str], suffix: str) -> Path:
@@ -264,6 +295,30 @@ def _train_cmd(args: argparse.Namespace) -> int:
         raise SystemExit("; ".join(issues))
 
     return 0
+
+
+def _training_config_from_args(args: argparse.Namespace) -> TrainingRunConfig:
+    return TrainingRunConfig(
+        base_model=args.base_model,
+        sft=bool(args.sft),
+        dpo=bool(args.dpo),
+        sft_data=args.sft_data,
+        dpo_data=args.dpo_data,
+        sft_out=args.sft_out,
+        dpo_out=args.dpo_out,
+        sft_dir=args.sft_dir,
+        sft_run=args.sft_run,
+        dataset_num_proc=int(args.dataset_num_proc),
+        instruction_part=args.instruction_part,
+        response_part=args.response_part,
+        dry_run=bool(args.dry_run),
+        smoke=bool(args.smoke),
+        max_steps=int(args.max_steps),
+        quality_gate=bool(args.quality_gate),
+        logs_root=args.logs_root,
+        report_out=args.report_out,
+        run_report_out=args.run_report_out,
+    )
 
 
 def _training_preflight_payload(args: argparse.Namespace, *, dry_run: bool) -> dict[str, object]:
@@ -527,7 +582,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "export":
         return _export_cmd(args)
-    return _train_cmd(args)
+    return run_training(_training_config_from_args(args))
 
 
 if __name__ == "__main__":

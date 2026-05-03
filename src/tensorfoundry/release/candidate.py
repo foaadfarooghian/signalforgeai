@@ -21,6 +21,8 @@ from tensorfoundry.exchange.package import run_package_check
 from tensorfoundry.exchange.registry import build_registry_index
 from tensorfoundry.exchange.smoke import run_smoke_check
 from tensorfoundry.exchange.unit import build_specialist_unit
+from tensorfoundry.learning.learn import TrainingRunConfig, run_training as run_training_job
+from tensorfoundry.models.registry import check_provider_for_model
 from tensorfoundry.pilot_check import DEFAULT_SUITE, run_pilot_check
 from tensorfoundry.training.readiness import (
     build_training_run,
@@ -58,18 +60,29 @@ def run_release_candidate_check(
     version: str = "0.1.0",
     domain: str = "pilot",
     baseline_model_id: str = "dummy_good",
-    candidate_model_id: str = "dummy_good",
+    candidate_model_id: str | None = None,
     training_base_model: str = "dummy/base",
     suites: Optional[Sequence[str]] = None,
     comparison_model_ids: Optional[Sequence[str]] = None,
     matrix_config: str | Path | None = None,
     sft_run: str | Path | None = None,
     dpo_run: str | Path | None = None,
+    run_training: bool = False,
+    run_dpo: bool = False,
+    training_max_steps: int = 1,
     final_training_stage: str = "auto",
     require_real_training_evidence: bool = False,
     require_provider: Optional[Iterable[str]] = None,
 ) -> Dict[str, Any]:
     """Run the full offline release-candidate evidence chain."""
+    if run_training and (sft_run is not None or dpo_run is not None):
+        raise ValueError("--run-training cannot be combined with --sft-run or --dpo-run")
+    if run_dpo and not run_training:
+        raise ValueError("--run-dpo requires --run-training")
+    if run_training and final_training_stage == "dpo" and not run_dpo:
+        raise ValueError("--final-training-stage dpo requires --run-dpo")
+    if run_training and run_dpo and final_training_stage == "sft":
+        raise ValueError("--final-training-stage sft cannot be combined with --run-dpo")
     root = Path(work_dir).resolve()
     root.mkdir(parents=True, exist_ok=True)
     _reset_generated_outputs(root)
@@ -77,6 +90,9 @@ def run_release_candidate_check(
     requested_suites = list(suites or [DEFAULT_SUITE])
     resolved_suites = [_resolve_suite(value, root) for value in requested_suites]
     required_providers = set(require_provider or [])
+    benchmark_required_providers = set(required_providers)
+    explicit_candidate_model_id = candidate_model_id is not None
+    effective_candidate_model_id = candidate_model_id or "dummy_good"
     gates: List[Dict[str, Any]] = []
     issues: List[str] = []
     warnings: List[str] = []
@@ -86,11 +102,15 @@ def run_release_candidate_check(
         "suites": requested_suites,
         "resolved_suites": [str(path) for path in resolved_suites],
         "baseline_model_id": baseline_model_id,
-        "candidate_model_id": candidate_model_id,
+        "candidate_model_id": effective_candidate_model_id,
+        "requested_candidate_model_id": candidate_model_id,
         "comparison_model_ids": list(comparison_model_ids or []),
         "matrix_config": str(matrix_config) if matrix_config is not None else None,
         "sft_run": str(sft_run) if sft_run is not None else None,
         "dpo_run": str(dpo_run) if dpo_run is not None else None,
+        "run_training": bool(run_training),
+        "run_dpo": bool(run_dpo),
+        "training_max_steps": int(training_max_steps),
         "final_training_stage": final_training_stage,
         "require_real_training_evidence": bool(require_real_training_evidence),
         "require_provider": sorted(required_providers),
@@ -141,9 +161,34 @@ def run_release_candidate_check(
             base_model=training_base_model,
             sft_run=sft_run,
             dpo_run=dpo_run,
+            run_training=run_training,
+            run_dpo=run_dpo,
+            training_max_steps=training_max_steps,
             final_training_stage=final_training_stage,
-            require_real_training_evidence=require_real_training_evidence,
+            require_real_training_evidence=bool(require_real_training_evidence or run_training),
         )
+        derived_candidate = _candidate_model_id_from_training(
+            training_payload,
+            base_model=training_base_model,
+        )
+        if derived_candidate:
+            training_payload["derived_candidate_model_id"] = derived_candidate
+            command_config["derived_candidate_model_id"] = derived_candidate
+            if run_training and not explicit_candidate_model_id:
+                effective_candidate_model_id = derived_candidate
+                command_config["candidate_model_id"] = effective_candidate_model_id
+        if run_training:
+            candidate_check = check_provider_for_model(
+                effective_candidate_model_id,
+                required=True,
+            )
+            provider_status["candidate"] = _provider_check_payload(candidate_check)
+            benchmark_required_providers.add(candidate_check.provider)
+            if not candidate_check.ok:
+                issues.append(
+                    "candidate_provider: "
+                    + (candidate_check.reason or f"provider unavailable for {effective_candidate_model_id}")
+                )
         _add_gate(gates, "training_evidence", training_payload.get("ok"), training_payload.get("final_run_path"), training_payload.get("issues"))
         if not training_payload.get("ok"):
             issues.extend(f"training_evidence: {issue}" for issue in _list(training_payload.get("issues")))
@@ -160,7 +205,7 @@ def run_release_candidate_check(
             domain=domain,
             suite_path=resolved_suites[0],
             baseline_model_id=baseline_model_id,
-            candidate_model_id=candidate_model_id,
+            candidate_model_id=effective_candidate_model_id,
             training_preflight_path=preflight_path,
         )
         distill_payload = run_distillation_check(
@@ -182,20 +227,23 @@ def run_release_candidate_check(
             suites=resolved_suites,
             model_ids=_matrix_model_ids(
                 baseline_model_id=baseline_model_id,
-                candidate_model_id=candidate_model_id,
+                candidate_model_id=effective_candidate_model_id,
                 comparison_model_ids=comparison_model_ids or [],
             ),
-            require_providers=required_providers,
+            require_providers=benchmark_required_providers,
         )
         matrix_payload = run_benchmark_matrix(
             config_path=matrix_config_path,
             work_dir=paths["benchmark"],
             suites=[str(path) for path in resolved_suites] if suites else None,
-            require_providers=list(required_providers) or None,
+            model_ids=[baseline_model_id, effective_candidate_model_id, *(comparison_model_ids or [])]
+            if matrix_config is not None
+            else None,
+            require_providers=list(benchmark_required_providers) or None,
         )
         matrix_issues = list(_list(matrix_payload.get("issues")))
-        if not _matrix_contains_candidate(matrix_payload, candidate_model_id):
-            matrix_issues.append(f"benchmark matrix missing candidate model row: {candidate_model_id}")
+        if not _matrix_contains_candidate(matrix_payload, effective_candidate_model_id):
+            matrix_issues.append(f"benchmark matrix missing candidate model row: {effective_candidate_model_id}")
         matrix_ok = bool(matrix_payload.get("ok") and not matrix_issues)
         _add_gate(gates, "benchmark_matrix", matrix_ok, matrix_payload.get("artifact_refs", {}).get("json"), matrix_issues)
         provider_status["benchmark_matrix"] = _matrix_provider_status(matrix_payload)
@@ -272,7 +320,9 @@ def run_release_candidate_check(
             manifest_path=paths["unit"],
             work_dir=paths["smoke"],
             mode="dummy",
-            model_id=candidate_model_id if candidate_model_id.startswith("dummy") else "dummy_good",
+            model_id=effective_candidate_model_id
+            if effective_candidate_model_id.startswith("dummy")
+            else "dummy_good",
             update_manifest=True,
         )
         _add_gate(gates, "smoke_run", smoke_payload.get("ok"), smoke_payload.get("report_json"), smoke_payload.get("issues"))
@@ -341,12 +391,23 @@ def write_release_training_evidence(
     base_model: str,
     sft_run: str | Path | None = None,
     dpo_run: str | Path | None = None,
+    run_training: bool = False,
+    run_dpo: bool = False,
+    training_max_steps: int = 1,
     final_training_stage: str = "auto",
     require_real_training_evidence: bool = False,
 ) -> Dict[str, Any]:
     """Write or load release training evidence and return the selected final run."""
     if final_training_stage not in {"auto", "sft", "dpo"}:
         raise ValueError(f"unsupported final training stage: {final_training_stage}")
+    if run_training and (sft_run is not None or dpo_run is not None):
+        raise ValueError("--run-training cannot be combined with --sft-run or --dpo-run")
+    if run_dpo and not run_training:
+        raise ValueError("--run-dpo requires --run-training")
+    if run_training and final_training_stage == "dpo" and not run_dpo:
+        raise ValueError("--final-training-stage dpo requires --run-dpo")
+    if run_training and run_dpo and final_training_stage == "sft":
+        raise ValueError("--final-training-stage sft cannot be combined with --run-dpo")
     if dpo_run is not None and final_training_stage == "sft":
         raise ValueError("--final-training-stage sft cannot be combined with --dpo-run")
     out_dir = Path(training_dir)
@@ -354,6 +415,17 @@ def write_release_training_evidence(
     issues: List[str] = []
     runs: Dict[str, str] = {}
     mode = "external" if sft_run or dpo_run else "mock"
+
+    if run_training:
+        return _write_real_training_evidence(
+            preflight=preflight,
+            preflight_path=preflight_path,
+            out_dir=out_dir,
+            base_model=base_model,
+            run_dpo=run_dpo,
+            training_max_steps=training_max_steps,
+            require_real_training_evidence=require_real_training_evidence,
+        )
 
     if dpo_run is not None:
         payload = load_training_run_report(dpo_run)
@@ -454,6 +526,137 @@ def write_release_training_evidence(
         "dpo_run_path": str(dpo_path),
         "runs": runs,
         "real_training_evidence": False,
+        "parent_real_training_evidence": parent_real,
+        "require_real_training_evidence": bool(require_real_training_evidence),
+        "issues": issues,
+    }
+
+
+def _write_real_training_evidence(
+    *,
+    preflight: Mapping[str, Any],
+    preflight_path: str | Path,
+    out_dir: Path,
+    base_model: str,
+    run_dpo: bool,
+    training_max_steps: int,
+    require_real_training_evidence: bool,
+) -> Dict[str, Any]:
+    """Run real opt-in training and return release training evidence."""
+    issues: List[str] = []
+    runs: Dict[str, str] = {}
+    logs_root = _preflight_logs_root(preflight)
+    sft_dataset = _preflight_dataset_path(preflight, "sft")
+    dpo_dataset = _preflight_dataset_path(preflight, "dpo")
+    sft_report = out_dir / "sft_training_run.json"
+    dpo_report = out_dir / "dpo_training_run.json"
+    sft_out = out_dir / "sft_lora"
+    dpo_out = out_dir / "dpo_lora"
+    sft_payload: Dict[str, Any] = {}
+    dpo_payload: Dict[str, Any] = {}
+
+    if not sft_dataset:
+        issues.append("training preflight has no SFT dataset source")
+    else:
+        sft_code = run_training_job(
+            TrainingRunConfig(
+                base_model=base_model,
+                sft=True,
+                sft_data=sft_dataset,
+                sft_out=str(sft_out),
+                dry_run=False,
+                smoke=True,
+                max_steps=int(training_max_steps),
+                quality_gate=True,
+                logs_root=logs_root,
+                report_out=str(out_dir / "sft_training_preflight.json"),
+                run_report_out=str(sft_report),
+            )
+        )
+        runs["sft"] = str(sft_report)
+        if sft_code != 0:
+            issues.append(f"SFT training exited nonzero: {sft_code}")
+        try:
+            sft_payload = load_training_run_report(sft_report)
+            _require_adapter_refs(sft_payload, str(sft_report))
+        except Exception as exc:
+            issues.append(str(exc))
+
+    parent_real = _is_real_training_run(sft_payload) if sft_payload else False
+    if require_real_training_evidence and sft_payload and not parent_real:
+        issues.append(_real_training_required_issue())
+
+    if not run_dpo:
+        return {
+            "ok": not issues,
+            "mode": "run",
+            "final_stage": "sft",
+            "final_run_path": str(sft_report),
+            "sft_run_path": str(sft_report),
+            "dpo_run_path": None,
+            "runs": runs,
+            "real_training_evidence": bool(sft_payload and parent_real),
+            "parent_real_training_evidence": parent_real,
+            "require_real_training_evidence": bool(require_real_training_evidence),
+            "issues": issues,
+        }
+
+    if issues:
+        return {
+            "ok": False,
+            "mode": "run",
+            "final_stage": "dpo",
+            "final_run_path": str(dpo_report),
+            "sft_run_path": str(sft_report),
+            "dpo_run_path": str(dpo_report),
+            "runs": runs,
+            "real_training_evidence": False,
+            "parent_real_training_evidence": parent_real,
+            "require_real_training_evidence": bool(require_real_training_evidence),
+            "issues": issues,
+        }
+
+    if not dpo_dataset:
+        issues.append("training preflight has no DPO dataset source")
+    else:
+        dpo_code = run_training_job(
+            TrainingRunConfig(
+                base_model=base_model,
+                dpo=True,
+                dpo_data=dpo_dataset,
+                dpo_out=str(dpo_out),
+                sft_run=str(sft_report),
+                dry_run=False,
+                smoke=True,
+                max_steps=int(training_max_steps),
+                quality_gate=True,
+                logs_root=logs_root,
+                report_out=str(out_dir / "dpo_training_preflight.json"),
+                run_report_out=str(dpo_report),
+            )
+        )
+        runs["dpo"] = str(dpo_report)
+        if dpo_code != 0:
+            issues.append(f"DPO training exited nonzero: {dpo_code}")
+        try:
+            dpo_payload = load_training_run_report(dpo_report)
+            _require_adapter_refs(dpo_payload, str(dpo_report))
+        except Exception as exc:
+            issues.append(str(exc))
+
+    real = _is_real_training_run(dpo_payload) if dpo_payload else False
+    if require_real_training_evidence and dpo_payload and not real:
+        issues.append(_real_training_required_issue())
+
+    return {
+        "ok": not issues,
+        "mode": "run",
+        "final_stage": "dpo",
+        "final_run_path": str(dpo_report),
+        "sft_run_path": str(sft_report),
+        "dpo_run_path": str(dpo_report),
+        "runs": runs,
+        "real_training_evidence": bool(dpo_payload and real),
         "parent_real_training_evidence": parent_real,
         "require_real_training_evidence": bool(require_real_training_evidence),
         "issues": issues,
@@ -740,11 +943,56 @@ def _training_summary(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "final_run_path": payload.get("final_run_path"),
         "sft_run_path": payload.get("sft_run_path"),
         "dpo_run_path": payload.get("dpo_run_path"),
+        "derived_candidate_model_id": payload.get("derived_candidate_model_id"),
         "real_training_evidence": bool(payload.get("real_training_evidence")),
         "parent_real_training_evidence": payload.get("parent_real_training_evidence"),
         "require_real_training_evidence": bool(payload.get("require_real_training_evidence")),
         "runs": _dict(payload.get("runs")),
         "issues": _list(payload.get("issues")),
+    }
+
+
+def _candidate_model_id_from_training(payload: Mapping[str, Any], *, base_model: str) -> str:
+    run_path = str(payload.get("final_run_path") or "")
+    if not run_path:
+        return ""
+    try:
+        run = load_training_run_report(run_path)
+    except Exception:
+        return ""
+    refs = _adapter_refs(run)
+    if not refs:
+        return ""
+    return f"hf:{base_model}?adapter={refs[0]}"
+
+
+def _preflight_dataset_path(preflight: Mapping[str, Any], role: str) -> str:
+    datasets = preflight.get("datasets")
+    if not isinstance(datasets, list):
+        return ""
+    for row in datasets:
+        if not isinstance(row, Mapping) or row.get("role") != role:
+            continue
+        value = row.get("source") or row.get("path")
+        if value:
+            return str(value)
+    return ""
+
+
+def _preflight_logs_root(preflight: Mapping[str, Any]) -> str:
+    value = preflight.get("logs_root")
+    return str(value) if value else ""
+
+
+def _provider_check_payload(check: Any) -> Dict[str, Any]:
+    return {
+        "model_id": check.model_id,
+        "provider": check.provider,
+        "ok": bool(check.ok),
+        "required": bool(check.required),
+        "skipped": bool(check.skipped),
+        "reason": check.reason,
+        "details": check.details or {},
     }
 
 
@@ -770,8 +1018,8 @@ def _is_real_training_run(payload: Mapping[str, Any]) -> bool:
 
 def _real_training_required_issue() -> str:
     return (
-        "real training evidence required; pass --dpo-run or "
-        "--sft-run with --final-training-stage sft from a non-mock training_run.v0"
+        "real training evidence required; use --run-training, pass --dpo-run, or "
+        "pass --sft-run with --final-training-stage sft from a non-mock training_run.v0"
     )
 
 
@@ -833,7 +1081,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--version", default="0.1.0", help="Specialist unit version")
     parser.add_argument("--domain", default="pilot", help="Specialist unit domain")
     parser.add_argument("--baseline-model-id", default="dummy_good", help="Baseline/teacher model id")
-    parser.add_argument("--candidate-model-id", default="dummy_good", help="Candidate specialist model id")
+    parser.add_argument(
+        "--candidate-model-id",
+        default=None,
+        help="Candidate specialist model id; defaults to dummy_good, or the trained HF adapter in --run-training mode",
+    )
     parser.add_argument("--training-base-model", default="dummy/base", help="Training base model")
     parser.add_argument("--suite", action="append", default=[], help="Suite alias/path; may be repeated")
     parser.add_argument(
@@ -845,6 +1097,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--matrix-config", type=str, default=None, help="Optional benchmark_matrix.v0 config")
     parser.add_argument("--sft-run", type=str, default=None, help="Existing successful SFT training_run.v0")
     parser.add_argument("--dpo-run", type=str, default=None, help="Existing successful DPO training_run.v0")
+    parser.add_argument(
+        "--run-training",
+        action="store_true",
+        help="Run opt-in real SFT training from generated pilot datasets",
+    )
+    parser.add_argument(
+        "--run-dpo",
+        action="store_true",
+        help="After --run-training SFT, run opt-in DPO and package the DPO adapter",
+    )
+    parser.add_argument(
+        "--training-max-steps",
+        type=int,
+        default=1,
+        help="Max training steps for opt-in real training runs",
+    )
     parser.add_argument(
         "--final-training-stage",
         choices=["auto", "sft", "dpo"],
@@ -864,6 +1132,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Fail if selected provider path is unavailable",
     )
     args = parser.parse_args(argv)
+    if args.run_training and (args.sft_run or args.dpo_run):
+        parser.error("--run-training cannot be combined with --sft-run or --dpo-run")
+    if args.run_dpo and not args.run_training:
+        parser.error("--run-dpo requires --run-training")
+    if args.run_training and args.final_training_stage == "dpo" and not args.run_dpo:
+        parser.error("--final-training-stage dpo requires --run-dpo")
+    if args.run_training and args.run_dpo and args.final_training_stage == "sft":
+        parser.error("--final-training-stage sft cannot be combined with --run-dpo")
 
     payload = run_release_candidate_check(
         work_dir=args.work_dir,
@@ -880,6 +1156,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         matrix_config=args.matrix_config,
         sft_run=args.sft_run,
         dpo_run=args.dpo_run,
+        run_training=bool(args.run_training),
+        run_dpo=bool(args.run_dpo),
+        training_max_steps=int(args.training_max_steps),
         final_training_stage=args.final_training_stage,
         require_real_training_evidence=bool(args.require_real_training_evidence),
         require_provider=args.require_provider,

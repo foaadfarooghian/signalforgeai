@@ -84,6 +84,22 @@ tensorfoundry-release-candidate-check \
   --require-real-training-evidence
 ```
 
+In release environments with `[train]` installed, the gate can run bounded SFT
+evidence itself and use the trained adapter as the candidate model:
+
+```bash
+tensorfoundry-release-candidate-check \
+  --work-dir results/release_candidate_real \
+  --run-training \
+  --training-base-model hf/org/base \
+  --training-max-steps 1 \
+  --require-real-training-evidence
+```
+
+Use `--run-dpo` to add a DPO stage and package the DPO adapter as final
+evidence. Without an explicit `--candidate-model-id`, the candidate becomes
+`hf:<base>?adapter=<final-adapter-dir>`.
+
 ## Training readiness
 
 Run a dry-run training preflight against pilot-generated datasets with:

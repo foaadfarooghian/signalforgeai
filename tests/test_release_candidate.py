@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from tensorfoundry.distillation.check import DISTILLATION_EVAL_VERSION
+from tensorfoundry.evaluation.matrix import BENCHMARK_MATRIX_VERSION
 from tensorfoundry.release.candidate import (
     RELEASE_CANDIDATE_VERSION,
     main as release_main,
@@ -12,6 +16,7 @@ from tensorfoundry.release.candidate import (
 from tensorfoundry.training.readiness import (
     build_training_run,
     load_training_run_report,
+    summarize_dpo_parent_run,
     utc_now,
     write_training_run,
 )
@@ -205,18 +210,126 @@ def test_release_candidate_degraded_candidate_exits_nonzero(tmp_path: Path) -> N
     assert any("mean_score_drop" in issue for issue in payload["issues"])
 
 
+def test_release_candidate_run_training_derives_hf_candidate_model_id(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    captured: dict[str, str] = {}
+    _install_real_training_fakes(tmp_path, monkeypatch, captured)
+
+    payload = run_release_candidate_check(
+        work_dir=tmp_path,
+        training_base_model="dummy/base",
+        run_training=True,
+        require_real_training_evidence=True,
+    )
+
+    expected = f"hf:dummy/base?adapter={tmp_path / 'training' / 'sft_lora'}"
+    assert payload["ok"] is True
+    assert payload["command_config"]["candidate_model_id"] == expected
+    assert payload["training_evidence"]["mode"] == "run"
+    assert payload["training_evidence"]["final_stage"] == "sft"
+    assert payload["training_evidence"]["derived_candidate_model_id"] == expected
+    assert captured["distill_candidate_model_id"] == expected
+    assert captured["matrix_model_ids"].split(",").count(expected) == 1
+    assert payload["artifact_refs"]["adapters"] == [str(tmp_path / "training" / "sft_lora")]
+
+
+def test_release_candidate_run_dpo_selects_dpo_as_final_training_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    captured: dict[str, str] = {}
+    _install_real_training_fakes(tmp_path, monkeypatch, captured)
+
+    payload = run_release_candidate_check(
+        work_dir=tmp_path,
+        training_base_model="dummy/base",
+        run_training=True,
+        run_dpo=True,
+        require_real_training_evidence=True,
+    )
+
+    expected = f"hf:dummy/base?adapter={tmp_path / 'training' / 'dpo_lora'}"
+    assert payload["ok"] is True
+    assert payload["command_config"]["candidate_model_id"] == expected
+    assert payload["training_evidence"]["final_stage"] == "dpo"
+    assert payload["training_evidence"]["derived_candidate_model_id"] == expected
+    assert payload["artifact_refs"]["adapters"] == [str(tmp_path / "training" / "dpo_lora")]
+
+
+def test_release_candidate_run_training_respects_explicit_candidate_model_id(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    captured: dict[str, str] = {}
+    _install_real_training_fakes(tmp_path, monkeypatch, captured)
+
+    payload = run_release_candidate_check(
+        work_dir=tmp_path,
+        training_base_model="dummy/base",
+        candidate_model_id="dummy_good",
+        run_training=True,
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is True
+    assert payload["command_config"]["candidate_model_id"] == "dummy_good"
+    assert payload["training_evidence"]["derived_candidate_model_id"].startswith("hf:dummy/base")
+    assert captured["distill_candidate_model_id"] == "dummy_good"
+
+
+def test_release_candidate_run_training_rejects_external_training_reports(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        run_release_candidate_check(
+            work_dir=tmp_path,
+            run_training=True,
+            sft_run=tmp_path / "sft_training_run.json",
+        )
+
+
+def test_release_candidate_run_training_failure_fails_gate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _install_real_training_fakes(tmp_path, monkeypatch, {})
+
+    def fail_training(config) -> int:
+        return 2
+
+    monkeypatch.setattr("tensorfoundry.release.candidate.run_training_job", fail_training)
+
+    payload = run_release_candidate_check(
+        work_dir=tmp_path,
+        training_base_model="dummy/base",
+        run_training=True,
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is False
+    assert payload["training_evidence"]["ok"] is False
+    assert any("SFT training exited nonzero" in issue for issue in payload["issues"])
+
+
 def _write_preflight(tmp_path: Path) -> Path:
     path = tmp_path / "training_preflight.json"
+    logs_root = tmp_path / "logs"
+    logs_root.mkdir(parents=True, exist_ok=True)
+    sft_dataset = tmp_path / "pilot.sft.jsonl"
+    dpo_dataset = tmp_path / "pilot.dpo.jsonl"
+    sft_dataset.write_text('{"version":"sft.v0"}\n', encoding="utf-8")
+    dpo_dataset.write_text('{"version":"dpo.v0"}\n', encoding="utf-8")
     payload = {
         "version": "training_preflight.v0",
         "ok": True,
         "base_model": "dummy/base",
         "quality_gate": True,
+        "logs_root": str(logs_root),
         "datasets": [
             {
                 "role": "sft",
                 "kind": "sft",
-                "path": str(tmp_path / "pilot.sft.jsonl"),
+                "path": str(sft_dataset),
                 "rows": 1,
                 "ok": True,
                 "content_sha256": "a" * 64,
@@ -225,7 +338,7 @@ def _write_preflight(tmp_path: Path) -> Path:
             {
                 "role": "dpo",
                 "kind": "dpo",
-                "path": str(tmp_path / "pilot.dpo.jsonl"),
+                "path": str(dpo_dataset),
                 "rows": 1,
                 "ok": True,
                 "content_sha256": "b" * 64,
@@ -235,8 +348,10 @@ def _write_preflight(tmp_path: Path) -> Path:
         "artifact_manifest": {
             "version": "training_artifact.v0",
             "base_model": "dummy/base",
+            "dataset_sources": {"sft": str(sft_dataset), "dpo": str(dpo_dataset)},
             "dataset_hashes": {"sft": "a" * 64, "dpo": "b" * 64},
             "split_counts": {"sft": {"train": 1}, "dpo": {"train": 1}},
+            "logs_root": str(logs_root),
             "outputs": {
                 "sft_out": str(tmp_path / "training" / "sft_lora"),
                 "dpo_out": str(tmp_path / "training" / "dpo_lora"),
@@ -279,3 +394,147 @@ def _write_real_sft_run(tmp_path: Path, preflight_path: Path) -> Path:
         duration_seconds=0.0,
     )
     return write_training_run(payload, tmp_path / "real_sft_training_run.json")
+
+
+def _install_real_training_fakes(tmp_path: Path, monkeypatch, captured: dict[str, str]) -> None:
+    def fake_pilot_check(*, work_dir, **_kwargs):
+        pilot_dir = Path(work_dir)
+        pilot_dir.mkdir(parents=True, exist_ok=True)
+        _write_preflight(pilot_dir)
+        report = pilot_dir / "pilot_readiness.json"
+        report.write_text(json.dumps({"ok": True, "issues": []}, indent=2), encoding="utf-8")
+        return {"ok": True, "report_json": str(report), "providers": [], "issues": []}
+
+    def fake_training(config) -> int:
+        out_dir = Path(config.dpo_out if config.dpo else config.sft_out)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "adapter_model.safetensors").write_text("real-weights", encoding="utf-8")
+        (out_dir / "adapter_config.json").write_text("{}", encoding="utf-8")
+        dpo_parent = summarize_dpo_parent_run(config.sft_run) if config.dpo else None
+        payload = build_training_run(
+            base_model=config.base_model,
+            preflight=None,
+            preflight_path=config.report_out or None,
+            outputs={
+                "sft_out": config.sft_out if config.sft else None,
+                "dpo_out": config.dpo_out if config.dpo else None,
+                "sft_dir": dpo_parent["adapter_refs"][0] if dpo_parent else None,
+            },
+            optional_dependencies={
+                "torch": True,
+                "datasets": True,
+                "transformers": True,
+                "trl": True,
+                "unsloth": True,
+            },
+            config={
+                "source": "test-real-training",
+                "sft": bool(config.sft),
+                "dpo": bool(config.dpo),
+                "smoke": bool(config.smoke),
+                "max_steps": int(config.max_steps),
+                "quality_gate": bool(config.quality_gate),
+            },
+            dpo_parent_run=dpo_parent,
+            status="succeeded",
+            started_at=utc_now(),
+            duration_seconds=0.0,
+        )
+        write_training_run(payload, config.run_report_out)
+        return 0
+
+    def fake_distillation_check(*, recipe_path, work_dir):
+        recipe = json.loads(Path(recipe_path).read_text(encoding="utf-8"))
+        captured["distill_candidate_model_id"] = recipe["candidate_model_id"]
+        suite_name = _suite_name(Path(recipe["suite"]))
+        payload = {
+            "version": DISTILLATION_EVAL_VERSION,
+            "ok": True,
+            "recipe": recipe,
+            "work_dir": str(work_dir),
+            "training_preflight": {"ok": True},
+            "baseline": {"suite_name": suite_name, "model_id": recipe["baseline_model_id"]},
+            "candidate": {
+                "suite_name": suite_name,
+                "model_id": recipe["candidate_model_id"],
+                "mean_score": 1.0,
+                "pass_rate": 1.0,
+            },
+            "aggregate_deltas": {},
+            "gate_results": [],
+            "changed_cases": [],
+            "regressed_cases": [],
+            "improved_cases": [],
+            "missing_cases": [],
+            "new_cases": [],
+            "failure_mode_movements": [],
+            "worse_failure_mode_movements": [],
+            "artifact_refs": {},
+            "issues": [],
+        }
+        out = Path(work_dir) / "distillation_eval.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        (Path(work_dir) / "distillation_eval.md").write_text("# Distillation\n", encoding="utf-8")
+        payload["report_json"] = str(out)
+        return payload
+
+    def fake_benchmark_matrix(*, config_path, work_dir, suites=None, model_ids=None, **_kwargs):
+        config = json.loads(Path(config_path).read_text(encoding="utf-8"))
+        ids = [str(value) for value in (model_ids or config["model_ids"])]
+        captured["matrix_model_ids"] = ",".join(ids)
+        suite_path = Path((suites or config["suites"])[0])
+        suite_name = _suite_name(suite_path)
+        rows = [
+            {
+                "suite": suite_name,
+                "suite_path": str(suite_path),
+                "model_id": model_id,
+                "provider": "hf" if model_id.startswith("hf:") else "dummy",
+                "provider_required": model_id.startswith("hf:"),
+                "provider_ok": True,
+                "provider_skipped": False,
+                "skipped": False,
+                "ok": True,
+                "issue": None,
+                "result_path": None,
+                "summary_path": None,
+                "run_logs_dir": None,
+                "metrics": {
+                    "cases": 1,
+                    "pass_rate": 1.0,
+                    "mean_score": 1.0,
+                    "cost_per_success_usd": 0.0,
+                    "latency_ms_p50": 0.0,
+                    "latency_ms_p95": 0.0,
+                    "failure_rate": 0.0,
+                    "retry_rate": 0.0,
+                    "mean_effective": 1.0,
+                },
+            }
+            for model_id in ids
+        ]
+        out = Path(work_dir) / "benchmark_matrix.json"
+        payload = {
+            "version": BENCHMARK_MATRIX_VERSION,
+            "ok": True,
+            "config": config,
+            "scorecard": rows,
+            "frontiers": {},
+            "artifact_refs": {"json": str(out), "markdown": str(Path(work_dir) / "benchmark_matrix.md")},
+            "issues": [],
+        }
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        (Path(work_dir) / "benchmark_matrix.md").write_text("# Benchmark\n", encoding="utf-8")
+        return payload
+
+    monkeypatch.setattr("tensorfoundry.release.candidate.run_pilot_check", fake_pilot_check)
+    monkeypatch.setattr("tensorfoundry.release.candidate.run_training_job", fake_training)
+    monkeypatch.setattr("tensorfoundry.release.candidate.run_distillation_check", fake_distillation_check)
+    monkeypatch.setattr("tensorfoundry.release.candidate.run_benchmark_matrix", fake_benchmark_matrix)
+
+
+def _suite_name(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return str(payload.get("suite_name") or path.stem)
