@@ -14,7 +14,7 @@ Thanks for helping build TensorFoundry! We welcome issues, ideas, and pull reque
 - Link issues and include screenshots or logs when helpful.
 
 ## Code style
-- Python 3.10+; prefer type annotations and small, composable functions.
+- Python 3.11+; prefer type annotations and small, composable functions.
 - Favor explicitness over cleverness. Add brief comments when intent is non-obvious.
 
 ## Communication

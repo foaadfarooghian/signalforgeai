@@ -58,6 +58,7 @@ pip install -e ".[dev]"
 Optional training stack:
 
 ```bash
+# Linux-only in v0.4.0
 pip install -e ".[train]"
 ```
 
@@ -106,7 +107,7 @@ provider via `get_provider_for_model`.
 - `src/tensorfoundry/agents/research_agent.py`
   - A simple plan -> search -> summarize workflow.
   - Logs planner/tool/model events.
-  - Uses `TENSORFOUNDRY_MODEL_ID` (default `ollama:ministral-3:8b`).
+  - Uses `TENSORFOUNDRY_MODEL_ID` (default `dummy_good`; set explicitly for Ollama/OpenAI/HF).
 - `src/tensorfoundry/agents/decision_agent.py`
   - Produces a structured memo: constraints, options, tradeoffs, recommendation.
   - Emits a `model_called` event with metrics and output summary.
@@ -312,7 +313,8 @@ Located in `src/tensorfoundry/training/`.
 - `src/tensorfoundry/training/collator_masked.py`
   - Masked chat collator for supervised training (prompt masked).
 
-Training is optional and requires `[train]` dependencies in `pyproject.toml`.
+Training is optional. In `v0.4.0`, actual SFT/DPO execution and `[train]`
+installs are Linux-only; use dry-run preflight on other platforms.
 
 ## Execution and Data Flow (Detailed)
 
@@ -511,7 +513,7 @@ tensorfoundry-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.1.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.4.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -520,7 +522,7 @@ tensorfoundry-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
-  --ollama-tag tensorfoundry/pilot-specialist:0.1.0
+  --ollama-tag tensorfoundry/pilot-specialist:0.4.0
 ```
 
 Attach package evidence, run the consumer smoke check, then validate and index
@@ -578,8 +580,8 @@ tensorfoundry-release-candidate-check \
   --require-real-training-evidence
 ```
 
-Release environments with `[train]` installed can also run bounded SFT evidence
-inside the release-candidate gate:
+Linux release environments with `[train]` installed can also run bounded SFT
+evidence inside the release-candidate gate:
 
 ```bash
 tensorfoundry-release-candidate-check \
@@ -630,7 +632,7 @@ These directories are intentionally separate from source code:
 
 Model selection and routing:
 
-- `TENSORFOUNDRY_MODEL_ID` - Current model id (`openai:...`, `ollama:...`, `hf:...`).
+- `TENSORFOUNDRY_MODEL_ID` - Current model id (`dummy_good` by default; set `openai:...`, `ollama:...`, or `hf:...` explicitly for provider runs).
 - `TENSORFOUNDRY_CANDIDATE_MODELS` - Comma-separated candidates for bandit routing.
 - `TENSORFOUNDRY_BANDIT_MIN_PULLS` - Minimum samples before exploitation.
 - `TENSORFOUNDRY_MAX_COST_USD` - Hard cost constraint for routing.

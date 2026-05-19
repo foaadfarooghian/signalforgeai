@@ -75,7 +75,7 @@ class DecisionAgent:
             "Risk: evaluation missing means regressions go unnoticed",
         ]
         
-        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "ollama:ministral-3:8b")
+        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
         provider = get_provider_for_model(model_id)
 
         prompt = f"""Task: {task}

@@ -25,6 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip install build twine
 
       - name: Lint (ruff)
         run: |
@@ -45,12 +46,26 @@ jobs:
         run: |
           pytest -q
 
+      - name: Run offline examples
+        run: |
+          python examples/quickstart_research_agent.py
+          python examples/quick_decision_agent.py
+          python examples/quick_refactor_agent.py
+          python examples/quick_orchestrator.py
+
       - name: Run pilot readiness check
         env:
           TENSORFOUNDRY_PROVIDER: dummy
           TENSORFOUNDRY_MODEL_ID: dummy_good
         run: |
           tensorfoundry-pilot-check --mode dummy --work-dir /tmp/tensorfoundry-pilot-check
+
+      - name: Run release candidate dry run
+        env:
+          TENSORFOUNDRY_PROVIDER: dummy
+          TENSORFOUNDRY_MODEL_ID: dummy_good
+        run: |
+          tensorfoundry-release-candidate-check --work-dir /tmp/tensorfoundry-release-candidate
 
       - name: Run Benchmark v0 suites + validate run logs
         env:
@@ -69,3 +84,13 @@ jobs:
           run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json"
           run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/research_v0.json"
           run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/refactor_v0.json"
+
+      - name: Build and smoke package
+        run: |
+          python -m build --outdir /tmp/tensorfoundry-dist
+          python -m twine check /tmp/tensorfoundry-dist/*
+          python -m venv /tmp/tensorfoundry-wheel-smoke
+          /tmp/tensorfoundry-wheel-smoke/bin/python -m pip install --upgrade pip
+          /tmp/tensorfoundry-wheel-smoke/bin/python -m pip install /tmp/tensorfoundry-dist/*.whl
+          /tmp/tensorfoundry-wheel-smoke/bin/python -c "import tensorfoundry; assert tensorfoundry.__version__ == '0.4.0'"
+          /tmp/tensorfoundry-wheel-smoke/bin/tensorfoundry-pricing-validate --require gpt-5-mini

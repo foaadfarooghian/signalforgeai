@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+No unreleased changes yet.
+
+---
+
+## [0.4.0] — 2026-05-19
+
 ### Added
 - `trace.v0` schema version emission for new runtime events while preserving legacy trace validation.
 - Normalized tool event payload fields for new trace artifacts.
@@ -18,17 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Provider readiness checks for dummy, OpenAI, Ollama, and HF model IDs.
 - `tensorfoundry-learn train --dry-run` for training input and dependency preflight.
 - Optional reward diagnostics: `failure_mode`, `diagnosis`, and `artifact_refs`.
+- Release-candidate evidence gate for bundled offline package readiness checks.
+- Specialist model exchange manifest validation, package checks, smoke runs, and registry indexing.
 
 ### Changed
 - CI now runs offline with dummy providers by default and includes the pilot readiness check.
 - Package data now includes benchmark suites and nested pricing config artifacts.
 - Mypy is aligned to the project Python 3.11+ support floor.
-
-### Planned
-- Dataset export (trace + reward → SFT / preference data)
-- Preference learning and distillation pipelines
-- Research into small, continually learning agent-specialised models
-
+- Public quickstarts now default to the offline deterministic provider.
+- `[train]` remains experimental and is documented as Linux-only for this release.
 
 ---
 

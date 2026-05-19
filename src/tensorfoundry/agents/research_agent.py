@@ -59,7 +59,7 @@ class ResearchAgent:
 
     def summarize(self, findings: List[str], trace_id: str, parent_span_id: str) -> str:
         """Summarize findings using a placeholder model call."""
-        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "ollama:ministral-3:8b")
+        model_id = os.getenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
         provider = get_provider_for_model(model_id)
 
         prompt = f"Summarise: {findings[0] if findings else ''}"

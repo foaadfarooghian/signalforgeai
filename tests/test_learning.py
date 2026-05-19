@@ -245,6 +245,7 @@ def test_train_sft_run_writes_training_run_evidence(
     run_report = tmp_path / "training_run.json"
     sft_out = tmp_path / "sft_lora"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fake_sft_training() -> None:
         out = Path(os.environ["OUT_DIR"])
@@ -300,6 +301,7 @@ def test_train_dpo_run_uses_successful_sft_run_parent(
     dpo_out = tmp_path / "dpo_lora"
     run_report = tmp_path / "training_run.json"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fake_dpo_training() -> None:
         assert os.environ["SFT_DIR"] == str(sft_out)
@@ -366,6 +368,7 @@ def test_train_dpo_run_report_requires_sft_run_parent(
     )
     report = tmp_path / "training_run.json"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fail_if_called() -> None:
         raise AssertionError("DPO should not launch without parent SFT evidence")
@@ -412,6 +415,7 @@ def test_train_dpo_run_report_rejects_failed_sft_parent(
     )
     report = tmp_path / "training_run.json"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fail_if_called() -> None:
         raise AssertionError("DPO should not launch with failed parent SFT evidence")
@@ -460,6 +464,7 @@ def test_train_sft_run_smoke_missing_deps_writes_blocked_report(
     )
     report = tmp_path / "training_run.json"
     deps = {name: False for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fail_if_called() -> None:
         raise AssertionError("trainer should not launch when smoke dependencies are missing")
@@ -489,6 +494,53 @@ def test_train_sft_run_smoke_missing_deps_writes_blocked_report(
     assert payload["ok"] is False
     assert payload["status"] == "blocked_missing_dependencies"
     assert any("missing optional training dependencies" in issue for issue in payload["issues"])
+
+
+def test_train_sft_run_blocks_unsupported_platform(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sft = tmp_path / "sft.jsonl"
+    sft.write_text(
+        json.dumps(
+            {
+                "version": "sft.v0",
+                "instruction": "Task: train",
+                "prompt": "Task: train",
+                "response": "A training response",
+                "meta": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "training_run.json"
+    deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
+
+    def fail_if_called() -> None:
+        raise AssertionError("trainer should not launch on an unsupported platform")
+
+    monkeypatch.setattr("tensorfoundry.learning.learn.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fail_if_called)
+    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--sft-data",
+            str(sft),
+            "--run-report-out",
+            str(report),
+        ]
+    )
+
+    assert code == 2
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["status"] == "blocked_unsupported_platform"
+    assert any("Linux-only" in issue for issue in payload["issues"])
 
 
 def test_failed_preflight_report_is_rejected(tmp_path: Path) -> None:

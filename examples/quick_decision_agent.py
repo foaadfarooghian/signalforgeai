@@ -21,7 +21,7 @@ def main() -> None:
     emitter = JsonlEmitter(
         logs_dir / "temp.jsonl",
         agent_name="decision_agent",
-        agent_version="0.1.0",
+        agent_version="0.4.0",
         default_stage="system",
     )
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional, Set
@@ -26,6 +27,8 @@ from tensorfoundry.training.readiness import (
     write_training_run,
     write_training_preflight,
 )
+
+SUPPORTED_TRAINING_PLATFORM = "Linux"
 
 
 @dataclass(frozen=True)
@@ -192,6 +195,7 @@ def _train_cmd(args: argparse.Namespace) -> int:
         raise SystemExit("Select at least one of --sft or --dpo")
     if not args.base_model:
         raise SystemExit("--base-model is required for training")
+    platform_issue = _training_platform_issue()
 
     os.environ["BASE_MODEL"] = args.base_model
     if args.max_steps > 0:
@@ -223,6 +227,30 @@ def _train_cmd(args: argparse.Namespace) -> int:
             write_training_run(run_payload, args.run_report_out)
         print(json.dumps(payload, indent=2))
         return 0 if payload["ok"] else 2
+
+    if platform_issue:
+        if args.quality_gate or args.report_out or args.run_report_out or args.smoke:
+            payload = _training_preflight_payload(args, dry_run=False)
+            payload["ok"] = False
+            payload["issues"] = _payload_issues(payload) + [platform_issue]
+            preflight_payload = payload
+            if args.report_out:
+                preflight_path = write_training_preflight(payload, args.report_out)
+            if args.run_report_out:
+                run_payload = _training_run_payload(
+                    args,
+                    preflight_payload=payload,
+                    preflight_path=preflight_path,
+                    dpo_parent_run=dpo_parent_run,
+                    status="blocked_unsupported_platform",
+                    started_at=utc_now(),
+                    duration_seconds=0.0,
+                    issues=_payload_issues(payload),
+                )
+                write_training_run(run_payload, args.run_report_out)
+            print(json.dumps(payload, indent=2))
+            return 2
+        raise SystemExit(platform_issue)
 
     if args.quality_gate or args.report_out or args.run_report_out or args.smoke:
         payload = _training_preflight_payload(args, dry_run=False)
@@ -340,7 +368,7 @@ def _training_preflight_payload(args: argparse.Namespace, *, dry_run: bool) -> d
         "smoke": bool(args.smoke),
         "max_steps": int(args.max_steps),
     }
-    return build_training_preflight(
+    payload = build_training_preflight(
         base_model=args.base_model,
         dataset_checks=checks,
         outputs=outputs,
@@ -352,6 +380,12 @@ def _training_preflight_payload(args: argparse.Namespace, *, dry_run: bool) -> d
         dry_run=dry_run,
         config=config,
     )
+    payload["training_platform"] = {
+        "system": platform.system() or "unknown",
+        "supported": _training_platform_issue() is None,
+        "supported_platforms": [SUPPORTED_TRAINING_PLATFORM],
+    }
+    return payload
 
 
 def _training_run_payload(
@@ -402,7 +436,7 @@ def _run_sft_training() -> None:
     try:
         from tensorfoundry.training.sft_unsloth import main as sft_main
     except ImportError as exc:
-        raise SystemExit("Training deps missing. Install with: pip install -e '.[train]'") from exc
+        raise SystemExit(_training_dependency_message()) from exc
     sft_main()
 
 
@@ -410,8 +444,28 @@ def _run_dpo_training() -> None:
     try:
         from tensorfoundry.training.dpo_trl import main as dpo_main
     except ImportError as exc:
-        raise SystemExit("Training deps missing. Install with: pip install -e '.[train]'") from exc
+        raise SystemExit(_training_dependency_message()) from exc
     dpo_main()
+
+
+def _training_platform_issue() -> str | None:
+    if os.getenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM") == "1":
+        return None
+    current = platform.system() or "unknown"
+    if current == SUPPORTED_TRAINING_PLATFORM:
+        return None
+    return (
+        "Training execution is Linux-only in TensorFoundry v0.4.0. "
+        f"Current platform: {current}. Use --dry-run for preflight here, "
+        "or run inside Linux with: pip install -e '.[train]'."
+    )
+
+
+def _training_dependency_message() -> str:
+    return (
+        "Training deps missing or unsupported. TensorFoundry v0.4.0 training is Linux-only; "
+        "install inside Linux with: pip install -e '.[train]'."
+    )
 
 
 def _training_exception_message(exc: BaseException) -> str:

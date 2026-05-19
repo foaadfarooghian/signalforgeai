@@ -84,8 +84,8 @@ tensorfoundry-release-candidate-check \
   --require-real-training-evidence
 ```
 
-In release environments with `[train]` installed, the gate can run bounded SFT
-evidence itself and use the trained adapter as the candidate model:
+In Linux release environments with `[train]` installed, the gate can run bounded
+SFT evidence itself and use the trained adapter as the candidate model:
 
 ```bash
 tensorfoundry-release-candidate-check \
@@ -121,7 +121,8 @@ tensorfoundry-learn train --base-model dummy/base --sft --dpo \
 ```
 
 Release environments can optionally run one bounded SFT smoke step and record
-`training_run.v0`:
+`training_run.v0`. In `v0.4.0`, actual SFT/DPO execution and the `[train]`
+extra are Linux-only; use dry-run preflight on other platforms:
 
 ```bash
 tensorfoundry-learn train --base-model hf/org/base --sft \
@@ -179,7 +180,7 @@ tensorfoundry-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.1.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.4.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -188,7 +189,7 @@ tensorfoundry-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
-  --ollama-tag tensorfoundry/pilot-specialist:0.1.0
+  --ollama-tag tensorfoundry/pilot-specialist:0.4.0
 ```
 
 Attach packaging evidence, run the offline consumer smoke check, then validate

@@ -1,23 +1,26 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "tensorfoundry"
-version = "0.1.0"
+version = "0.4.0"
 description = "Opinionated platform for agentic workflows, tooling, and evaluation."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
   { name = "TensorFoundry Team" }
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Operating System :: OS Independent",
 ]
+keywords = ["agents", "evaluation", "observability", "distillation", "benchmarks"]
 dependencies = [
     "jsonschema>=4.23",
     "openai>=2.14.0",
@@ -25,81 +28,88 @@ dependencies = [
     "types-pyyaml>=6.0.12.20250915",
 ]
 
+[project.urls]
+Homepage = "https://github.com/foaadfarooghian/tensorfoundry"
+Source = "https://github.com/foaadfarooghian/tensorfoundry"
+Issues = "https://github.com/foaadfarooghian/tensorfoundry/issues"
+Changelog = "https://github.com/foaadfarooghian/tensorfoundry/blob/prod/CHANGELOG.md"
+Security = "https://github.com/foaadfarooghian/tensorfoundry/security/advisories/new"
+
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.5.0", "mypy>=1.7.0"]
 train = [
   # Core ML / Torch
-  "torch==2.9.1",
-  "torchvision==0.24.1",
-  "triton==3.5.1",
-  "torchao==0.15.0",
+  "torch==2.9.1; platform_system == 'Linux'",
+  "torchvision==0.24.1; platform_system == 'Linux'",
+  "triton==3.5.1; platform_system == 'Linux'",
+  "torchao==0.15.0; platform_system == 'Linux'",
 
   # Hugging Face ecosystem
-  "transformers==4.57.3",
-  "datasets==4.3.0",
-  "accelerate==1.12.0",
-  "huggingface-hub==0.36.0",
-  "tokenizers==0.22.1",
-  "safetensors==0.7.0",
-  "peft==0.18.0",
-  "trl==0.24.0",
+  "transformers==4.57.3; platform_system == 'Linux'",
+  "datasets==4.3.0; platform_system == 'Linux'",
+  "accelerate==1.12.0; platform_system == 'Linux'",
+  "huggingface-hub==0.36.0; platform_system == 'Linux'",
+  "tokenizers==0.22.1; platform_system == 'Linux'",
+  "safetensors==0.7.0; platform_system == 'Linux'",
+  "peft==0.18.0; platform_system == 'Linux'",
+  "trl==0.24.0; platform_system == 'Linux'",
 
   # Performance / memory
-  "xformers==0.0.33.post2",
-  "bitsandbytes==0.49.0",
-  "einops==0.8.1",
+  "xformers==0.0.33.post2; platform_system == 'Linux'",
+  "bitsandbytes==0.49.0; platform_system == 'Linux'",
+  "einops==0.8.1; platform_system == 'Linux'",
 
   # Diffusion / fine-tuning
-  "diffusers==0.36.0",
-  "sentencepiece==0.2.1",
+  "diffusers==0.36.0; platform_system == 'Linux'",
+  "sentencepiece==0.2.1; platform_system == 'Linux'",
 
   # Unsloth
-  "unsloth==2025.12.9",
-  "unsloth-zoo==2025.12.7",
+  "unsloth==2025.12.9; platform_system == 'Linux'",
+  "unsloth-zoo==2025.12.7; platform_system == 'Linux'",
 
   # Data / utils
-  "numpy==2.4.0",
-  "pandas==2.3.3",
-  "pyarrow==22.0.0",
-  "psutil==7.2.1",
-  "regex==2025.11.3",
-  "protobuf==6.33.2",
-  "msgspec==0.20.0",
-  "filelock==3.20.1",
-  "requests==2.32.5",
-  "urllib3==2.6.2",
-  "packaging==25.0",
-  "pillow==12.0.0",
-  "networkx==3.6.1",
-  "sympy==1.14.0",
-  "mpmath==1.3.0",
-  "typeguard==4.4.4",
-  "tyro==1.0.3",
+  "numpy==2.3.5; platform_system == 'Linux'",
+  "pandas==2.3.3; platform_system == 'Linux'",
+  "pyarrow==22.0.0; platform_system == 'Linux'",
+  "psutil==7.2.1; platform_system == 'Linux'",
+  "regex==2025.11.3; platform_system == 'Linux'",
+  "protobuf==6.33.2; platform_system == 'Linux'",
+  "msgspec==0.20.0; platform_system == 'Linux'",
+  "filelock==3.20.1; platform_system == 'Linux'",
+  "requests==2.32.5; platform_system == 'Linux'",
+  "urllib3==2.6.2; platform_system == 'Linux'",
+  "packaging==25.0; platform_system == 'Linux'",
+  "pillow==12.0.0; platform_system == 'Linux'",
+  "networkx==3.6.1; platform_system == 'Linux'",
+  "sympy==1.14.0; platform_system == 'Linux'",
+  "mpmath==1.3.0; platform_system == 'Linux'",
+  "typeguard==4.4.4; platform_system == 'Linux'",
+  "tyro==1.0.3; platform_system == 'Linux'",
 
   # Multiprocessing / IO
-  "dill==0.4.0",
-  "multiprocess==0.70.16",
-  "fsspec==2025.9.0",
-  "xxhash==3.6.0",
-  "python-dateutil==2.9.0.post0",
-  "pytz==2025.2",
-  "tzdata==2025.3",
+  "dill==0.4.0; platform_system == 'Linux'",
+  "multiprocess==0.70.16; platform_system == 'Linux'",
+  "fsspec==2025.9.0; platform_system == 'Linux'",
+  "xxhash==3.6.0; platform_system == 'Linux'",
+  "python-dateutil==2.9.0.post0; platform_system == 'Linux'",
+  "pytz==2025.2; platform_system == 'Linux'",
+  "tzdata==2025.3; platform_system == 'Linux'",
 
   # Async stack (datasets / HF internals)
-  "aiohttp==3.13.2",
-  "aiosignal==1.4.0",
-  "aiohappyeyeballs==2.6.1",
-  "attrs==25.4.0",
-  "charset-normalizer==3.4.4",
-  "frozenlist==1.8.0",
-  "multidict==6.7.0",
-  "yarl==1.22.0",
-  "propcache==0.4.1",
+  "aiohttp==3.13.2; platform_system == 'Linux'",
+  "aiosignal==1.4.0; platform_system == 'Linux'",
+  "aiohappyeyeballs==2.6.1; platform_system == 'Linux'",
+  "attrs==25.4.0; platform_system == 'Linux'",
+  "charset-normalizer==3.4.4; platform_system == 'Linux'",
+  "frozenlist==1.8.0; platform_system == 'Linux'",
+  "multidict==6.7.0; platform_system == 'Linux'",
+  "yarl==1.22.0; platform_system == 'Linux'",
+  "propcache==0.4.1; platform_system == 'Linux'",
 
   # Misc
-  "jinja2==3.1.6",
-  "markupsafe==3.0.3",
-  "docstring-parser==0.17.0",
+  "jinja2==3.1.6; platform_system == 'Linux'",
+  "markupsafe==3.0.3; platform_system == 'Linux'",
+  "docstring-parser==0.17.0; platform_system == 'Linux'",
 
 ]
 

@@ -5,7 +5,7 @@
   "identity": {
     "id": "pilot-specialist",
     "name": "Pilot Specialist",
-    "version": "0.1.0",
+    "version": "0.4.0",
     "domain": "pilot"
   },
   "mode": "dummy",

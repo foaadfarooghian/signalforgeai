@@ -259,7 +259,7 @@ def run_suite(
         emitter = JsonlEmitter(
             run_logs_dir / "temp.jsonl",
             agent_name=agent_name,
-            agent_version="0.1.0",
+            agent_version="0.4.0",
             default_stage="system",
         )
         trace_id = emitter.start_trace()

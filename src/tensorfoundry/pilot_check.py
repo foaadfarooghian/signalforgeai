@@ -179,7 +179,8 @@ def _write_report(payload: Dict[str, Any], report_md: Path) -> None:
             if not isinstance(row, dict):
                 continue
             digest = str(row.get("content_sha256") or "")
-            split_counts = row.get("split_counts") if isinstance(row.get("split_counts"), dict) else {}
+            raw_split_counts = row.get("split_counts")
+            split_counts = raw_split_counts if isinstance(raw_split_counts, dict) else {}
             split_text = ", ".join(f"{k}:{v}" for k, v in sorted(split_counts.items()))
             lines.append(
                 f"| {row.get('role')} | {row.get('kind')} | {int(row.get('rows') or 0)} | "

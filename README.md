@@ -15,7 +15,7 @@
   <img alt="status" src="https://img.shields.io/badge/status-active_development-blue" />
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-purple" />
   <img alt="license" src="https://img.shields.io/badge/License-Apache%202.0-green.svg" />
-  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/foaadfarooghian/tensorfoundry/ci.yml?branch=dev" />
+  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/foaadfarooghian/tensorfoundry/ci.yml?branch=prod" />
 </p>
 
 ---
@@ -146,6 +146,15 @@ Run a reference agent example:
 python examples/quickstart_research_agent.py
 ```
 
+The quickstart is offline-safe by default and uses the deterministic
+`dummy_good` provider. To run against a configured local or hosted model, set
+`TENSORFOUNDRY_MODEL_ID` explicitly:
+
+```bash
+TENSORFOUNDRY_MODEL_ID=ollama:ministral-3:8b python examples/quickstart_research_agent.py
+TENSORFOUNDRY_MODEL_ID=openai:gpt-5-mini python examples/quickstart_research_agent.py
+```
+
 Validate and inspect the latest trace:
 
 ```bash
@@ -235,8 +244,8 @@ tensorfoundry-release-candidate-check \
   --require-real-training-evidence
 ```
 
-Release environments with `[train]` installed can let the release-candidate gate
-run bounded SFT evidence and evaluate the trained adapter directly:
+Linux release environments with `[train]` installed can let the release-candidate
+gate run bounded SFT evidence and evaluate the trained adapter directly:
 
 ```bash
 tensorfoundry-release-candidate-check \
@@ -252,7 +261,10 @@ Add `--run-dpo` when the final candidate should be the DPO adapter. When
 `hf:<base>?adapter=<final-adapter-dir>` and uses it for distillation and
 benchmark evidence.
 
-Training remains experimental, but preflight evidence is available without loading models:
+Training remains experimental. In `v0.4.0`, the `[train]` extra and actual
+SFT/DPO execution are Linux-only because the Torch/Triton/Unsloth dependency
+stack is not portable across all supported core platforms. Preflight evidence
+is still available without loading models:
 
 ```bash
 tensorfoundry-learn train --base-model dummy/base --sft --dpo \
@@ -332,7 +344,7 @@ tensorfoundry-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.1.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.4.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -341,7 +353,7 @@ tensorfoundry-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
-  --ollama-tag tensorfoundry/pilot-specialist:0.1.0
+  --ollama-tag tensorfoundry/pilot-specialist:0.4.0
 
 tensorfoundry-exchange package-check \
   --manifest results/exchange/pilot-specialist.unit.json \

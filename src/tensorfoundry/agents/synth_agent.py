@@ -411,7 +411,7 @@ class SynthAgent:
 
     def _model_id(self) -> str:
         import os
-        return os.getenv("TENSORFOUNDRY_MODEL_ID") or "ollama:ministral-3:8b"
+        return os.getenv("TENSORFOUNDRY_MODEL_ID") or "dummy_good"
 
 
 def _ensure_contract(x: Any) -> Dict[str, Any]:

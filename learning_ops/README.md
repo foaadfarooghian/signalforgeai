@@ -55,6 +55,7 @@ learning_ops/
 ```
 
 Training scripts are **experimental** and may require extra dependencies (e.g. `unsloth`, `trl`).
+In `v0.4.0`, actual training execution and `.[train]` installs are Linux-only.
 Packaged training entrypoints live in `src/tensorfoundry/training/` and are exposed via `tensorfoundry-learn train`.
 
 ---
@@ -73,7 +74,7 @@ tensorfoundry-learn export \
   --limit 50
 ```
 
-Train a student model (optional deps required):
+Train a student model (Linux-only optional deps required):
 
 ```bash
 pip install -e ".[train]"
