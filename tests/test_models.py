@@ -20,12 +20,14 @@ def test_registry_returns_dummy_in_ci(monkeypatch) -> None:
 
 def test_registry_returns_hf_provider(monkeypatch) -> None:
     monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("TENSORFOUNDRY_PROVIDER", raising=False)
     provider = get_provider_for_model("hf:org/model")
     assert isinstance(provider, HFProvider)
 
 
 def test_registry_returns_ollama_provider(monkeypatch) -> None:
     monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("TENSORFOUNDRY_PROVIDER", raising=False)
     provider = get_provider_for_model("ollama:llama3")
     assert isinstance(provider, OllamaProvider)
 
