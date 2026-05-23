@@ -12,8 +12,8 @@ if str(SRC_PATH) not in sys.path:
 
 
 def main() -> None:
-    from tensorfoundry.agents.decision_agent import DecisionAgent
-    from tensorfoundry.logging.emitter import JsonlEmitter
+    from signalforgeai.agents.decision_agent import DecisionAgent
+    from signalforgeai.logging.emitter import JsonlEmitter
 
     logs_dir = PROJECT_ROOT / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -31,7 +31,7 @@ def main() -> None:
     with emitter:
         agent = DecisionAgent(emitter=emitter)
         result = agent.run(
-            "What should TensorFoundry build next after logging + validation?",
+            "What should SignalForge AI build next after logging + validation?",
             constraints=[
                 "Hardware not ready for training yet",
                 "Prefer OSS artefacts that build credibility",
@@ -52,9 +52,9 @@ def main() -> None:
 
     print("\nLog file:", logs_dir / f"{trace_id}.jsonl")
     print("\nValidate with:")
-    print(f"  python -m tensorfoundry.logging.validate logs/{trace_id}.jsonl")
+    print(f"  python -m signalforgeai.logging.validate logs/{trace_id}.jsonl")
     print("\nInspect with:")
-    print(f"  python -m tensorfoundry.logging.inspect logs/{trace_id}.jsonl")
+    print(f"  python -m signalforgeai.logging.inspect logs/{trace_id}.jsonl")
 
 
 if __name__ == "__main__":

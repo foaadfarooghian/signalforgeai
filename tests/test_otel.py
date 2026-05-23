@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.logging.events import make_event, new_span_id, new_trace_id
-from tensorfoundry.logging.otel import export_otel_json
+from signalforgeai.logging.events import make_event, new_span_id, new_trace_id
+from signalforgeai.logging.otel import export_otel_json
 
 
 def test_export_otel_json_writes_spans(tmp_path: Path) -> None:

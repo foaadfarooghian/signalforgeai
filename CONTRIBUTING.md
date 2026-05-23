@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping build TensorFoundry! We welcome issues, ideas, and pull requests.
+Thanks for helping build SignalForge AI! We welcome issues, ideas, and pull requests.
 
 ## Development workflow
 - Create a feature branch from `exp` (or `dev` if in use); avoid committing directly to `prod`.

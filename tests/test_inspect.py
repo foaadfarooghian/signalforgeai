@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.logging.events import make_event, new_span_id, new_trace_id
-from tensorfoundry.logging.inspect import read_jsonl, summarise_trace
+from signalforgeai.logging.events import make_event, new_span_id, new_trace_id
+from signalforgeai.logging.inspect import read_jsonl, summarise_trace
 
 
 def _write_jsonl(path: Path, objs: list[dict]) -> None:

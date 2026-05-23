@@ -1,6 +1,6 @@
 # Versioning & Stability Policy
 
-TensorFoundry follows **semantic versioning with research-grade guarantees**.
+SignalForge AI follows **semantic versioning with research-grade guarantees**.
 
 Version numbers communicate **which invariants contributors and users can rely on**, not whether the project is "finished" or production-ready.
 
@@ -8,7 +8,7 @@ Version numbers communicate **which invariants contributors and users can rely o
 
 ## Current status
 
-TensorFoundry is intentionally **pre-1.0**.
+SignalForge AI is intentionally **pre-1.0**.
 
 The project is an evolving agent-engineering system where:
 - execution behaviour matters more than surface APIs
@@ -28,7 +28,7 @@ Current pilot-readiness contracts are stabilized additively:
 
 ## What version numbers mean
 
-TensorFoundry uses the form:
+SignalForge AI uses the form:
 
 ```
 vMAJOR.MINOR.PATCH
@@ -54,7 +54,7 @@ It represents **interface and system stability**, not model quality.
 
 MINOR versions represent **capability milestones**.
 
-A MINOR version increments when TensorFoundry gains a new core capability, such as:
+A MINOR version increments when SignalForge AI gains a new core capability, such as:
 - new orchestration or routing mechanisms
 - evaluation or benchmarking extensions
 - learning infrastructure derived from execution traces
@@ -84,7 +84,7 @@ Learning features may evolve as:
 - dataset schemas mature
 - training interfaces are refined
 
-TensorFoundry intentionally separates:
+SignalForge AI intentionally separates:
 - **learning principles** (stable)
 - **learning implementations** (replaceable, experimental)
 

@@ -4,7 +4,7 @@
   "name": "Pilot Specialist",
   "version": "0.4.0",
   "domain": "pilot",
-  "summary": "Example exchange unit built from TensorFoundry pilot, distillation, and benchmark evidence.",
+  "summary": "Example exchange unit built from SignalForge AI pilot, distillation, and benchmark evidence.",
   "model": {
     "family": "dummy",
     "size": "0B",
@@ -102,17 +102,17 @@
   },
   "artifacts": {
     "adapters": [
-      "hf://tensorfoundry/pilot-specialist-lora"
+      "hf://signalforgeai/pilot-specialist-lora"
     ],
     "safetensors": [
-      "hf://tensorfoundry/pilot-specialist/model.safetensors"
+      "hf://signalforgeai/pilot-specialist/model.safetensors"
     ],
     "gguf": [
-      "hf://tensorfoundry/pilot-specialist/model-q4.gguf"
+      "hf://signalforgeai/pilot-specialist/model-q4.gguf"
     ],
     "ollama": {
-      "modelfile": "hf://tensorfoundry/pilot-specialist/Modelfile",
-      "tag": "tensorfoundry/pilot-specialist:0.4.0"
+      "modelfile": "hf://signalforgeai/pilot-specialist/Modelfile",
+      "tag": "signalforgeai/pilot-specialist:0.4.0"
     },
     "checksums": {}
   }

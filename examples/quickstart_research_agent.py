@@ -1,7 +1,7 @@
 """Runner for the ResearchAgent example."""
 from __future__ import annotations
-from tensorfoundry.agents import ResearchAgent
-from tensorfoundry.logging import JsonlEmitter
+from signalforgeai.agents import ResearchAgent
+from signalforgeai.logging import JsonlEmitter
 import sys
 from pathlib import Path
 

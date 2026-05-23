@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.evaluation.diagnosis import diagnose_trace_events
-from tensorfoundry.evaluation.regression import (
+from signalforgeai.evaluation.diagnosis import diagnose_trace_events
+from signalforgeai.evaluation.regression import (
     RegressionPolicy,
     compare_pilot_readiness,
     load_pilot_readiness_artifact,

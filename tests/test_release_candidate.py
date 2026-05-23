@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from tensorfoundry.distillation.check import DISTILLATION_EVAL_VERSION
-from tensorfoundry.evaluation.matrix import BENCHMARK_MATRIX_VERSION
-from tensorfoundry.release.candidate import (
+from signalforgeai.distillation.check import DISTILLATION_EVAL_VERSION
+from signalforgeai.evaluation.matrix import BENCHMARK_MATRIX_VERSION
+from signalforgeai.release.candidate import (
     RELEASE_CANDIDATE_VERSION,
     main as release_main,
     run_release_candidate_check,
     write_release_training_evidence,
 )
-from tensorfoundry.training.readiness import (
+from signalforgeai.training.readiness import (
     build_training_run,
     load_training_run_report,
     summarize_dpo_parent_run,
@@ -297,7 +297,7 @@ def test_release_candidate_run_training_failure_fails_gate(
     def fail_training(config) -> int:
         return 2
 
-    monkeypatch.setattr("tensorfoundry.release.candidate.run_training_job", fail_training)
+    monkeypatch.setattr("signalforgeai.release.candidate.run_training_job", fail_training)
 
     payload = run_release_candidate_check(
         work_dir=tmp_path,
@@ -529,10 +529,10 @@ def _install_real_training_fakes(tmp_path: Path, monkeypatch, captured: dict[str
         (Path(work_dir) / "benchmark_matrix.md").write_text("# Benchmark\n", encoding="utf-8")
         return payload
 
-    monkeypatch.setattr("tensorfoundry.release.candidate.run_pilot_check", fake_pilot_check)
-    monkeypatch.setattr("tensorfoundry.release.candidate.run_training_job", fake_training)
-    monkeypatch.setattr("tensorfoundry.release.candidate.run_distillation_check", fake_distillation_check)
-    monkeypatch.setattr("tensorfoundry.release.candidate.run_benchmark_matrix", fake_benchmark_matrix)
+    monkeypatch.setattr("signalforgeai.release.candidate.run_pilot_check", fake_pilot_check)
+    monkeypatch.setattr("signalforgeai.release.candidate.run_training_job", fake_training)
+    monkeypatch.setattr("signalforgeai.release.candidate.run_distillation_check", fake_distillation_check)
+    monkeypatch.setattr("signalforgeai.release.candidate.run_benchmark_matrix", fake_benchmark_matrix)
 
 
 def _suite_name(path: Path) -> str:

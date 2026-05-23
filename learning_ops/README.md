@@ -1,8 +1,8 @@
-# TensorFoundry — Learning Ops
+# SignalForge AI — Learning Ops
 
-This directory contains the components that turn TensorFoundry into a **closed-loop learning system**.
+This directory contains the components that turn SignalForge AI into a **closed-loop learning system**.
 
-Most runtime learning code lives in `src/tensorfoundry/learning/` (bandits, routing, stats).
+Most runtime learning code lives in `src/signalforgeai/learning/` (bandits, routing, stats).
 This `learning_ops/` folder stores policies, bandit state, datasets, and operational learning utilities.
 
 > **Execute → Evaluate → Learn**  
@@ -56,7 +56,7 @@ learning_ops/
 
 Training scripts are **experimental** and may require extra dependencies (e.g. `unsloth`, `trl`).
 In `v0.4.0`, actual training execution and `.[train]` installs are Linux-only.
-Packaged training entrypoints live in `src/tensorfoundry/training/` and are exposed via `tensorfoundry-learn train`.
+Packaged training entrypoints live in `src/signalforgeai/training/` and are exposed via `signalforgeai-learn train`.
 
 ---
 
@@ -65,7 +65,7 @@ Packaged training entrypoints live in `src/tensorfoundry/training/` and are expo
 Export log-derived datasets:
 
 ```bash
-tensorfoundry-learn export \
+signalforgeai-learn export \
   --suite benchmark_v1_synth \
   --out-dir datasets/examples \
   --sft --prefs --repairs --curriculum \
@@ -79,7 +79,7 @@ Train a student model (Linux-only optional deps required):
 ```bash
 pip install -e ".[train]"
 
-tensorfoundry-learn train \
+signalforgeai-learn train \
   --base-model Qwen/Qwen2.5-3B-Instruct \
   --sft --dpo \
   --sft-data datasets/examples/benchmark_v1_synth.sft.jsonl \
@@ -94,7 +94,7 @@ Schema versions:
 
 ---
 
-## What “Learning” Means in TensorFoundry
+## What “Learning” Means in SignalForge AI
 
 Learning happens in **stages**, each strictly safer than the next.
 
@@ -212,7 +212,7 @@ Policies are:
 - ❌ A black-box RL system
 - ❌ An auto-updating model loop
 
-TensorFoundry prioritises **control, observability, and evidence** over automation.
+SignalForge AI prioritises **control, observability, and evidence** over automation.
 
 ---
 
@@ -226,7 +226,7 @@ TensorFoundry prioritises **control, observability, and evidence** over automati
 - [x] Teacher → student QLoRA SFT + DPO (experimental)
 - [x] Local model improvement measured (`results/benchmark_v1_synth.model_improvements.md`)
 - [x] Curriculum construction from real executions
-- [x] Canonical learn pipeline (`tensorfoundry-learn`)
+- [x] Canonical learn pipeline (`signalforgeai-learn`)
 - [ ] Specialist small models
 - [ ] Continual learning experiments (opt-in)
 
@@ -237,4 +237,4 @@ TensorFoundry prioritises **control, observability, and evidence** over automati
 > *“We don’t ask models to be smart in isolation.  
 > We ask systems to become better over time.”*
 
-TensorFoundry learning is about **systemic intelligence**, not model mysticism.
+SignalForge AI learning is about **systemic intelligence**, not model mysticism.

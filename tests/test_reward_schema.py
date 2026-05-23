@@ -1,4 +1,4 @@
-from tensorfoundry.evaluation.reward_schema import RewardV0
+from signalforgeai.evaluation.reward_schema import RewardV0
 import json
 
 def test_reward_jsonl_roundtrip():

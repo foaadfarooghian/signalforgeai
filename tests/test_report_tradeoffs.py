@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.evaluation.report_tradeoffs import main
+from signalforgeai.evaluation.report_tradeoffs import main
 
 
 def test_report_tradeoffs_renders_mean_effective(tmp_path: Path, capsys) -> None:

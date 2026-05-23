@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from tensorfoundry.models.providers.dummy import DummyProvider
-from tensorfoundry.models.providers.hf import HFProvider, _parse_hf_model_id
-from tensorfoundry.models.providers.ollama import OllamaProvider
-from tensorfoundry.models.registry import check_provider_for_model, get_provider_for_model
+from signalforgeai.models.providers.dummy import DummyProvider
+from signalforgeai.models.providers.hf import HFProvider, _parse_hf_model_id
+from signalforgeai.models.providers.ollama import OllamaProvider
+from signalforgeai.models.registry import check_provider_for_model, get_provider_for_model
 
 
 def test_parse_hf_model_id_with_adapter() -> None:
@@ -20,21 +20,21 @@ def test_registry_returns_dummy_in_ci(monkeypatch) -> None:
 
 def test_registry_returns_hf_provider(monkeypatch) -> None:
     monkeypatch.delenv("CI", raising=False)
-    monkeypatch.delenv("TENSORFOUNDRY_PROVIDER", raising=False)
+    monkeypatch.delenv("SIGNALFORGEAI_PROVIDER", raising=False)
     provider = get_provider_for_model("hf:org/model")
     assert isinstance(provider, HFProvider)
 
 
 def test_registry_returns_ollama_provider(monkeypatch) -> None:
     monkeypatch.delenv("CI", raising=False)
-    monkeypatch.delenv("TENSORFOUNDRY_PROVIDER", raising=False)
+    monkeypatch.delenv("SIGNALFORGEAI_PROVIDER", raising=False)
     provider = get_provider_for_model("ollama:llama3")
     assert isinstance(provider, OllamaProvider)
 
 
 def test_registry_forced_dummy_provider(monkeypatch) -> None:
     monkeypatch.delenv("CI", raising=False)
-    monkeypatch.setenv("TENSORFOUNDRY_PROVIDER", "dummy")
+    monkeypatch.setenv("SIGNALFORGEAI_PROVIDER", "dummy")
     provider = get_provider_for_model("ollama:llama3")
     assert isinstance(provider, DummyProvider)
 

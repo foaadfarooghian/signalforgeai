@@ -1,9 +1,9 @@
 <p align="center" style="margin: 0 0 1px 0;">
-  <img src="docs/assets/logo.svg" alt="TensorFoundry logo" width="200">
+  <img src="docs/assets/logo.svg" alt="SignalForge AI logo" width="200">
 </p>
 
 <h1 align="center" style="margin: 0 0 10px 0;">
-  <span style="color:#FF7A18;">Tensor</span><span style="color:#1F6FEB;">Foundry</span>
+  <span style="color:#FF7A18;">Signal</span><span style="color:#1F6FEB;">Forge</span><span style="color:#124AA7;"> AI</span>
 </h1>
 
 <p align="center">
@@ -15,14 +15,14 @@
   <img alt="status" src="https://img.shields.io/badge/status-active_development-blue" />
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-purple" />
   <img alt="license" src="https://img.shields.io/badge/License-Apache%202.0-green.svg" />
-  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/foaadfarooghian/tensorfoundry/ci.yml?branch=prod" />
+  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/foaadfarooghian/signalforgeai/ci.yml?branch=prod" />
 </p>
 
 ---
 
 ## Project status
 
-**TensorFoundry is in active, pre-1.0 development (`v0.x`).**
+**SignalForge AI is in active, pre-1.0 development (`v0.x`).**
 
 - APIs and schemas are still converging
 - Breaking changes are expected while core runtime contracts are stabilized
@@ -32,7 +32,7 @@
 
 ## Narrowed product scope
 
-TensorFoundry is narrowing to five pillars:
+SignalForge AI is narrowing to five pillars:
 
 1. **OTel/MCP-native runtime + artifact schema**
 2. **Evaluation and failure analysis for multi-step, tool-using agents**
@@ -76,7 +76,7 @@ This is a systems-first direction: execution artifacts and measurable outcomes c
 
 ## Specialist model exchange
 
-TensorFoundry is expanding toward a specialist model registry/exchange where the
+SignalForge AI is expanding toward a specialist model registry/exchange where the
 published unit is a **complete deployable package**, not only weights.
 
 Each exchange unit includes:
@@ -89,7 +89,7 @@ Each exchange unit includes:
 - License and usage constraints
 - Ready-to-run artifacts (adapters, Safetensors/GGUF, Ollama packaging)
 
-Use `tensorfoundry-exchange` to build and validate `specialist_model_unit.v0`
+Use `signalforgeai-exchange` to build and validate `specialist_model_unit.v0`
 manifests from training, distillation, and benchmark evidence. See
 `docs/model_exchange.md`, `docs/specialist_model_unit_sample.json`, and
 `docs/specs/specialist_model_unit.schema.json` for the contract.
@@ -119,7 +119,7 @@ Good early domains:
 
 ---
 
-## What TensorFoundry is not
+## What SignalForge AI is not
 
 - A chatbot framework
 - A prompt library
@@ -132,8 +132,8 @@ Good early domains:
 ## Quickstart
 
 ```bash
-git clone https://github.com/foaadfarooghian/tensorfoundry.git
-cd tensorfoundry
+git clone https://github.com/foaadfarooghian/signalforgeai.git
+cd signalforgeai
 
 python -m venv .venv
 source .venv/bin/activate
@@ -148,31 +148,31 @@ python examples/quickstart_research_agent.py
 
 The quickstart is offline-safe by default and uses the deterministic
 `dummy_good` provider. To run against a configured local or hosted model, set
-`TENSORFOUNDRY_MODEL_ID` explicitly:
+`SIGNALFORGEAI_MODEL_ID` explicitly:
 
 ```bash
-TENSORFOUNDRY_MODEL_ID=ollama:ministral-3:8b python examples/quickstart_research_agent.py
-TENSORFOUNDRY_MODEL_ID=openai:gpt-5-mini python examples/quickstart_research_agent.py
+SIGNALFORGEAI_MODEL_ID=ollama:ministral-3:8b python examples/quickstart_research_agent.py
+SIGNALFORGEAI_MODEL_ID=openai:gpt-5-mini python examples/quickstart_research_agent.py
 ```
 
 Validate and inspect the latest trace:
 
 ```bash
-python -m tensorfoundry.logging.validate logs/$(ls -t logs | head -n 1)
-python -m tensorfoundry.logging.inspect logs/$(ls -t logs | head -n 1)
+python -m signalforgeai.logging.validate logs/$(ls -t logs | head -n 1)
+python -m signalforgeai.logging.inspect logs/$(ls -t logs | head -n 1)
 ```
 
 Run evaluation suites:
 
 ```bash
-python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quickstart.json
-python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/research_quickstart.json
+python -m signalforgeai.evaluation.run src/signalforgeai/evaluation/suites/quickstart.json
+python -m signalforgeai.evaluation.run src/signalforgeai/evaluation/suites/research_quickstart.json
 ```
 
 Run the deterministic production-pilot readiness loop:
 
 ```bash
-tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_check
+signalforgeai-pilot-check --mode dummy --work-dir results/pilot_check
 ```
 
 This writes:
@@ -186,7 +186,7 @@ split metadata, provenance links back to trace/reward artifacts, file hashes,
 duplicate counts, and leakage checks. Validate an exported dataset directly with:
 
 ```bash
-tensorfoundry-dataset-validate results/pilot_check/datasets/pilot.sft.jsonl \
+signalforgeai-dataset-validate results/pilot_check/datasets/pilot.sft.jsonl \
   --kind sft --quality-gate --logs-root results/pilot_check/logs
 ```
 
@@ -194,7 +194,7 @@ Run a release regression gate by comparing against the last accepted readiness
 artifact:
 
 ```bash
-tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_current \
+signalforgeai-pilot-check --mode dummy --work-dir results/pilot_current \
   --baseline results/pilot_baseline/pilot_readiness.json
 ```
 
@@ -208,14 +208,14 @@ new failing cases, and no worse failure-mode movement.
 Optional provider smoke checks can be required in configured environments:
 
 ```bash
-tensorfoundry-pilot-check --require-provider hosted
-tensorfoundry-pilot-check --require-provider local
+signalforgeai-pilot-check --require-provider hosted
+signalforgeai-pilot-check --require-provider local
 ```
 
 Run the one-command offline release-candidate evidence gate:
 
 ```bash
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate
 ```
 
@@ -228,7 +228,7 @@ Release reviewers can require non-mock training evidence. Use an SFT run as the
 final artifact:
 
 ```bash
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate \
   --sft-run results/training/sft_training_run.json \
   --final-training-stage sft \
@@ -238,7 +238,7 @@ tensorfoundry-release-candidate-check \
 Or use the final DPO run report:
 
 ```bash
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate \
   --dpo-run results/training/dpo_training_run.json \
   --require-real-training-evidence
@@ -248,7 +248,7 @@ Linux release environments with `[train]` installed can let the release-candidat
 gate run bounded SFT evidence and evaluate the trained adapter directly:
 
 ```bash
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate_real \
   --run-training \
   --training-base-model hf/org/base \
@@ -257,7 +257,7 @@ tensorfoundry-release-candidate-check \
 ```
 
 Add `--run-dpo` when the final candidate should be the DPO adapter. When
-`--candidate-model-id` is omitted in this mode, TensorFoundry derives
+`--candidate-model-id` is omitted in this mode, SignalForge AI derives
 `hf:<base>?adapter=<final-adapter-dir>` and uses it for distillation and
 benchmark evidence.
 
@@ -267,7 +267,7 @@ stack is not portable across all supported core platforms. Preflight evidence
 is still available without loading models:
 
 ```bash
-tensorfoundry-learn train --base-model dummy/base --sft --dpo \
+signalforgeai-learn train --base-model dummy/base --sft --dpo \
   --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --dry-run --quality-gate --logs-root results/pilot_check/logs \
@@ -278,7 +278,7 @@ Release environments with `[train]` dependencies installed can opt into a
 bounded SFT smoke run and record `training_run.v0` evidence:
 
 ```bash
-tensorfoundry-learn train --base-model hf/org/base --sft \
+signalforgeai-learn train --base-model hf/org/base --sft \
   --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
   --sft-out results/training/sft_lora \
   --quality-gate --logs-root results/pilot_check/logs \
@@ -292,7 +292,7 @@ When a DPO run is present, pass its run report to exchange packaging so the
 final adapter refs and checksums describe the preference-optimized artifact:
 
 ```bash
-tensorfoundry-learn train --base-model hf/org/base --dpo \
+signalforgeai-learn train --base-model hf/org/base --dpo \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --sft-run results/training/sft_training_run.json \
   --dpo-out results/training/dpo_lora \
@@ -306,14 +306,14 @@ To have the pilot loop generate DPO-compatible preference data and attach the
 preflight summary to readiness output:
 
 ```bash
-tensorfoundry-pilot-check --mode dummy --training-preflight \
+signalforgeai-pilot-check --mode dummy --training-preflight \
   --work-dir results/pilot_check
 ```
 
 Run the evidence-only distillation eval gate from the generated recipe:
 
 ```bash
-tensorfoundry-distill-check \
+signalforgeai-distill-check \
   --recipe results/pilot_check/distillation_recipe.json \
   --work-dir results/distillation_gate
 ```
@@ -325,7 +325,7 @@ training.
 Generate benchmark frontier evidence across suites and model ids:
 
 ```bash
-tensorfoundry-benchmark-matrix \
+signalforgeai-benchmark-matrix \
   --config docs/benchmark_matrix_sample.json \
   --work-dir results/benchmark_matrix
 ```
@@ -338,7 +338,7 @@ skip unless their provider is explicitly required.
 Build and index a local specialist exchange unit from the release evidence:
 
 ```bash
-tensorfoundry-exchange build-unit \
+signalforgeai-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
   --training-run results/training/dpo_training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
@@ -351,23 +351,23 @@ tensorfoundry-exchange build-unit \
   --failure-mode dummy_only \
   --failure-description "Dummy artifacts only prove exchange plumbing." \
   --failure-mitigation "Replace dummy refs before release." \
-  --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
-  --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
-  --ollama-tag tensorfoundry/pilot-specialist:0.4.0
+  --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
+  --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
+  --ollama-tag signalforgeai/pilot-specialist:0.4.0
 
-tensorfoundry-exchange package-check \
+signalforgeai-exchange package-check \
   --manifest results/exchange/pilot-specialist.unit.json \
   --out results/exchange/specialist_package.json \
   --package-type auto --release-ready --update-manifest
 
-tensorfoundry-exchange smoke-run \
+signalforgeai-exchange smoke-run \
   --manifest results/exchange/pilot-specialist.unit.json \
   --work-dir results/exchange/smoke --update-manifest
 
-tensorfoundry-exchange validate \
+signalforgeai-exchange validate \
   --manifest results/exchange/pilot-specialist.unit.json --release-ready
 
-tensorfoundry-exchange index \
+signalforgeai-exchange index \
   --registry-dir results/exchange --out results/exchange/index.json --release-ready
 ```
 
@@ -376,7 +376,7 @@ tensorfoundry-exchange index \
 ## Repository layout
 
 ```text
-src/tensorfoundry/
+src/signalforgeai/
 ├── agents/          # Reference agents used by eval suites
 ├── orchestration/   # Multi-step execution patterns
 ├── logging/         # Trace schema, emitter, validation, inspection

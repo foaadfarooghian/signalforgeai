@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from tensorfoundry.logging.emitter import JsonlEmitter
-from tensorfoundry.logging.validate import validate_trace_file
-from tensorfoundry.orchestration.pec import CritiqueResult, PECOrchestrator, State
+from signalforgeai.logging.emitter import JsonlEmitter
+from signalforgeai.logging.validate import validate_trace_file
+from signalforgeai.orchestration.pec import CritiqueResult, PECOrchestrator, State
 
 
 def _read_jsonl(path: Path) -> List[Dict[str, Any]]:

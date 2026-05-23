@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from tensorfoundry.export.quality import split_meta
-from tensorfoundry.learning.bandits import RoutingBanditsV0, candidate_models_from_env
-from tensorfoundry.learning.build_policy import build_routing_policy_v0
-from tensorfoundry.learning.learn import main as learn_main
-from tensorfoundry.learning.model_stats import RoutingStatsV0
-from tensorfoundry.learning.routing_policy import RoutingPolicyV0
-from tensorfoundry.training.readiness import (
+from signalforgeai.export.quality import split_meta
+from signalforgeai.learning.bandits import RoutingBanditsV0, candidate_models_from_env
+from signalforgeai.learning.build_policy import build_routing_policy_v0
+from signalforgeai.learning.learn import main as learn_main
+from signalforgeai.learning.model_stats import RoutingStatsV0
+from signalforgeai.learning.routing_policy import RoutingPolicyV0
+from signalforgeai.training.readiness import (
     load_training_preflight_report,
     scan_training_output_artifacts,
 )
@@ -27,8 +27,8 @@ def test_bandits_update_from_rewards_creates_arm() -> None:
 
 
 def test_candidate_models_from_env_fallback(monkeypatch) -> None:
-    monkeypatch.delenv("TENSORFOUNDRY_CANDIDATE_MODELS", raising=False)
-    monkeypatch.setenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
+    monkeypatch.delenv("SIGNALFORGEAI_CANDIDATE_MODELS", raising=False)
+    monkeypatch.setenv("SIGNALFORGEAI_MODEL_ID", "dummy_good")
     assert candidate_models_from_env() == ["dummy_good"]
 
 
@@ -209,7 +209,7 @@ def test_train_dry_run_smoke_reports_missing_optional_deps(
         encoding="utf-8",
     )
     report = tmp_path / "training_preflight.json"
-    monkeypatch.setattr("tensorfoundry.training.readiness.find_spec", lambda _name: None)
+    monkeypatch.setattr("signalforgeai.training.readiness.find_spec", lambda _name: None)
 
     code = learn_main(
         [
@@ -245,7 +245,7 @@ def test_train_sft_run_writes_training_run_evidence(
     run_report = tmp_path / "training_run.json"
     sft_out = tmp_path / "sft_lora"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
-    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
+    monkeypatch.setenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fake_sft_training() -> None:
         out = Path(os.environ["OUT_DIR"])
@@ -253,8 +253,8 @@ def test_train_sft_run_writes_training_run_evidence(
         (out / "adapter_model.safetensors").write_text("weights", encoding="utf-8")
         (out / "adapter_config.json").write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fake_sft_training)
-    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+    monkeypatch.setattr("signalforgeai.learning.learn._run_sft_training", fake_sft_training)
+    monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [
@@ -301,7 +301,7 @@ def test_train_dpo_run_uses_successful_sft_run_parent(
     dpo_out = tmp_path / "dpo_lora"
     run_report = tmp_path / "training_run.json"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
-    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
+    monkeypatch.setenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fake_dpo_training() -> None:
         assert os.environ["SFT_DIR"] == str(sft_out)
@@ -312,9 +312,9 @@ def test_train_dpo_run_uses_successful_sft_run_parent(
     def fail_sft_training() -> None:
         raise AssertionError("SFT should not run for DPO-only execution")
 
-    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fail_sft_training)
-    monkeypatch.setattr("tensorfoundry.learning.learn._run_dpo_training", fake_dpo_training)
-    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+    monkeypatch.setattr("signalforgeai.learning.learn._run_sft_training", fail_sft_training)
+    monkeypatch.setattr("signalforgeai.learning.learn._run_dpo_training", fake_dpo_training)
+    monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [
@@ -368,13 +368,13 @@ def test_train_dpo_run_report_requires_sft_run_parent(
     )
     report = tmp_path / "training_run.json"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
-    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
+    monkeypatch.setenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fail_if_called() -> None:
         raise AssertionError("DPO should not launch without parent SFT evidence")
 
-    monkeypatch.setattr("tensorfoundry.learning.learn._run_dpo_training", fail_if_called)
-    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+    monkeypatch.setattr("signalforgeai.learning.learn._run_dpo_training", fail_if_called)
+    monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [
@@ -415,13 +415,13 @@ def test_train_dpo_run_report_rejects_failed_sft_parent(
     )
     report = tmp_path / "training_run.json"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
-    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
+    monkeypatch.setenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fail_if_called() -> None:
         raise AssertionError("DPO should not launch with failed parent SFT evidence")
 
-    monkeypatch.setattr("tensorfoundry.learning.learn._run_dpo_training", fail_if_called)
-    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+    monkeypatch.setattr("signalforgeai.learning.learn._run_dpo_training", fail_if_called)
+    monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [
@@ -464,13 +464,13 @@ def test_train_sft_run_smoke_missing_deps_writes_blocked_report(
     )
     report = tmp_path / "training_run.json"
     deps = {name: False for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
-    monkeypatch.setenv("TENSORFOUNDRY_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
+    monkeypatch.setenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
 
     def fail_if_called() -> None:
         raise AssertionError("trainer should not launch when smoke dependencies are missing")
 
-    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fail_if_called)
-    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+    monkeypatch.setattr("signalforgeai.learning.learn._run_sft_training", fail_if_called)
+    monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [
@@ -520,9 +520,9 @@ def test_train_sft_run_blocks_unsupported_platform(
     def fail_if_called() -> None:
         raise AssertionError("trainer should not launch on an unsupported platform")
 
-    monkeypatch.setattr("tensorfoundry.learning.learn.platform.system", lambda: "Darwin")
-    monkeypatch.setattr("tensorfoundry.learning.learn._run_sft_training", fail_if_called)
-    monkeypatch.setattr("tensorfoundry.learning.learn.check_optional_training_dependencies", lambda: deps)
+    monkeypatch.setattr("signalforgeai.learning.learn.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("signalforgeai.learning.learn._run_sft_training", fail_if_called)
+    monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [

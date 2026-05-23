@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.pilot_check import DEFAULT_SUITE, run_pilot_check
+from signalforgeai.pilot_check import DEFAULT_SUITE, run_pilot_check
 
 
 def test_pilot_check_dummy_mode_produces_readiness_artifacts(tmp_path: Path) -> None:

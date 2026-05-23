@@ -3,17 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.exchange.cli import main as exchange_main
-from tensorfoundry.exchange.package import SPECIALIST_PACKAGE_VERSION, run_package_check
-from tensorfoundry.exchange.registry import build_registry_index
-from tensorfoundry.exchange.smoke import SPECIALIST_SMOKE_VERSION, run_smoke_check
-from tensorfoundry.exchange.unit import build_specialist_unit
-from tensorfoundry.exchange.validation import (
+from signalforgeai.exchange.cli import main as exchange_main
+from signalforgeai.exchange.package import SPECIALIST_PACKAGE_VERSION, run_package_check
+from signalforgeai.exchange.registry import build_registry_index
+from signalforgeai.exchange.smoke import SPECIALIST_SMOKE_VERSION, run_smoke_check
+from signalforgeai.exchange.unit import build_specialist_unit
+from signalforgeai.exchange.validation import (
     SPECIALIST_MODEL_UNIT_VERSION,
     sha256_file,
     validate_manifest,
 )
-from tensorfoundry.training.readiness import TRAINING_RUN_VERSION
+from signalforgeai.training.readiness import TRAINING_RUN_VERSION
 
 
 def test_valid_specialist_unit_passes_release_ready_validation(tmp_path: Path) -> None:
@@ -66,7 +66,7 @@ def test_uri_artifact_refs_validate_without_network(tmp_path: Path) -> None:
     manifest = _build_unit(
         tmp_path,
         paths,
-        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+        artifact_ref="hf://signalforgeai/example/model.safetensors",
     )
 
     report = validate_manifest(manifest, release_ready=True)
@@ -124,7 +124,7 @@ def test_build_unit_maps_training_distillation_and_benchmark_evidence(tmp_path: 
     manifest = _build_unit(
         tmp_path,
         paths,
-        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+        artifact_ref="hf://signalforgeai/example/model.safetensors",
     )
 
     payload = json.loads(manifest.read_text(encoding="utf-8"))
@@ -255,7 +255,7 @@ def test_package_check_validates_local_ollama_modelfile(tmp_path: Path) -> None:
     manifest = _build_unit(
         tmp_path,
         paths,
-        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+        artifact_ref="hf://signalforgeai/example/model.safetensors",
         ollama_modelfile="Modelfile",
     )
 
@@ -276,7 +276,7 @@ def test_smoke_run_writes_evidence_and_attaches_manifest_ref(tmp_path: Path) -> 
     manifest = _build_unit(
         tmp_path,
         paths,
-        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+        artifact_ref="hf://signalforgeai/example/model.safetensors",
     )
     package_payload = run_package_check(
         manifest_path=manifest,
@@ -307,7 +307,7 @@ def test_registry_index_includes_package_and_smoke_evidence(tmp_path: Path) -> N
     manifest = _build_unit(
         tmp_path,
         paths,
-        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+        artifact_ref="hf://signalforgeai/example/model.safetensors",
     )
     run_package_check(
         manifest_path=manifest,
@@ -360,7 +360,7 @@ def test_exchange_package_and_smoke_cli(tmp_path: Path) -> None:
     manifest = _build_unit(
         tmp_path,
         paths,
-        artifact_ref="hf://tensorfoundry/example/model.safetensors",
+        artifact_ref="hf://signalforgeai/example/model.safetensors",
     )
 
     package_code = exchange_main(
@@ -397,7 +397,7 @@ def _build_unit(
     *,
     artifact_ref: str,
     training_run_path: Path | None = None,
-    ollama_modelfile: str = "hf://tensorfoundry/example/Modelfile",
+    ollama_modelfile: str = "hf://signalforgeai/example/Modelfile",
     release_ready: bool = True,
 ) -> Path:
     out_dir = tmp_path / "registry"
@@ -425,7 +425,7 @@ def _build_unit(
         failure_severity="low",
         safetensors_refs=[artifact_ref],
         ollama_modelfile=ollama_modelfile,
-        ollama_tag="tensorfoundry/pilot-specialist:0.1.0",
+        ollama_tag="signalforgeai/pilot-specialist:0.1.0",
         artifacts_root=tmp_path / "artifacts",
         release_ready=release_ready,
     )

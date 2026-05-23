@@ -4,13 +4,13 @@ import json
 import random
 from pathlib import Path
 
-from tensorfoundry.export.dataset import export_sft
-from tensorfoundry.export.preferences import export_preferences
-from tensorfoundry.export.repairs import export_repairs
-from tensorfoundry.export.quality import split_for_key, split_key_for_case, split_meta
-from tensorfoundry.export.validate import main as validate_main
-from tensorfoundry.export.validate import validate_dataset_jsonl, write_dataset_manifest
-from tensorfoundry.learning.curriculum import export_curriculum
+from signalforgeai.export.dataset import export_sft
+from signalforgeai.export.preferences import export_preferences
+from signalforgeai.export.repairs import export_repairs
+from signalforgeai.export.quality import split_for_key, split_key_for_case, split_meta
+from signalforgeai.export.validate import main as validate_main
+from signalforgeai.export.validate import validate_dataset_jsonl, write_dataset_manifest
+from signalforgeai.learning.curriculum import export_curriculum
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:

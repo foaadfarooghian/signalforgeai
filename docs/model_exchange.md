@@ -1,6 +1,6 @@
 # Specialist Model Exchange
 
-This document defines TensorFoundry's specialist model registry/exchange model.
+This document defines SignalForge AI's specialist model registry/exchange model.
 The goal is to publish deployable specialist units, not generic checkpoints.
 
 ## Winning unit
@@ -20,7 +20,7 @@ production-ready.
 
 ## Why this shape
 
-TensorFoundry optimizes for execution systems. A model alone is not enough.
+SignalForge AI optimizes for execution systems. A model alone is not enough.
 The unit has to be tied to:
 
 - Runtime evidence (traces)
@@ -109,7 +109,7 @@ Example:
 Build a local exchange unit from release evidence:
 
 ```bash
-tensorfoundry-exchange build-unit \
+signalforgeai-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
   --training-run results/training/dpo_training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
@@ -122,28 +122,28 @@ tensorfoundry-exchange build-unit \
   --failure-mode dummy_only \
   --failure-description "Dummy artifacts only prove exchange plumbing." \
   --failure-mitigation "Replace dummy refs before release." \
-  --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
-  --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
-  --ollama-tag tensorfoundry/pilot-specialist:0.4.0
+  --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
+  --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
+  --ollama-tag signalforgeai/pilot-specialist:0.4.0
 ```
 
 Attach package evidence, run a consumer smoke check, then validate and index
 local units:
 
 ```bash
-tensorfoundry-exchange package-check \
+signalforgeai-exchange package-check \
   --manifest results/exchange/pilot-specialist.unit.json \
   --out results/exchange/specialist_package.json \
   --package-type auto --release-ready --update-manifest
 
-tensorfoundry-exchange smoke-run \
+signalforgeai-exchange smoke-run \
   --manifest results/exchange/pilot-specialist.unit.json \
   --work-dir results/exchange/smoke --update-manifest
 
-tensorfoundry-exchange validate \
+signalforgeai-exchange validate \
   --manifest results/exchange/pilot-specialist.unit.json --release-ready
 
-tensorfoundry-exchange index \
+signalforgeai-exchange index \
   --registry-dir results/exchange --out results/exchange/index.json --release-ready
 ```
 

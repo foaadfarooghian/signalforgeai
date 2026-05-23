@@ -13,10 +13,10 @@
   "command_config": {
     "mode": "dummy",
     "suites": [
-      "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json"
+      "src/signalforgeai/evaluation/benchmarks/v0/suites/decision_v0.json"
     ],
     "resolved_suites": [
-      "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json"
+      "src/signalforgeai/evaluation/benchmarks/v0/suites/decision_v0.json"
     ],
     "baseline_model_id": "dummy_good",
     "candidate_model_id": "dummy_good",

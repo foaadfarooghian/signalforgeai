@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.evaluation import harness
-from tensorfoundry.evaluation.harness import _extract_tradeoff_metrics, run_suite
-from tensorfoundry.evaluation.scorers import ScoringContext, synth_v1
-from tensorfoundry.logging.validate import ValidationIssue
+from signalforgeai.evaluation import harness
+from signalforgeai.evaluation.harness import _extract_tradeoff_metrics, run_suite
+from signalforgeai.evaluation.scorers import ScoringContext, synth_v1
+from signalforgeai.logging.validate import ValidationIssue
 
 
 def test_eval_quickstart_runs_and_writes_outputs(tmp_path: Path) -> None:
@@ -143,7 +143,7 @@ def test_run_suite_records_invalid_trace(monkeypatch, tmp_path: Path) -> None:
     suite_path = tmp_path / "suite.json"
     suite_path.write_text(json.dumps(suite), encoding="utf-8")
 
-    monkeypatch.setenv("TENSORFOUNDRY_MODEL_ID", "dummy_good")
+    monkeypatch.setenv("SIGNALFORGEAI_MODEL_ID", "dummy_good")
     monkeypatch.setattr(
         harness,
         "validate_trace_file",

@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.evaluation import matrix
-from tensorfoundry.evaluation.matrix import (
+from signalforgeai.evaluation import matrix
+from signalforgeai.evaluation.matrix import (
     BENCHMARK_MATRIX_VERSION,
     aggregate_suite_metrics,
     apply_matrix_overrides,
@@ -14,7 +14,7 @@ from tensorfoundry.evaluation.matrix import (
     resolve_suite_path,
     run_benchmark_matrix,
 )
-from tensorfoundry.models.registry import ProviderCheck
+from signalforgeai.models.registry import ProviderCheck
 
 
 def test_benchmark_matrix_config_loader_accepts_json_and_yaml(tmp_path: Path) -> None:

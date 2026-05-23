@@ -1,4 +1,4 @@
-# TensorFoundry Pilot Readiness
+# SignalForge AI Pilot Readiness
 
 - OK: `true`
 - Work dir: `results/pilot_check`

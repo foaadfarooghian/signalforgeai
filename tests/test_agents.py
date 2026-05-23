@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tensorfoundry.evaluation.harness import _extract_result_text, get_agent_runner
+from signalforgeai.evaluation.harness import _extract_result_text, get_agent_runner
 
 
 def test_extract_result_text_decision() -> None:

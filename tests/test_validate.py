@@ -1,6 +1,6 @@
 from __future__ import annotations
-from tensorfoundry.logging.events import make_event, new_span_id, new_trace_id
-from tensorfoundry.logging.validate import validate_trace_file
+from signalforgeai.logging.events import make_event, new_span_id, new_trace_id
+from signalforgeai.logging.validate import validate_trace_file
 import json
 from pathlib import Path
 
@@ -67,7 +67,7 @@ def test_tool_event_payload_is_normalized_and_valid(tmp_path: Path) -> None:
         agent_version="0.1.0",
         stage="executor",
         event_type="tool_called",
-        payload={"tool": "search", "query": "tensorfoundry"},
+        payload={"tool": "search", "query": "signalforgeai"},
     ).to_dict()
     terminal = make_event(
         trace_id=trace_id,
@@ -84,7 +84,7 @@ def test_tool_event_payload_is_normalized_and_valid(tmp_path: Path) -> None:
     _write_jsonl(fp, [tool_event, terminal])
 
     assert tool_event["payload"]["tool_name"] == "search"
-    assert tool_event["payload"]["tool_input"] == {"query": "tensorfoundry"}
+    assert tool_event["payload"]["tool_input"] == {"query": "signalforgeai"}
     assert tool_event["payload"]["tool_output_summary"] == ""
     assert tool_event["payload"]["success"] is None
     assert "error" in tool_event["payload"]

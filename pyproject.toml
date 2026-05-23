@@ -3,7 +3,7 @@ requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tensorfoundry"
+name = "signalforgeai"
 version = "0.4.0"
 description = "Opinionated platform for agentic workflows, tooling, and evaluation."
 readme = "README.md"
@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
-  { name = "TensorFoundry Team" }
+  { name = "SignalForge AI Team" }
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -29,11 +29,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/foaadfarooghian/tensorfoundry"
-Source = "https://github.com/foaadfarooghian/tensorfoundry"
-Issues = "https://github.com/foaadfarooghian/tensorfoundry/issues"
-Changelog = "https://github.com/foaadfarooghian/tensorfoundry/blob/prod/CHANGELOG.md"
-Security = "https://github.com/foaadfarooghian/tensorfoundry/security/advisories/new"
+Homepage = "https://github.com/foaadfarooghian/signalforgeai"
+Source = "https://github.com/foaadfarooghian/signalforgeai"
+Issues = "https://github.com/foaadfarooghian/signalforgeai/issues"
+Changelog = "https://github.com/foaadfarooghian/signalforgeai/blob/prod/CHANGELOG.md"
+Security = "https://github.com/foaadfarooghian/signalforgeai/security/advisories/new"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.5.0", "mypy>=1.7.0"]
@@ -119,7 +119,7 @@ package-dir = {"" = "src"}
 include-package-data = true
 
 [tool.setuptools.package-data]
-tensorfoundry = [
+signalforgeai = [
   "evaluation/suites/*.json",
   "evaluation/benchmarks/**/*.json",
   "evaluation/benchmarks/**/*.md",
@@ -141,13 +141,13 @@ warn_unused_ignores = true
 no_implicit_optional = true
 
 [project.scripts]
-tensorfoundry-pilot-check = "tensorfoundry.pilot_check:main"
-tensorfoundry-otel-export = "tensorfoundry.logging.otel:main"
-tensorfoundry-dataset-validate = "tensorfoundry.export.validate:main"
-tensorfoundry-pricing-validate = "tensorfoundry.models.pricing.validate_openai_pricing:main"
-tensorfoundry-report-tradeoffs = "tensorfoundry.evaluation.report_tradeoffs:main"
-tensorfoundry-learn = "tensorfoundry.learning.learn:main"
-tensorfoundry-distill-check = "tensorfoundry.distillation.check:main"
-tensorfoundry-benchmark-matrix = "tensorfoundry.evaluation.matrix:main"
-tensorfoundry-exchange = "tensorfoundry.exchange.cli:main"
-tensorfoundry-release-candidate-check = "tensorfoundry.release.candidate:main"
+signalforgeai-pilot-check = "signalforgeai.pilot_check:main"
+signalforgeai-otel-export = "signalforgeai.logging.otel:main"
+signalforgeai-dataset-validate = "signalforgeai.export.validate:main"
+signalforgeai-pricing-validate = "signalforgeai.models.pricing.validate_openai_pricing:main"
+signalforgeai-report-tradeoffs = "signalforgeai.evaluation.report_tradeoffs:main"
+signalforgeai-learn = "signalforgeai.learning.learn:main"
+signalforgeai-distill-check = "signalforgeai.distillation.check:main"
+signalforgeai-benchmark-matrix = "signalforgeai.evaluation.matrix:main"
+signalforgeai-exchange = "signalforgeai.exchange.cli:main"
+signalforgeai-release-candidate-check = "signalforgeai.release.candidate:main"

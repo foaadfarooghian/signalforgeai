@@ -13,10 +13,10 @@ if str(SRC_PATH) not in sys.path:
 
 
 def main() -> None:
-    from tensorfoundry.agents.research_agent import ResearchAgent
-    from tensorfoundry.logging.emitter import JsonlEmitter
-    from tensorfoundry.orchestration.adapters import ResearchExecutor, ResearchPlanner, SimpleCritic
-    from tensorfoundry.orchestration.pec import PECOrchestrator
+    from signalforgeai.agents.research_agent import ResearchAgent
+    from signalforgeai.logging.emitter import JsonlEmitter
+    from signalforgeai.orchestration.adapters import ResearchExecutor, ResearchPlanner, SimpleCritic
+    from signalforgeai.orchestration.pec import PECOrchestrator
 
     logs_dir = PROJECT_ROOT / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -60,7 +60,7 @@ def main() -> None:
 
     print("\nLog file:", logs_dir / f"{trace_id}.jsonl")
     print("\nValidate with:")
-    print(f"  python -m tensorfoundry.logging.validate logs/{trace_id}.jsonl")
+    print(f"  python -m signalforgeai.logging.validate logs/{trace_id}.jsonl")
 
 
 if __name__ == "__main__":

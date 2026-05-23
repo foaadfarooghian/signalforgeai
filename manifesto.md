@@ -1,13 +1,13 @@
-# TensorFoundry Manifesto
+# SignalForge AI Manifesto
 
 ## We are not building chatbots
 
-TensorFoundry exists to build **agentic systems** — systems that plan, act, observe, recover from failure, and improve over time.
+SignalForge AI exists to build **agentic systems** — systems that plan, act, observe, recover from failure, and improve over time.
 
 A chatbot produces text.  
 An agent produces **outcomes**.
 
-Modern LLMs are powerful, but without structure they are brittle, expensive, and unfit for real work. TensorFoundry focuses on the missing layer: **how intelligence is operationalised**.
+Modern LLMs are powerful, but without structure they are brittle, expensive, and unfit for real work. SignalForge AI focuses on the missing layer: **how intelligence is operationalised**.
 
 ---
 
@@ -24,7 +24,7 @@ A real agent has:
 
 If an agent cannot explain what it tried, why it failed, and what it will do differently next time, it is not production-ready.
 
-TensorFoundry treats agents as **software systems**, subject to the same rigor as any other production service.
+SignalForge AI treats agents as **software systems**, subject to the same rigor as any other production service.
 
 ---
 
@@ -49,7 +49,7 @@ This layer — not the model — is where reliability is built.
 
 Language quality is not success.
 
-TensorFoundry evaluates agents on:
+SignalForge AI evaluates agents on:
 - Task success
 - Cost per successful outcome
 - Latency
@@ -83,7 +83,7 @@ These logs are not just for debugging — they are the foundation for:
 - Continual improvement
 - Model specialization
 
-TensorFoundry is built around the idea that **execution precedes learning**.
+SignalForge AI is built around the idea that **execution precedes learning**.
 
 ---
 
@@ -103,7 +103,7 @@ These workloads favour:
 - Explicit state machines
 - Feedback loops
 
-TensorFoundry prioritises **system intelligence** over raw parameter count.
+SignalForge AI prioritises **system intelligence** over raw parameter count.
 
 ---
 
@@ -118,13 +118,13 @@ By training on agent execution traces — not generic text — small models can:
 - Operate at a fraction of the cost
 - Run privately and locally
 
-TensorFoundry is designed to support this transition, from foundation models to **agent-optimised models**.
+SignalForge AI is designed to support this transition, from foundation models to **agent-optimised models**.
 
 ---
 
 ## Open systems beat closed demos
 
-TensorFoundry is open by design.
+SignalForge AI is open by design.
 
 We believe:
 - Interfaces should be inspectable
@@ -137,9 +137,9 @@ We are building a **commons for agent engineering**.
 
 ---
 
-## What TensorFoundry is not
+## What SignalForge AI is not
 
-To be explicit, TensorFoundry is not:
+To be explicit, SignalForge AI is not:
 - A prompt library
 - A chatbot UI
 - A no-code toy
@@ -152,7 +152,7 @@ If your system cannot survive model changes, cost constraints, or partial failur
 
 ## Our direction
 
-TensorFoundry is now deliberately narrowed to platform pillars:
+SignalForge AI is now deliberately narrowed to platform pillars:
 
 1. **OTel/MCP-native runtime + artifact schema**
 2. **Evaluation and failure analysis for multi-step/tool-using agents**
@@ -178,6 +178,6 @@ If you believe:
 - Reliability beats cleverness
 - Small, specialised systems will outperform monoliths
 
-Then TensorFoundry is for you.
+Then SignalForge AI is for you.
 
 Build with us.

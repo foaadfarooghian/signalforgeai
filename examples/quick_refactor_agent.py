@@ -12,8 +12,8 @@ if str(SRC_PATH) not in sys.path:
 
 
 def main() -> None:
-    from tensorfoundry.agents.refactor_agent import RefactorAgent
-    from tensorfoundry.logging.emitter import JsonlEmitter
+    from signalforgeai.agents.refactor_agent import RefactorAgent
+    from signalforgeai.logging.emitter import JsonlEmitter
 
     logs_dir = PROJECT_ROOT / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -35,7 +35,7 @@ def main() -> None:
             "Replace a placeholder string in a Python file (dry-run).",
             repo_root=PROJECT_ROOT,
             # Provide a file to make it deterministic for demo:
-            target_file="src/tensorfoundry/agents/research_agent.py",
+            target_file="src/signalforgeai/agents/research_agent.py",
             find="Summarise findings",
             replace="Summarize findings",
             dry_run=True,
@@ -46,9 +46,9 @@ def main() -> None:
     print("Patch result:", result["patch_result"])
     print("\nLog file:", logs_dir / f"{trace_id}.jsonl")
     print("\nValidate with:")
-    print(f"  python -m tensorfoundry.logging.validate logs/{trace_id}.jsonl")
+    print(f"  python -m signalforgeai.logging.validate logs/{trace_id}.jsonl")
     print("\nInspect with:")
-    print(f"  python -m tensorfoundry.logging.inspect logs/{trace_id}.jsonl")
+    print(f"  python -m signalforgeai.logging.inspect logs/{trace_id}.jsonl")
 
 
 if __name__ == "__main__":

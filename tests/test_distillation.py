@@ -3,20 +3,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tensorfoundry.distillation.check import (
+from signalforgeai.distillation.check import (
     compare_distillation_results,
     load_training_preflight,
     main as distill_main,
     run_distillation_check,
 )
-from tensorfoundry.distillation.recipe import (
+from signalforgeai.distillation.recipe import (
     DISTILLATION_RECIPE_VERSION,
     DistillationThresholds,
     apply_recipe_overrides,
     load_distillation_recipe,
 )
-from tensorfoundry.pilot_check import DEFAULT_SUITE
-from tensorfoundry.training.readiness import TRAINING_PREFLIGHT_VERSION
+from signalforgeai.pilot_check import DEFAULT_SUITE
+from signalforgeai.training.readiness import TRAINING_PREFLIGHT_VERSION
 
 
 def test_distillation_recipe_loader_accepts_json_and_yaml(tmp_path: Path) -> None:

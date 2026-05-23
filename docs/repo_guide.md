@@ -1,4 +1,4 @@
-# TensorFoundry Repository Guide
+# SignalForge AI Repository Guide
 
 This guide explains what the repository is for, how the components connect, and
 where a new developer should start. It is based on the code and docs in this
@@ -6,7 +6,7 @@ repo, not on external assumptions.
 
 ## What This Repo Is Trying To Achieve
 
-TensorFoundry is an opinionated framework for engineered AI agents. The core
+SignalForge AI is an opinionated framework for engineered AI agents. The core
 goal is to treat agents as software systems with explicit state, tools, retries,
 logging, and evaluation, so that behavior can be measured and improved over
 time. The repo focuses on:
@@ -34,12 +34,12 @@ Read these files first to get the intent and scope:
 2. Run an example to see end-to-end logging:
    - `python examples/quickstart_research_agent.py`
 3. Validate and inspect the generated trace:
-   - `python -m tensorfoundry.logging.validate logs/<trace_id>.jsonl`
-   - `python -m tensorfoundry.logging.inspect logs/<trace_id>.jsonl`
+   - `python -m signalforgeai.logging.validate logs/<trace_id>.jsonl`
+   - `python -m signalforgeai.logging.inspect logs/<trace_id>.jsonl`
 4. Run a minimal evaluation suite:
-   - `python -m tensorfoundry.evaluation.run src/tensorfoundry/evaluation/suites/quickstart.json`
+   - `python -m signalforgeai.evaluation.run src/signalforgeai/evaluation/suites/quickstart.json`
 5. Export datasets from logs (optional, but shows the learning loop):
-   - `tensorfoundry-learn export --logs-root logs --out-dir datasets/examples --sft --prefs --curriculum`
+   - `signalforgeai-learn export --logs-root logs --out-dir datasets/examples --sft --prefs --curriculum`
 
 ## Setup and Dependencies
 
@@ -64,16 +64,16 @@ pip install -e ".[train]"
 
 ## High-Level Architecture
 
-At a high level, TensorFoundry is a loop:
+At a high level, SignalForge AI is a loop:
 
 ```
 Task
-  -> Agent (planner/executor/critic) [src/tensorfoundry/agents]
-  -> Runtime artifacts (trace/reward)  [src/tensorfoundry/logging]
-  -> Eval + failure analysis            [src/tensorfoundry/evaluation]
-  -> Dataset generation                 [src/tensorfoundry/export]
-  -> Distillation/training              [src/tensorfoundry/training]
-  -> Benchmark matrix + tradeoffs       [src/tensorfoundry/evaluation]
+  -> Agent (planner/executor/critic) [src/signalforgeai/agents]
+  -> Runtime artifacts (trace/reward)  [src/signalforgeai/logging]
+  -> Eval + failure analysis            [src/signalforgeai/evaluation]
+  -> Dataset generation                 [src/signalforgeai/export]
+  -> Distillation/training              [src/signalforgeai/training]
+  -> Benchmark matrix + tradeoffs       [src/signalforgeai/evaluation]
   -> Improved model/pattern choices
 ```
 
@@ -82,7 +82,7 @@ distillation all consume the same trace-linked records.
 
 ## Repository Layout (Top-Level)
 
-- `src/tensorfoundry/` - Core framework code (agents, logging, evaluation, etc).
+- `src/signalforgeai/` - Core framework code (agents, logging, evaluation, etc).
 - `examples/` - Runnable examples that exercise the core APIs.
 - `docs/` - Design notes and documentation.
 - `tests/` - Pytest coverage for logging, evaluation, and orchestration.
@@ -98,23 +98,23 @@ distillation all consume the same trace-linked records.
 
 ### Agents: Reference Implementations
 
-Located in `src/tensorfoundry/agents/`.
+Located in `src/signalforgeai/agents/`.
 
 These are reference templates showing the intended shape of an agent. Each
 agent uses a `JsonlEmitter` to record events and typically uses a model
 provider via `get_provider_for_model`.
 
-- `src/tensorfoundry/agents/research_agent.py`
+- `src/signalforgeai/agents/research_agent.py`
   - A simple plan -> search -> summarize workflow.
   - Logs planner/tool/model events.
-  - Uses `TENSORFOUNDRY_MODEL_ID` (default `dummy_good`; set explicitly for Ollama/OpenAI/HF).
-- `src/tensorfoundry/agents/decision_agent.py`
+  - Uses `SIGNALFORGEAI_MODEL_ID` (default `dummy_good`; set explicitly for Ollama/OpenAI/HF).
+- `src/signalforgeai/agents/decision_agent.py`
   - Produces a structured memo: constraints, options, tradeoffs, recommendation.
   - Emits a `model_called` event with metrics and output summary.
-- `src/tensorfoundry/agents/refactor_agent.py`
+- `src/signalforgeai/agents/refactor_agent.py`
   - Deterministic file find/replace patch workflow.
   - Logs file IO as tool events and supports dry-run mode.
-- `src/tensorfoundry/agents/synth_agent.py`
+- `src/signalforgeai/agents/synth_agent.py`
   - Multi-step synthesis with citations and a strict JSON output contract.
   - Includes a critic pass that validates and repairs citations.
 
@@ -123,14 +123,14 @@ rather than full production behavior.
 
 ### Orchestration: Planner -> Executor -> Critic
 
-Located in `src/tensorfoundry/orchestration/`.
+Located in `src/signalforgeai/orchestration/`.
 
-- `src/tensorfoundry/orchestration/pec.py`
+- `src/signalforgeai/orchestration/pec.py`
   - Defines the core orchestration loop.
   - Uses a `Planner`, `Executor`, and `Critic` protocol.
   - Emits `task_received`, `stage_completed`, `retry_requested`,
     and terminal events (`task_completed` / `task_failed`).
-- `src/tensorfoundry/orchestration/adapters.py`
+- `src/signalforgeai/orchestration/adapters.py`
   - Adapter implementations that wrap `ResearchAgent` for planner/executor.
 
 The orchestrator is the spine for multi-step agents. It keeps retries explicit
@@ -138,26 +138,26 @@ and stateful, with trace events for every transition.
 
 ### Logging: Traces Are The Dataset
 
-Located in `src/tensorfoundry/logging/`.
+Located in `src/signalforgeai/logging/`.
 
 Key files:
 
-- `src/tensorfoundry/logging/emitter.py`
+- `src/signalforgeai/logging/emitter.py`
   - `JsonlEmitter` writes JSONL events to disk.
   - Validates stage values and supports streaming via context manager.
-- `src/tensorfoundry/logging/events.py`
+- `src/signalforgeai/logging/events.py`
   - Canonical event shape and ID/timestamp helpers.
   - `sanitize_payload` truncates large payloads and preserves select keys.
-- `src/tensorfoundry/logging/schema.md`
+- `src/signalforgeai/logging/schema.md`
   - Minimal schema documentation for trace events.
-- `src/tensorfoundry/logging/validate.py`
+- `src/signalforgeai/logging/validate.py`
   - CLI and helpers to validate traces and reward logs.
   - Enforces terminal events and required keys.
-- `src/tensorfoundry/logging/inspect.py`
+- `src/signalforgeai/logging/inspect.py`
   - CLI to summarize a trace (counts, stages, terminal status, timeline).
-- `src/tensorfoundry/logging/diff.py`
+- `src/signalforgeai/logging/diff.py`
   - CLI to diff two trace files and compare event counts + terminal outcomes.
-- `src/tensorfoundry/logging/reward_validator.py`
+- `src/signalforgeai/logging/reward_validator.py`
   - Standalone validator for reward.jsonl rows.
 
 Trace events are small, structured JSON objects. The logging layer is used by
@@ -179,37 +179,37 @@ Trace and reward contracts (important invariants):
 
 ### Evaluation: Suites, Scoring, Rewards
 
-Located in `src/tensorfoundry/evaluation/`.
+Located in `src/signalforgeai/evaluation/`.
 
 Key files:
 
-- `src/tensorfoundry/evaluation/harness.py`
+- `src/signalforgeai/evaluation/harness.py`
   - `run_suite` runs a suite of cases, writes traces, validates logs, and
     scores outcomes.
   - Produces `results/<suite>.results.json`, `<suite>.summary.md`, and
     `logs/<run_id>/reward.jsonl`.
   - Extracts trade-off metrics (cost, latency, tokens) from trace events.
   - Uses `get_agent_runner` to dispatch to the right agent.
-- `src/tensorfoundry/evaluation/run.py`
+- `src/signalforgeai/evaluation/run.py`
   - CLI entrypoint. Supports routing policy and bandit-based model selection.
   - Policy selection (`--policy`) overrides bandits; bandits can be disabled
     with `--no-bandits`. `benchmark_v0_refactor` skips bandits by default.
-- `src/tensorfoundry/evaluation/reward_schema.py`
+- `src/signalforgeai/evaluation/reward_schema.py`
   - Reward row schema (`reward.v0`) and JSONL serialization.
-- `src/tensorfoundry/evaluation/reward_writer.py`
+- `src/signalforgeai/evaluation/reward_writer.py`
   - Writes reward rows to JSONL.
-- `src/tensorfoundry/evaluation/diff.py`
+- `src/signalforgeai/evaluation/diff.py`
   - Diff two evaluation result files.
-- `src/tensorfoundry/evaluation/report_tradeoffs.py`
+- `src/signalforgeai/evaluation/report_tradeoffs.py`
   - Summarize scores vs cost/latency from reward.jsonl files.
 
 Suites and benchmarks:
 
-- `src/tensorfoundry/evaluation/suites/`
+- `src/signalforgeai/evaluation/suites/`
   - Small quickstart suites for research and decision agents.
-- `src/tensorfoundry/evaluation/benchmarks/v0/`
+- `src/signalforgeai/evaluation/benchmarks/v0/`
   - Outcome-focused benchmark suites for research, decision, and refactor.
-- `src/tensorfoundry/evaluation/benchmarks/v1/suites/benchmark_v1_synth.json`
+- `src/signalforgeai/evaluation/benchmarks/v1/suites/benchmark_v1_synth.json`
   - Large synthesis benchmark for `SynthAgent` with citation/contract checks.
 
 Scoring logic summary:
@@ -222,15 +222,15 @@ Scoring logic summary:
 
 ### Models: Provider Abstraction and Pricing
 
-Located in `src/tensorfoundry/models/`.
+Located in `src/signalforgeai/models/`.
 
 Key files:
 
-- `src/tensorfoundry/models/base.py`
+- `src/signalforgeai/models/base.py`
   - `ModelProvider` protocol: `generate(prompt, model_id, task_type)`.
-- `src/tensorfoundry/models/types.py`
+- `src/signalforgeai/models/types.py`
   - `ModelOutput` and `ModelMetrics` (latency/cost/extra).
-- `src/tensorfoundry/models/registry.py`
+- `src/signalforgeai/models/registry.py`
   - `get_provider_for_model` chooses a provider by prefix:
     - `openai:` -> OpenAIProvider
     - `ollama:` -> OllamaProvider
@@ -238,45 +238,45 @@ Key files:
     - otherwise -> DummyProvider
   - CI guard: in CI, networked providers are replaced by dummy.
 - Providers:
-  - `src/tensorfoundry/models/providers/openai_provider.py`
+  - `src/signalforgeai/models/providers/openai_provider.py`
     - Uses OpenAI Responses API and computes cost from pricing config.
-  - `src/tensorfoundry/models/providers/ollama.py`
+  - `src/signalforgeai/models/providers/ollama.py`
     - Sends HTTP requests to a local Ollama server.
-  - `src/tensorfoundry/models/providers/hf.py`
+  - `src/signalforgeai/models/providers/hf.py`
     - Loads local HF models and optional LoRA adapters.
     - Supports `hf:<base>?adapter=/path/to/lora` model IDs.
-  - `src/tensorfoundry/models/providers/dummy.py`
+  - `src/signalforgeai/models/providers/dummy.py`
     - Deterministic responses for tests and CI.
 - Pricing:
-  - `src/tensorfoundry/models/pricing/config/openai_pricing.yaml`
-  - `src/tensorfoundry/models/pricing/load_pricing.py`
-  - `src/tensorfoundry/models/pricing/validate_openai_pricing.py`
+  - `src/signalforgeai/models/pricing/config/openai_pricing.yaml`
+  - `src/signalforgeai/models/pricing/load_pricing.py`
+  - `src/signalforgeai/models/pricing/validate_openai_pricing.py`
 
 Model providers are invoked directly by agents. The evaluation layer uses
-`TENSORFOUNDRY_MODEL_ID` to control which provider is used during suites.
+`SIGNALFORGEAI_MODEL_ID` to control which provider is used during suites.
 
 ### Learning: Routing, Policies, Curriculum
 
-Located in `src/tensorfoundry/learning/`.
+Located in `src/signalforgeai/learning/`.
 
 Key files:
 
-- `src/tensorfoundry/learning/bandits.py`
+- `src/signalforgeai/learning/bandits.py`
   - Thompson sampling bandits for suite-specific model routing.
   - Uses reward feedback to update alpha/beta for each model arm.
-- `src/tensorfoundry/learning/routing_policy.py`
+- `src/signalforgeai/learning/routing_policy.py`
   - Static routing policy format (`routing.v0`).
-- `src/tensorfoundry/learning/model_stats.py`
+- `src/signalforgeai/learning/model_stats.py`
   - EWMA stats for cost, latency, tokens per suite and model.
-- `src/tensorfoundry/learning/build_policy.py`
+- `src/signalforgeai/learning/build_policy.py`
   - Aggregates reward.jsonl files to build a routing policy.
-- `src/tensorfoundry/learning/curriculum.py`
+- `src/signalforgeai/learning/curriculum.py`
   - Exports a curriculum dataset with difficulty buckets:
     `easy`, `repair`, `escalation`.
-- `src/tensorfoundry/learning/learn.py`
+- `src/signalforgeai/learning/learn.py`
   - Main CLI pipeline:
-    - `tensorfoundry-learn export` -> datasets
-    - `tensorfoundry-learn train` -> SFT/DPO training entrypoints
+    - `signalforgeai-learn export` -> datasets
+    - `signalforgeai-learn train` -> SFT/DPO training entrypoints
 
 Learning consumes reward.jsonl and trace files. It does not directly call
 models; it manipulates routing and datasets so that training can happen
@@ -284,33 +284,33 @@ offline and safely.
 
 ### Export: Turning Traces Into Training Data
 
-Located in `src/tensorfoundry/export/`.
+Located in `src/signalforgeai/export/`.
 
 Key files:
 
-- `src/tensorfoundry/export/extract.py`
+- `src/signalforgeai/export/extract.py`
   - Extracts prompts/responses from traces.
   - Prefers `model_called` events with `input_summary` values such as
     `critic_check` and `draft_answer`.
-- `src/tensorfoundry/export/dataset.py`
+- `src/signalforgeai/export/dataset.py`
   - Exports SFT JSONL (`sft.v0`) from reward logs + traces.
-- `src/tensorfoundry/export/preferences.py`
+- `src/signalforgeai/export/preferences.py`
   - Exports preference pairs (`prefs.v0` or `dpo.v0`), using
     effective reward = score - cost - latency penalties.
-- `src/tensorfoundry/export/repairs.py`
+- `src/signalforgeai/export/repairs.py`
   - Exports failure -> success pairs for repair training.
 
 Export is the bridge from execution logs to training datasets.
 
 ### Training: SFT and DPO (Optional)
 
-Located in `src/tensorfoundry/training/`.
+Located in `src/signalforgeai/training/`.
 
-- `src/tensorfoundry/training/sft_unsloth.py`
+- `src/signalforgeai/training/sft_unsloth.py`
   - QLoRA SFT training using Unsloth + TRL.
-- `src/tensorfoundry/training/dpo_trl.py`
+- `src/signalforgeai/training/dpo_trl.py`
   - DPO training on top of an SFT adapter.
-- `src/tensorfoundry/training/collator_masked.py`
+- `src/signalforgeai/training/collator_masked.py`
   - Masked chat collator for supervised training (prompt masked).
 
 Training is optional. In `v0.4.0`, actual SFT/DPO execution and `[train]`
@@ -330,7 +330,7 @@ installs are Linux-only; use dry-run preflight on other platforms.
 4. The trace is written as JSONL in `logs/<trace_id>.jsonl`
    (or in `logs/<run_id>/<trace_id>.jsonl` during evaluation).
 
-Trace validity is enforced by `src/tensorfoundry/logging/validate.py` and is
+Trace validity is enforced by `src/signalforgeai/logging/validate.py` and is
 required for evaluation scoring to pass.
 
 Newly emitted traces include `schema_version: "trace.v0"`. Legacy traces
@@ -339,7 +339,7 @@ without this field remain valid. New tool events are normalized with
 
 ### 2) Evaluation -> Results + Reward
 
-1. `python -m tensorfoundry.evaluation.run <suite.json>` loads a suite.
+1. `python -m signalforgeai.evaluation.run <suite.json>` loads a suite.
 2. For each case:
    - An agent is run with a `JsonlEmitter`.
    - Trace is validated.
@@ -354,7 +354,7 @@ without this field remain valid. New tool events are normalized with
 
 1. Bandits update per suite from reward.jsonl (see `bandits.py`).
 2. Routing stats capture expected cost/latency to support constraints.
-3. `tensorfoundry-learn export` generates:
+3. `signalforgeai-learn export` generates:
    - SFT datasets from high-scoring traces.
    - Preference pairs comparing models on the same case.
    - Repair pairs (failed -> success).
@@ -362,9 +362,9 @@ without this field remain valid. New tool events are normalized with
 
 ### 4) Training -> Local Models
 
-1. `tensorfoundry-learn train --sft --dpo` runs SFT and DPO jobs.
+1. `signalforgeai-learn train --sft --dpo` runs SFT and DPO jobs.
 2. Outputs are saved under `artifacts/` (default).
-3. `tensorfoundry-learn train --dry-run` validates datasets, output paths, and
+3. `signalforgeai-learn train --dry-run` validates datasets, output paths, and
    optional dependency availability without loading models.
 4. `--quality-gate --logs-root ... --report-out ...` writes
    `training_preflight.v0` evidence with strict dataset validation, hashes,
@@ -381,7 +381,7 @@ without this field remain valid. New tool events are normalized with
 Example preflight:
 
 ```bash
-tensorfoundry-learn train --base-model dummy/base --sft --dpo \
+signalforgeai-learn train --base-model dummy/base --sft --dpo \
   --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --dry-run --quality-gate --logs-root results/pilot_check/logs \
@@ -391,7 +391,7 @@ tensorfoundry-learn train --base-model dummy/base --sft --dpo \
 Example optional SFT smoke evidence:
 
 ```bash
-tensorfoundry-learn train --base-model hf/org/base --sft \
+signalforgeai-learn train --base-model hf/org/base --sft \
   --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
   --sft-out results/training/sft_lora \
   --quality-gate --logs-root results/pilot_check/logs \
@@ -403,7 +403,7 @@ tensorfoundry-learn train --base-model hf/org/base --sft \
 Example optional DPO smoke evidence:
 
 ```bash
-tensorfoundry-learn train --base-model hf/org/base --dpo \
+signalforgeai-learn train --base-model hf/org/base --dpo \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --sft-run results/training/sft_training_run.json \
   --dpo-out results/training/dpo_lora \
@@ -422,7 +422,7 @@ specialist model, and release thresholds.
 Run the full deterministic offline loop:
 
 ```bash
-tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_check
+signalforgeai-pilot-check --mode dummy --work-dir results/pilot_check
 ```
 
 Outputs:
@@ -440,14 +440,14 @@ counts, duplicate counts, provenance checks, missing refs, and quality issues.
 Run the same quality gate outside pilot-check with:
 
 ```bash
-tensorfoundry-dataset-validate results/pilot_check/datasets/pilot.sft.jsonl \
+signalforgeai-dataset-validate results/pilot_check/datasets/pilot.sft.jsonl \
   --kind sft --quality-gate --logs-root results/pilot_check/logs
 ```
 
 Compare the current pilot run with an accepted baseline artifact:
 
 ```bash
-tensorfoundry-pilot-check --mode dummy --work-dir results/pilot_current \
+signalforgeai-pilot-check --mode dummy --work-dir results/pilot_current \
   --baseline results/pilot_baseline/pilot_readiness.json
 ```
 
@@ -458,26 +458,26 @@ Provider smoke checks are tiered. Dummy is mandatory. Hosted and local checks
 skip unless explicitly required:
 
 ```bash
-tensorfoundry-pilot-check --require-provider hosted
-tensorfoundry-pilot-check --require-provider local
-tensorfoundry-pilot-check --require-provider all
+signalforgeai-pilot-check --require-provider hosted
+signalforgeai-pilot-check --require-provider local
+signalforgeai-pilot-check --require-provider all
 ```
 
 Training preflight is optional and dry-run only inside pilot-check:
 
 ```bash
-tensorfoundry-pilot-check --mode dummy --training-preflight \
+signalforgeai-pilot-check --mode dummy --training-preflight \
   --work-dir results/pilot_check
 ```
 
 That command generates an additional DPO-compatible preference export for the
 training preflight report, records dependency status, and leaves real SFT/DPO
-training opt-in through `tensorfoundry-learn train --smoke --max-steps 1`.
+training opt-in through `signalforgeai-learn train --smoke --max-steps 1`.
 
 Run the evidence-only distillation gate from the generated recipe:
 
 ```bash
-tensorfoundry-distill-check \
+signalforgeai-distill-check \
   --recipe results/pilot_check/distillation_recipe.json \
   --work-dir results/distillation_gate
 ```
@@ -490,7 +490,7 @@ movement thresholds, and writes `distillation_eval.json` plus
 Generate benchmark matrix frontier evidence after the distillation gate:
 
 ```bash
-tensorfoundry-benchmark-matrix \
+signalforgeai-benchmark-matrix \
   --config docs/benchmark_matrix_sample.json \
   --work-dir results/benchmark_matrix
 ```
@@ -507,7 +507,7 @@ Build a local specialist exchange unit from pilot, distillation, and benchmark
 evidence:
 
 ```bash
-tensorfoundry-exchange build-unit \
+signalforgeai-exchange build-unit \
   --training-preflight results/pilot_check/training_preflight.json \
   --training-run results/training/dpo_training_run.json \
   --distillation-eval results/distillation_gate/distillation_eval.json \
@@ -520,28 +520,28 @@ tensorfoundry-exchange build-unit \
   --failure-mode dummy_only \
   --failure-description "Dummy artifacts only prove exchange plumbing." \
   --failure-mitigation "Replace dummy refs before release." \
-  --safetensors-ref hf://tensorfoundry/pilot-specialist/model.safetensors \
-  --ollama-modelfile hf://tensorfoundry/pilot-specialist/Modelfile \
-  --ollama-tag tensorfoundry/pilot-specialist:0.4.0
+  --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
+  --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
+  --ollama-tag signalforgeai/pilot-specialist:0.4.0
 ```
 
 Attach package evidence, run the consumer smoke check, then validate and index
 release-ready manifests:
 
 ```bash
-tensorfoundry-exchange package-check \
+signalforgeai-exchange package-check \
   --manifest results/exchange/pilot-specialist.unit.json \
   --out results/exchange/specialist_package.json \
   --package-type auto --release-ready --update-manifest
 
-tensorfoundry-exchange smoke-run \
+signalforgeai-exchange smoke-run \
   --manifest results/exchange/pilot-specialist.unit.json \
   --work-dir results/exchange/smoke --update-manifest
 
-tensorfoundry-exchange validate \
+signalforgeai-exchange validate \
   --manifest results/exchange/pilot-specialist.unit.json --release-ready
 
-tensorfoundry-exchange index \
+signalforgeai-exchange index \
   --registry-dir results/exchange --out results/exchange/index.json --release-ready
 ```
 
@@ -554,7 +554,7 @@ rejection, and file-based
 Run the complete release-candidate bundle as one deterministic offline gate:
 
 ```bash
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate
 ```
 
@@ -568,13 +568,13 @@ Release environments can require non-mock training evidence. For SFT-only
 evidence, make the SFT run the final packaged artifact:
 
 ```bash
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate \
   --sft-run results/training/sft_training_run.json \
   --final-training-stage sft \
   --require-real-training-evidence
 
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate \
   --dpo-run results/training/dpo_training_run.json \
   --require-real-training-evidence
@@ -584,7 +584,7 @@ Linux release environments with `[train]` installed can also run bounded SFT
 evidence inside the release-candidate gate:
 
 ```bash
-tensorfoundry-release-candidate-check \
+signalforgeai-release-candidate-check \
   --work-dir results/release_candidate_real \
   --run-training \
   --training-base-model hf/org/base \
@@ -632,30 +632,30 @@ These directories are intentionally separate from source code:
 
 Model selection and routing:
 
-- `TENSORFOUNDRY_MODEL_ID` - Current model id (`dummy_good` by default; set `openai:...`, `ollama:...`, or `hf:...` explicitly for provider runs).
-- `TENSORFOUNDRY_CANDIDATE_MODELS` - Comma-separated candidates for bandit routing.
-- `TENSORFOUNDRY_BANDIT_MIN_PULLS` - Minimum samples before exploitation.
-- `TENSORFOUNDRY_MAX_COST_USD` - Hard cost constraint for routing.
-- `TENSORFOUNDRY_MAX_LATENCY_S` - Hard latency constraint for routing.
-- `TENSORFOUNDRY_UTILITY_LAMBDA_COST` - Cost penalty weight.
-- `TENSORFOUNDRY_UTILITY_MU_LATENCY` - Latency penalty weight.
+- `SIGNALFORGEAI_MODEL_ID` - Current model id (`dummy_good` by default; set `openai:...`, `ollama:...`, or `hf:...` explicitly for provider runs).
+- `SIGNALFORGEAI_CANDIDATE_MODELS` - Comma-separated candidates for bandit routing.
+- `SIGNALFORGEAI_BANDIT_MIN_PULLS` - Minimum samples before exploitation.
+- `SIGNALFORGEAI_MAX_COST_USD` - Hard cost constraint for routing.
+- `SIGNALFORGEAI_MAX_LATENCY_S` - Hard latency constraint for routing.
+- `SIGNALFORGEAI_UTILITY_LAMBDA_COST` - Cost penalty weight.
+- `SIGNALFORGEAI_UTILITY_MU_LATENCY` - Latency penalty weight.
 
 Provider configuration:
 
-- `TENSORFOUNDRY_PROVIDER` - Set to `dummy` to force deterministic offline routing.
-- `TENSORFOUNDRY_HOSTED_MODEL_ID` - Hosted provider smoke model, default `openai:gpt-5-mini`.
-- `TENSORFOUNDRY_LOCAL_MODEL_ID` - Local provider smoke model, default `ollama:ministral-3:8b`.
-- `TENSORFOUNDRY_OPENAI_PRICING_PATH` - Override OpenAI pricing config.
-- `TENSORFOUNDRY_HF_DEVICE` - HF device string (default `cuda:0`).
-- `TENSORFOUNDRY_HF_REQUIRE_FLASH` - Require flash attention.
-- `TENSORFOUNDRY_HF_LOG_DEVICE_MAP` - Log HF device map details.
+- `SIGNALFORGEAI_PROVIDER` - Set to `dummy` to force deterministic offline routing.
+- `SIGNALFORGEAI_HOSTED_MODEL_ID` - Hosted provider smoke model, default `openai:gpt-5-mini`.
+- `SIGNALFORGEAI_LOCAL_MODEL_ID` - Local provider smoke model, default `ollama:ministral-3:8b`.
+- `SIGNALFORGEAI_OPENAI_PRICING_PATH` - Override OpenAI pricing config.
+- `SIGNALFORGEAI_HF_DEVICE` - HF device string (default `cuda:0`).
+- `SIGNALFORGEAI_HF_REQUIRE_FLASH` - Require flash attention.
+- `SIGNALFORGEAI_HF_LOG_DEVICE_MAP` - Log HF device map details.
 
 Dataset export:
 
-- `TENSORFOUNDRY_SFT_STEP` - Which step to extract for SFT.
-- `TENSORFOUNDRY_MIN_RESPONSE_CHARS` - Minimum response length.
+- `SIGNALFORGEAI_SFT_STEP` - Which step to extract for SFT.
+- `SIGNALFORGEAI_MIN_RESPONSE_CHARS` - Minimum response length.
 
-Training (via `tensorfoundry-learn train`):
+Training (via `signalforgeai-learn train`):
 
 - `BASE_MODEL`, `SFT_DATASET`, `DPO_DATASET`, `OUT_DIR`, `SFT_DIR`
 - `DATASET_NUM_PROC`, `INSTRUCTION_PART`, `RESPONSE_PART`, `MAX_STEPS`
@@ -664,23 +664,23 @@ Training (via `tensorfoundry-learn train`):
 
 Defined in `pyproject.toml`:
 
-- `tensorfoundry-learn` -> `src/tensorfoundry/learning/learn.py`
-- `tensorfoundry-pilot-check` -> `src/tensorfoundry/pilot_check.py`
-- `tensorfoundry-otel-export` -> `src/tensorfoundry/logging/otel.py`
-- `tensorfoundry-dataset-validate` -> `src/tensorfoundry/export/validate.py`
-- `tensorfoundry-report-tradeoffs` -> `src/tensorfoundry/evaluation/report_tradeoffs.py`
-- `tensorfoundry-pricing-validate` -> `src/tensorfoundry/models/pricing/validate_openai_pricing.py`
-- `tensorfoundry-distill-check` -> `src/tensorfoundry/distillation/check.py`
-- `tensorfoundry-benchmark-matrix` -> `src/tensorfoundry/evaluation/matrix.py`
-- `tensorfoundry-exchange` -> `src/tensorfoundry/exchange/cli.py`
+- `signalforgeai-learn` -> `src/signalforgeai/learning/learn.py`
+- `signalforgeai-pilot-check` -> `src/signalforgeai/pilot_check.py`
+- `signalforgeai-otel-export` -> `src/signalforgeai/logging/otel.py`
+- `signalforgeai-dataset-validate` -> `src/signalforgeai/export/validate.py`
+- `signalforgeai-report-tradeoffs` -> `src/signalforgeai/evaluation/report_tradeoffs.py`
+- `signalforgeai-pricing-validate` -> `src/signalforgeai/models/pricing/validate_openai_pricing.py`
+- `signalforgeai-distill-check` -> `src/signalforgeai/distillation/check.py`
+- `signalforgeai-benchmark-matrix` -> `src/signalforgeai/evaluation/matrix.py`
+- `signalforgeai-exchange` -> `src/signalforgeai/exchange/cli.py`
 
 There are also module CLIs:
 
-- `python -m tensorfoundry.logging.validate`
-- `python -m tensorfoundry.logging.inspect`
-- `python -m tensorfoundry.logging.diff`
-- `python -m tensorfoundry.evaluation.run`
-- `python -m tensorfoundry.evaluation.diff`
+- `python -m signalforgeai.logging.validate`
+- `python -m signalforgeai.logging.inspect`
+- `python -m signalforgeai.logging.diff`
+- `python -m signalforgeai.evaluation.run`
+- `python -m signalforgeai.evaluation.diff`
 
 ## CI and Quality Gates
 
@@ -719,35 +719,35 @@ Check `README.md` for the latest release guidance.
 
 ### Add a New Agent
 
-1. Create a new agent in `src/tensorfoundry/agents/`.
+1. Create a new agent in `src/signalforgeai/agents/`.
 2. Ensure it emits schema-valid trace events (use `JsonlEmitter`).
-3. Wire it into evaluation in `src/tensorfoundry/evaluation/harness.py`
+3. Wire it into evaluation in `src/signalforgeai/evaluation/harness.py`
    (`get_agent_runner`).
-4. Add a suite JSON in `src/tensorfoundry/evaluation/benchmarks/` or
-   `src/tensorfoundry/evaluation/suites/`.
+4. Add a suite JSON in `src/signalforgeai/evaluation/benchmarks/` or
+   `src/signalforgeai/evaluation/suites/`.
 
 ### Add a New Model Provider
 
-1. Implement the `ModelProvider` protocol in `src/tensorfoundry/models/providers/`.
-2. Register it in `src/tensorfoundry/models/registry.py`.
+1. Implement the `ModelProvider` protocol in `src/signalforgeai/models/providers/`.
+2. Register it in `src/signalforgeai/models/registry.py`.
 3. Ensure `ModelMetrics` are populated (latency, cost, token usage if possible).
 
 ### Add a New Evaluation Suite
 
 1. Add a JSON suite file with `suite_name`, `agent`, and `cases`.
-2. Run with `python -m tensorfoundry.evaluation.run <suite.json>`.
+2. Run with `python -m signalforgeai.evaluation.run <suite.json>`.
 3. Inspect and validate logs in `logs/<run_id>/`.
 
 ## Recommended Reading Order (Code)
 
 If you want to understand the logic end-to-end, read in this order:
 
-1. `src/tensorfoundry/logging/emitter.py`
-2. `src/tensorfoundry/agents/research_agent.py`
-3. `src/tensorfoundry/orchestration/pec.py`
-4. `src/tensorfoundry/evaluation/harness.py`
-5. `src/tensorfoundry/learning/bandits.py`
-6. `src/tensorfoundry/export/dataset.py`
-7. `src/tensorfoundry/training/sft_unsloth.py`
+1. `src/signalforgeai/logging/emitter.py`
+2. `src/signalforgeai/agents/research_agent.py`
+3. `src/signalforgeai/orchestration/pec.py`
+4. `src/signalforgeai/evaluation/harness.py`
+5. `src/signalforgeai/learning/bandits.py`
+6. `src/signalforgeai/export/dataset.py`
+7. `src/signalforgeai/training/sft_unsloth.py`
 
 This ordering mirrors the execution -> evaluation -> learning loop.

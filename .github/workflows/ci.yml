@@ -37,12 +37,12 @@ jobs:
 
       - name: Validate pricing config
         run: |
-          python -m tensorfoundry.models.pricing.validate_openai_pricing --require gpt-5-mini
+          python -m signalforgeai.models.pricing.validate_openai_pricing --require gpt-5-mini
 
       - name: Run tests
         env:
-          TENSORFOUNDRY_PROVIDER: dummy
-          TENSORFOUNDRY_MODEL_ID: dummy_good
+          SIGNALFORGEAI_PROVIDER: dummy
+          SIGNALFORGEAI_MODEL_ID: dummy_good
         run: |
           pytest -q
 
@@ -55,42 +55,42 @@ jobs:
 
       - name: Run pilot readiness check
         env:
-          TENSORFOUNDRY_PROVIDER: dummy
-          TENSORFOUNDRY_MODEL_ID: dummy_good
+          SIGNALFORGEAI_PROVIDER: dummy
+          SIGNALFORGEAI_MODEL_ID: dummy_good
         run: |
-          tensorfoundry-pilot-check --mode dummy --work-dir /tmp/tensorfoundry-pilot-check
+          signalforgeai-pilot-check --mode dummy --work-dir /tmp/signalforgeai-pilot-check
 
       - name: Run release candidate dry run
         env:
-          TENSORFOUNDRY_PROVIDER: dummy
-          TENSORFOUNDRY_MODEL_ID: dummy_good
+          SIGNALFORGEAI_PROVIDER: dummy
+          SIGNALFORGEAI_MODEL_ID: dummy_good
         run: |
-          tensorfoundry-release-candidate-check --work-dir /tmp/tensorfoundry-release-candidate
+          signalforgeai-release-candidate-check --work-dir /tmp/signalforgeai-release-candidate
 
       - name: Run Benchmark v0 suites + validate run logs
         env:
-          TENSORFOUNDRY_PROVIDER: dummy
-          TENSORFOUNDRY_MODEL_ID: dummy_good
-          TENSORFOUNDRY_CANDIDATE_MODELS: dummy_good,dummy_mid,dummy_bad
-          TENSORFOUNDRY_BANDIT_MIN_PULLS: "5"
+          SIGNALFORGEAI_PROVIDER: dummy
+          SIGNALFORGEAI_MODEL_ID: dummy_good
+          SIGNALFORGEAI_CANDIDATE_MODELS: dummy_good,dummy_mid,dummy_bad
+          SIGNALFORGEAI_BANDIT_MIN_PULLS: "5"
         run: |
           run_and_validate () {
             SUITE_PATH="$1"
-            RUN_LOGS="$(python -m tensorfoundry.evaluation.run "${SUITE_PATH}" | tee /dev/stderr | sed -n 's/^Run logs: //p' | tail -n 1)"
+            RUN_LOGS="$(python -m signalforgeai.evaluation.run "${SUITE_PATH}" | tee /dev/stderr | sed -n 's/^Run logs: //p' | tail -n 1)"
             echo "Validating: ${RUN_LOGS}"
-            python -m tensorfoundry.logging.validate "${RUN_LOGS}"
+            python -m signalforgeai.logging.validate "${RUN_LOGS}"
           }
 
-          run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/decision_v0.json"
-          run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/research_v0.json"
-          run_and_validate "src/tensorfoundry/evaluation/benchmarks/v0/suites/refactor_v0.json"
+          run_and_validate "src/signalforgeai/evaluation/benchmarks/v0/suites/decision_v0.json"
+          run_and_validate "src/signalforgeai/evaluation/benchmarks/v0/suites/research_v0.json"
+          run_and_validate "src/signalforgeai/evaluation/benchmarks/v0/suites/refactor_v0.json"
 
       - name: Build and smoke package
         run: |
-          python -m build --outdir /tmp/tensorfoundry-dist
-          python -m twine check /tmp/tensorfoundry-dist/*
-          python -m venv /tmp/tensorfoundry-wheel-smoke
-          /tmp/tensorfoundry-wheel-smoke/bin/python -m pip install --upgrade pip
-          /tmp/tensorfoundry-wheel-smoke/bin/python -m pip install /tmp/tensorfoundry-dist/*.whl
-          /tmp/tensorfoundry-wheel-smoke/bin/python -c "import tensorfoundry; assert tensorfoundry.__version__ == '0.4.0'"
-          /tmp/tensorfoundry-wheel-smoke/bin/tensorfoundry-pricing-validate --require gpt-5-mini
+          python -m build --outdir /tmp/signalforgeai-dist
+          python -m twine check /tmp/signalforgeai-dist/*
+          python -m venv /tmp/signalforgeai-wheel-smoke
+          /tmp/signalforgeai-wheel-smoke/bin/python -m pip install --upgrade pip
+          /tmp/signalforgeai-wheel-smoke/bin/python -m pip install /tmp/signalforgeai-dist/*.whl
+          /tmp/signalforgeai-wheel-smoke/bin/python -c "import signalforgeai; assert signalforgeai.__version__ == '0.4.0'"
+          /tmp/signalforgeai-wheel-smoke/bin/signalforgeai-pricing-validate --require gpt-5-mini

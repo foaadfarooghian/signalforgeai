@@ -1,0 +1,31 @@
+{
+  "suite_name": "quickstart",
+  "agent": "decision_agent",
+  "scoring": "default_v0",
+  "cases": [
+    {
+      "id": "dec_001",
+      "task": "What should SignalForge AI build next after logging + validation?",
+      "inputs": {
+        "constraints": [
+          "Hardware not ready for training yet",
+          "Prefer OSS artefacts that build credibility"
+        ],
+        "options": [
+          "Build evaluation harness v1",
+          "Build trace diff tool",
+          "Build a codebase refactor agent"
+        ]
+      },
+      "expect": {
+        "status": "success",
+        "contains_any": [
+          "evaluation",
+          "harness",
+          "diff",
+          "refactor"
+        ]
+      }
+    }
+  ]
+}

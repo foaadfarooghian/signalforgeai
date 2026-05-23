@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **TensorFoundry** will be documented in this file.
+All notable changes to **SignalForge AI** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/).
@@ -18,16 +18,17 @@ No unreleased changes yet.
 ### Added
 - `trace.v0` schema version emission for new runtime events while preserving legacy trace validation.
 - Normalized tool event payload fields for new trace artifacts.
-- `tensorfoundry-pilot-check` for deterministic production-pilot readiness validation.
-- OTel JSON trace export via `tensorfoundry-otel-export`.
+- `signalforgeai-pilot-check` for deterministic production-pilot readiness validation.
+- OTel JSON trace export via `signalforgeai-otel-export`.
 - Dataset export validation and manifest generation.
 - Provider readiness checks for dummy, OpenAI, Ollama, and HF model IDs.
-- `tensorfoundry-learn train --dry-run` for training input and dependency preflight.
+- `signalforgeai-learn train --dry-run` for training input and dependency preflight.
 - Optional reward diagnostics: `failure_mode`, `diagnosis`, and `artifact_refs`.
 - Release-candidate evidence gate for bundled offline package readiness checks.
 - Specialist model exchange manifest validation, package checks, smoke runs, and registry indexing.
 
 ### Changed
+- Renamed the public project, Python package, import namespace, CLI prefix, and environment variable prefix to SignalForge AI / `signalforgeai`.
 - CI now runs offline with dummy providers by default and includes the pilot readiness check.
 - Package data now includes benchmark suites and nested pricing config artifacts.
 - Mypy is aligned to the project Python 3.11+ support floor.
@@ -102,7 +103,7 @@ No unreleased changes yet.
 ## [0.1.0] — 2025-12-19
 
 ### Added
-- Initial TensorFoundry execution framework
+- Initial SignalForge AI execution framework
 - Agent templates (Decision, Research, Refactor)
 - Planner → Executor → Critic orchestration pattern
 - Structured JSONL tracing with validation
@@ -125,4 +126,4 @@ No unreleased changes yet.
 > Evaluation is the contract.  
 > Learning must be measurable, reversible, and safe.
 
-TensorFoundry prioritises **systemic intelligence** over ad-hoc model tuning.
+SignalForge AI prioritises **systemic intelligence** over ad-hoc model tuning.

@@ -135,7 +135,7 @@
     "quality_gate": true,
     "logs_root": "results/pilot_check/logs",
     "command_config": {
-      "source": "tensorfoundry-pilot-check",
+      "source": "signalforgeai-pilot-check",
       "training_preflight": true,
       "sft": true,
       "dpo": true,

@@ -1,6 +1,6 @@
-# TensorFoundry Roadmap
+# SignalForge AI Roadmap
 
-This roadmap narrows TensorFoundry to an **agent engineering + learning system**
+This roadmap narrows SignalForge AI to an **agent engineering + learning system**
 built around five pillars:
 
 1. OTel/MCP-native runtime + artifact schema
@@ -219,7 +219,7 @@ offline gate.
 gate and evaluate/package the trained adapter as the candidate specialist.
 
 ### Deliverables
-- `tensorfoundry-release-candidate-check --run-training` for real SFT evidence
+- `signalforgeai-release-candidate-check --run-training` for real SFT evidence
 - Optional `--run-dpo` second stage using the SFT run as parent evidence
 - Derived HF adapter candidate id for distillation and benchmark evidence
 - Release-candidate reports that record training mode, final stage, adapter refs,
@@ -258,7 +258,7 @@ gate and evaluate/package the trained adapter as the candidate specialist.
 
 ## Success criteria for this roadmap
 
-TensorFoundry succeeds when:
+SignalForge AI succeeds when:
 - Production traces become the canonical source for eval and learning
 - Reliability regressions are diagnosed by failure mode, not anecdotes
 - Specialist models are trained and validated against real agent workloads

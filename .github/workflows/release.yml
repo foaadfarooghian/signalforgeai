@@ -41,11 +41,11 @@ jobs:
 
       - name: Smoke wheel
         run: |
-          python -m venv /tmp/tensorfoundry-wheel-smoke
-          /tmp/tensorfoundry-wheel-smoke/bin/python -m pip install --upgrade pip
-          /tmp/tensorfoundry-wheel-smoke/bin/python -m pip install dist/*.whl
-          /tmp/tensorfoundry-wheel-smoke/bin/python -c "import tensorfoundry; assert tensorfoundry.__version__ == '0.4.0'"
-          /tmp/tensorfoundry-wheel-smoke/bin/tensorfoundry-pricing-validate --require gpt-5-mini
+          python -m venv /tmp/signalforgeai-wheel-smoke
+          /tmp/signalforgeai-wheel-smoke/bin/python -m pip install --upgrade pip
+          /tmp/signalforgeai-wheel-smoke/bin/python -m pip install dist/*.whl
+          /tmp/signalforgeai-wheel-smoke/bin/python -c "import signalforgeai; assert signalforgeai.__version__ == '0.4.0'"
+          /tmp/signalforgeai-wheel-smoke/bin/signalforgeai-pricing-validate --require gpt-5-mini
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
