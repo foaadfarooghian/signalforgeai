@@ -28,6 +28,9 @@ Read these files first to get the intent and scope:
 - `roadmap.md` for phased direction.
 - `docs/public_contracts.md` for current public surfaces and experimental areas.
 - `docs/first_pilot.md` for the PyPI-first offline pilot walkthrough.
+- `docs/provider_setup.md` for opt-in hosted/local/HF provider configuration.
+- `docs/release_checklist.md` for the `v0.5.0` release gate.
+- `docs/post_0_5_training_evidence.md` for post-0.5 real SFT/DPO evidence scope.
 - `docs/design_principles.md` for architectural principles.
 
 ## Where To Start (New Developer Path)
@@ -55,7 +58,7 @@ Public package setup:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install signalforgeai==0.4.0
+pip install signalforgeai==0.5.0
 ```
 
 Development checkout setup:
@@ -71,7 +74,7 @@ pip install -e ".[dev]"
 Optional training stack:
 
 ```bash
-# Linux-only in v0.4.0
+# Linux-only in v0.5.0
 pip install -e ".[train]"
 ```
 
@@ -326,7 +329,7 @@ Located in `src/signalforgeai/training/`.
 - `src/signalforgeai/training/collator_masked.py`
   - Masked chat collator for supervised training (prompt masked).
 
-Training is optional. In `v0.4.0`, actual SFT/DPO execution and `[train]`
+Training is optional. In `v0.5.0`, actual SFT/DPO execution and `[train]`
 installs are Linux-only; use dry-run preflight on other platforms.
 
 ## Execution and Data Flow (Detailed)
@@ -526,7 +529,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.4.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.5.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -535,7 +538,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.4.0
+  --ollama-tag signalforgeai/pilot-specialist:0.5.0
 ```
 
 Attach package evidence, run the consumer smoke check, then validate and index
@@ -726,7 +729,8 @@ The repository currently uses:
 - `dev` as the integration branch for ongoing work.
 - `prod` as the stable release branch.
 
-Check `README.md` for the latest release guidance.
+Check `README.md` and `docs/release_checklist.md` for the latest release
+guidance.
 
 ## Extending The Repo (Practical Pointers)
 

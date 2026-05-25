@@ -57,7 +57,7 @@ def run_release_candidate_check(
     mode: str = "dummy",
     unit_id: str = "pilot-specialist",
     name: str = "Pilot Specialist",
-    version: str = "0.4.0",
+    version: str = "0.5.0",
     domain: str = "pilot",
     baseline_model_id: str = "dummy_good",
     candidate_model_id: str | None = None,
@@ -1078,7 +1078,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--mode", default="dummy", choices=["dummy"], help="Release-candidate mode")
     parser.add_argument("--id", default="pilot-specialist", help="Specialist unit id")
     parser.add_argument("--name", default="Pilot Specialist", help="Specialist unit display name")
-    parser.add_argument("--version", default="0.4.0", help="Specialist unit version")
+    parser.add_argument("--version", default="0.5.0", help="Specialist unit version")
     parser.add_argument("--domain", default="pilot", help="Specialist unit domain")
     parser.add_argument("--baseline-model-id", default="dummy_good", help="Baseline/teacher model id")
     parser.add_argument(

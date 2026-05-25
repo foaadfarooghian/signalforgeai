@@ -455,7 +455,7 @@ def _training_platform_issue() -> str | None:
     if current == SUPPORTED_TRAINING_PLATFORM:
         return None
     return (
-        "Training execution is Linux-only in SignalForge AI v0.4.0. "
+        "Training execution is Linux-only in SignalForge AI v0.5.0. "
         f"Current platform: {current}. Use --dry-run for preflight here, "
         "or run inside Linux with: pip install -e '.[train]'."
     )
@@ -463,7 +463,7 @@ def _training_platform_issue() -> str | None:
 
 def _training_dependency_message() -> str:
     return (
-        "Training deps missing or unsupported. SignalForge AI v0.4.0 training is Linux-only; "
+        "Training deps missing or unsupported. SignalForge AI v0.5.0 training is Linux-only; "
         "install inside Linux with: pip install -e '.[train]'."
     )
 

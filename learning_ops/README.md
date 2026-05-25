@@ -55,7 +55,7 @@ learning_ops/
 ```
 
 Training scripts are **experimental** and may require extra dependencies (e.g. `unsloth`, `trl`).
-In `v0.4.0`, actual training execution and `.[train]` installs are Linux-only.
+In `v0.5.0`, actual training execution and `.[train]` installs are Linux-only.
 Packaged training entrypoints live in `src/signalforgeai/training/` and are exposed via `signalforgeai-learn train`.
 
 ---

@@ -13,6 +13,32 @@ No unreleased changes yet.
 
 ---
 
+## [0.5.0] — 2026-05-25
+
+### Added
+- Public contract documentation for package/import identity, CLI names,
+  environment variables, provider defaults, artifact families, and experimental
+  surfaces.
+- PyPI-first first-pilot walkthrough for offline readiness, trace inspection,
+  dataset validation, regression baselines, and provider-backed next steps.
+- Provider setup guide for deterministic dummy runs plus opt-in OpenAI, Ollama,
+  and Hugging Face paths.
+- `v0.5.0` release checklist covering local checks, CI, build validation,
+  TestPyPI/PyPI smoke tests, and GitHub Release verification.
+- Post-0.5 real SFT/DPO training evidence scope that keeps `--run-training` and
+  `--run-dpo` visible without making them the onboarding gate.
+
+### Changed
+- Pilot readiness Markdown now starts with a summary, first failing gate, next
+  action, provider skip/failure distinction, and dataset failure remediation
+  details.
+- Public install docs and wheel smoke checks now target `signalforgeai==0.5.0`.
+
+### Breaking Changes
+- None.
+
+---
+
 ## [0.4.0] — 2026-05-19
 
 ### Added

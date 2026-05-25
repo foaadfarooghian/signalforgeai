@@ -7,7 +7,7 @@
   "units": [
     {
       "id": "pilot-specialist",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "name": "Pilot Specialist",
       "domain": "pilot",
       "schema_version": "specialist_model_unit.v0",

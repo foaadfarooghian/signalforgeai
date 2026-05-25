@@ -1,8 +1,7 @@
 # Public Contracts
 
 SignalForge AI is pre-1.0 software. These contracts describe the public surface
-that `v0.4.0` exposes and that the `v0.5.0` roadmap should clarify before any
-behavioral expansion.
+that `v0.5.0` exposes for public pilots before any deeper behavior expansion.
 
 ## Stable enough for public pilots
 
@@ -52,6 +51,9 @@ Provider-backed runs are opt-in:
 Docs and examples should not require OpenAI, Ollama, or Hugging Face credentials
 unless the page is explicitly about that provider path.
 
+See `docs/provider_setup.md` for provider-specific setup commands and smoke
+checks.
+
 ## Artifact families
 
 Current public artifacts use additive `*.v0` names. They are suitable for pilots
@@ -76,7 +78,7 @@ artifact changes should be called out directly in release notes.
 
 ## Experimental surfaces
 
-These areas are intentionally experimental in `v0.4.0` and should be treated as
+These areas are intentionally experimental in `v0.5.0` and should be treated as
 pre-v1 work:
 
 - Real SFT/DPO training execution
@@ -85,12 +87,13 @@ pre-v1 work:
 - Bandit routing policy tuning and learning-state persistence
 - Provider-backed benchmark comparability across hosted/local/HF models
 
-Training execution and the `[train]` extra are Linux-only for `v0.4.0`.
+Training execution and the `[train]` extra are Linux-only for `v0.5.0`.
 Non-Linux environments can still run training preflight and offline release
 candidate checks.
 
 ## Version posture
 
-`signalforgeai==0.4.0` is the first public package release. Users should pin the
-package version for pilots, and maintainers should keep public docs clear about
-whether an interface is stable enough for pilots or experimental before v1.0.
+`signalforgeai==0.5.0` is the public onboarding and contract-clarity release.
+Users should pin the package version for pilots, and maintainers should keep
+public docs clear about whether an interface is stable enough for pilots or
+experimental before v1.0.
