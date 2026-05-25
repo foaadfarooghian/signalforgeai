@@ -213,7 +213,7 @@ offline gate.
 
 ---
 
-## Active Phase — v0.5.0 Public Onboarding and Contract Clarity
+## Completed Phase — v0.5.0 Public Onboarding and Contract Clarity
 
 **Goal:** Make the first public post-release milestone easy to evaluate by new
 users and downstream contributors, without changing the `0.4.0` package
@@ -241,6 +241,37 @@ behavior or requiring hosted/local model providers.
 - GitHub milestone/issues and tracked docs tell the same 0.5.0 story
 - Real SFT/DPO training evidence is scoped as follow-up work, not the main
   onboarding gate
+
+---
+
+## Active Phase — v0.6.0 Real SFT Evidence
+
+**Goal:** Prove that one Linux/HF-backed SFT smoke run can produce auditable
+non-mock `training_run.v0` evidence and flow into the release-candidate chain,
+while core CI remains offline and dummy-first.
+
+### Deliverables
+- Linux-only `[train]` SFT smoke path using `unsloth/tinyllama-chat-bnb-4bit`
+  as the standard tiny release evidence model
+- Low-risk smoke settings for `--smoke --max-steps 1`: small batch, short
+  sequence length, deterministic seed, and automatic precision
+- Additive adapter load/generate smoke evidence inside `training_run.v0`
+- Release-candidate gate that accepts real SFT evidence with
+  `--final-training-stage sft` and `--require-real-training-evidence`
+- Manual v0.6 release evidence checklist for local checks, Linux evidence,
+  TestPyPI, PyPI, GitHub Release, and milestone closure
+- Explicit v0.7 scope for DPO lineage and meaningful quality thresholds
+
+### Exit criteria
+- Placeholder `dummy/base` cannot launch real training; users get a clear
+  message to pass a Hugging Face base model
+- A successful SFT smoke run records adapter refs, file checksums, and
+  successful adapter smoke evidence
+- The v0.6 manual release command produces an OK release-candidate bundle with
+  `training_evidence.real_training_evidence == true`
+- Core CI and first-run flows remain deterministic and provider-safe without
+  `[train]`
+- DPO and quality-improvement thresholds remain documented as post-v0.6 work
 
 ---
 

@@ -29,7 +29,7 @@ Read these files first to get the intent and scope:
 - `docs/public_contracts.md` for current public surfaces and experimental areas.
 - `docs/first_pilot.md` for the PyPI-first offline pilot walkthrough.
 - `docs/provider_setup.md` for opt-in hosted/local/HF provider configuration.
-- `docs/release_checklist.md` for the `v0.5.0` release gate.
+- `docs/release_checklist.md` for the `v0.6.0` release gate.
 - `docs/post_0_5_training_evidence.md` for post-0.5 real SFT/DPO evidence scope.
 - `docs/design_principles.md` for architectural principles.
 
@@ -58,7 +58,7 @@ Public package setup:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install signalforgeai==0.5.0
+pip install signalforgeai==0.6.0
 ```
 
 Development checkout setup:
@@ -74,7 +74,7 @@ pip install -e ".[dev]"
 Optional training stack:
 
 ```bash
-# Linux-only in v0.5.0
+# Linux-only in v0.6.0
 pip install -e ".[train]"
 ```
 
@@ -329,7 +329,7 @@ Located in `src/signalforgeai/training/`.
 - `src/signalforgeai/training/collator_masked.py`
   - Masked chat collator for supervised training (prompt masked).
 
-Training is optional. In `v0.5.0`, actual SFT/DPO execution and `[train]`
+Training is optional. In `v0.6.0`, actual SFT/DPO execution and `[train]`
 installs are Linux-only; use dry-run preflight on other platforms.
 
 ## Execution and Data Flow (Detailed)
@@ -388,7 +388,7 @@ without this field remain valid. New tool events are normalized with
    manifest.
 5. `--run-report-out ... --smoke --max-steps 1` records optional
    `training_run.v0` SFT evidence in release environments with `[train]`
-   dependencies installed. It is not part of the mandatory offline gate.
+   dependencies installed, including adapter load/generate smoke evidence.
 6. DPO execution evidence is opt-in. DPO-only runs with `--run-report-out`
    require `--sft-run <successful training_run.v0>` so the preference step has
    auditable parent SFT lineage. Combined `--sft --dpo` runs record the
@@ -407,7 +407,7 @@ signalforgeai-learn train --base-model dummy/base --sft --dpo \
 Example optional SFT smoke evidence:
 
 ```bash
-signalforgeai-learn train --base-model hf/org/base --sft \
+signalforgeai-learn train --base-model unsloth/tinyllama-chat-bnb-4bit --sft \
   --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
   --sft-out results/training/sft_lora \
   --quality-gate --logs-root results/pilot_check/logs \
@@ -419,7 +419,7 @@ signalforgeai-learn train --base-model hf/org/base --sft \
 Example optional DPO smoke evidence:
 
 ```bash
-signalforgeai-learn train --base-model hf/org/base --dpo \
+signalforgeai-learn train --base-model unsloth/tinyllama-chat-bnb-4bit --dpo \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --sft-run results/training/sft_training_run.json \
   --dpo-out results/training/dpo_lora \
@@ -529,7 +529,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.5.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.6.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -538,7 +538,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.5.0
+  --ollama-tag signalforgeai/pilot-specialist:0.6.0
 ```
 
 Attach package evidence, run the consumer smoke check, then validate and index
@@ -597,22 +597,24 @@ signalforgeai-release-candidate-check \
 ```
 
 Linux release environments with `[train]` installed can also run bounded SFT
-evidence inside the release-candidate gate:
+evidence inside the release-candidate gate while keeping downstream evidence
+deterministic:
 
 ```bash
 signalforgeai-release-candidate-check \
-  --work-dir results/release_candidate_real \
+  --work-dir results/v0_6_real_sft \
   --run-training \
-  --training-base-model hf/org/base \
+  --final-training-stage sft \
+  --candidate-model-id dummy_good \
+  --training-base-model unsloth/tinyllama-chat-bnb-4bit \
   --training-max-steps 1 \
   --require-real-training-evidence
 ```
 
 This path calls the training runner directly, records non-mock
-`training_run.v0`, derives `hf:<base>?adapter=<final-adapter-dir>` when no
-candidate model id is supplied, and uses that adapter for distillation,
-benchmark, exchange, package, smoke, and registry evidence. Add `--run-dpo` to
-make the DPO adapter the final packaged candidate.
+`training_run.v0`, verifies the adapter can be loaded and used for a short
+generation smoke, and packages the SFT adapter as release evidence. DPO and
+quality-improvement thresholds are v0.7 scope.
 
 ## Examples and Reference Workflows
 
