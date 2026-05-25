@@ -21,7 +21,12 @@ from signalforgeai.exchange.package import run_package_check
 from signalforgeai.exchange.registry import build_registry_index
 from signalforgeai.exchange.smoke import run_smoke_check
 from signalforgeai.exchange.unit import build_specialist_unit
-from signalforgeai.learning.learn import TrainingRunConfig, run_training as run_training_job
+from signalforgeai.learning.learn import (
+    DEFAULT_REAL_SFT_SMOKE_MODEL,
+    PLACEHOLDER_TRAINING_BASE_MODELS,
+    TrainingRunConfig,
+    run_training as run_training_job,
+)
 from signalforgeai.models.registry import check_provider_for_model
 from signalforgeai.pilot_check import DEFAULT_SUITE, run_pilot_check
 from signalforgeai.training.readiness import (
@@ -57,7 +62,7 @@ def run_release_candidate_check(
     mode: str = "dummy",
     unit_id: str = "pilot-specialist",
     name: str = "Pilot Specialist",
-    version: str = "0.5.0",
+    version: str = "0.6.0",
     domain: str = "pilot",
     baseline_model_id: str = "dummy_good",
     candidate_model_id: str | None = None,
@@ -83,6 +88,8 @@ def run_release_candidate_check(
         raise ValueError("--final-training-stage dpo requires --run-dpo")
     if run_training and run_dpo and final_training_stage == "sft":
         raise ValueError("--final-training-stage sft cannot be combined with --run-dpo")
+    if run_training and training_base_model in PLACEHOLDER_TRAINING_BASE_MODELS:
+        raise ValueError(_invalid_training_base_model_issue())
     root = Path(work_dir).resolve()
     root.mkdir(parents=True, exist_ok=True)
     _reset_generated_outputs(root)
@@ -417,6 +424,23 @@ def write_release_training_evidence(
     mode = "external" if sft_run or dpo_run else "mock"
 
     if run_training:
+        if base_model in PLACEHOLDER_TRAINING_BASE_MODELS:
+            return {
+                "ok": False,
+                "mode": "run",
+                "final_stage": "dpo" if run_dpo else "sft",
+                "final_run_path": str(
+                    out_dir / ("dpo_training_run.json" if run_dpo else "sft_training_run.json")
+                ),
+                "sft_run_path": str(out_dir / "sft_training_run.json"),
+                "dpo_run_path": str(out_dir / "dpo_training_run.json") if run_dpo else None,
+                "runs": {},
+                "real_training_evidence": False,
+                "parent_real_training_evidence": False,
+                "require_real_training_evidence": bool(require_real_training_evidence),
+                "adapter_smoke": {},
+                "issues": [_invalid_training_base_model_issue()],
+            }
         return _write_real_training_evidence(
             preflight=preflight,
             preflight_path=preflight_path,
@@ -444,6 +468,7 @@ def write_release_training_evidence(
             "real_training_evidence": real,
             "parent_real_training_evidence": None,
             "require_real_training_evidence": bool(require_real_training_evidence),
+            "adapter_smoke": _dict(payload.get("adapter_smoke")),
             "issues": issues,
         }
 
@@ -468,6 +493,7 @@ def write_release_training_evidence(
                 "real_training_evidence": parent_real,
                 "parent_real_training_evidence": parent_real,
                 "require_real_training_evidence": bool(require_real_training_evidence),
+                "adapter_smoke": _dict(sft_payload.get("adapter_smoke")),
                 "issues": issues,
             }
     else:
@@ -498,6 +524,7 @@ def write_release_training_evidence(
                 "real_training_evidence": False,
                 "parent_real_training_evidence": False,
                 "require_real_training_evidence": bool(require_real_training_evidence),
+                "adapter_smoke": _dict(parent_payload.get("adapter_smoke")),
                 "issues": issues,
             }
 
@@ -528,6 +555,7 @@ def write_release_training_evidence(
         "real_training_evidence": False,
         "parent_real_training_evidence": parent_real,
         "require_real_training_evidence": bool(require_real_training_evidence),
+        "adapter_smoke": _dict(dpo_payload.get("adapter_smoke")),
         "issues": issues,
     }
 
@@ -598,6 +626,7 @@ def _write_real_training_evidence(
             "real_training_evidence": bool(sft_payload and parent_real),
             "parent_real_training_evidence": parent_real,
             "require_real_training_evidence": bool(require_real_training_evidence),
+            "adapter_smoke": _dict(sft_payload.get("adapter_smoke")),
             "issues": issues,
         }
 
@@ -613,6 +642,7 @@ def _write_real_training_evidence(
             "real_training_evidence": False,
             "parent_real_training_evidence": parent_real,
             "require_real_training_evidence": bool(require_real_training_evidence),
+            "adapter_smoke": _dict(sft_payload.get("adapter_smoke")),
             "issues": issues,
         }
 
@@ -659,6 +689,7 @@ def _write_real_training_evidence(
         "real_training_evidence": bool(dpo_payload and real),
         "parent_real_training_evidence": parent_real,
         "require_real_training_evidence": bool(require_real_training_evidence),
+        "adapter_smoke": _dict(dpo_payload.get("adapter_smoke")),
         "issues": issues,
     }
 
@@ -947,6 +978,7 @@ def _training_summary(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "real_training_evidence": bool(payload.get("real_training_evidence")),
         "parent_real_training_evidence": payload.get("parent_real_training_evidence"),
         "require_real_training_evidence": bool(payload.get("require_real_training_evidence")),
+        "adapter_smoke": _dict(payload.get("adapter_smoke")),
         "runs": _dict(payload.get("runs")),
         "issues": _list(payload.get("issues")),
     }
@@ -1010,7 +1042,9 @@ def _require_adapter_refs(payload: Mapping[str, Any], path: str) -> None:
 
 def _is_real_training_run(payload: Mapping[str, Any]) -> bool:
     config = payload.get("command_config")
-    return not (
+    adapter_smoke = payload.get("adapter_smoke")
+    smoke_ok = isinstance(adapter_smoke, Mapping) and adapter_smoke.get("ok") is True
+    return smoke_ok and not (
         isinstance(config, Mapping)
         and str(config.get("training_evidence_mode") or "").lower() == "mock"
     )
@@ -1019,7 +1053,15 @@ def _is_real_training_run(payload: Mapping[str, Any]) -> bool:
 def _real_training_required_issue() -> str:
     return (
         "real training evidence required; use --run-training, pass --dpo-run, or "
-        "pass --sft-run with --final-training-stage sft from a non-mock training_run.v0"
+        "pass --sft-run with --final-training-stage sft from a non-mock training_run.v0 "
+        "that includes successful adapter_smoke evidence"
+    )
+
+
+def _invalid_training_base_model_issue() -> str:
+    return (
+        "real training requires a Hugging Face base model; pass --training-base-model "
+        f"{DEFAULT_REAL_SFT_SMOKE_MODEL} or another valid HF model id"
     )
 
 
@@ -1078,7 +1120,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--mode", default="dummy", choices=["dummy"], help="Release-candidate mode")
     parser.add_argument("--id", default="pilot-specialist", help="Specialist unit id")
     parser.add_argument("--name", default="Pilot Specialist", help="Specialist unit display name")
-    parser.add_argument("--version", default="0.5.0", help="Specialist unit version")
+    parser.add_argument("--version", default="0.6.0", help="Specialist unit version")
     parser.add_argument("--domain", default="pilot", help="Specialist unit domain")
     parser.add_argument("--baseline-model-id", default="dummy_good", help="Baseline/teacher model id")
     parser.add_argument(

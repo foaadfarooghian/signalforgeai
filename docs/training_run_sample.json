@@ -6,7 +6,7 @@
   "started_at": "2026-05-02T00:00:00Z",
   "completed_at": "2026-05-02T00:00:01Z",
   "duration_seconds": 1.0,
-  "base_model": "dummy/base",
+  "base_model": "unsloth/tinyllama-chat-bnb-4bit",
   "training_stage": "sft",
   "preflight_path": "results/pilot_check/training_preflight.json",
   "preflight_ok": true,
@@ -83,6 +83,30 @@
   "dependencies_ok": true,
   "missing_dependencies": [],
   "smoke_bounded": true,
+  "adapter_smoke": {
+    "version": "adapter_smoke.v0",
+    "created_at": "2026-05-02T00:00:01Z",
+    "ok": true,
+    "base_model": "unsloth/tinyllama-chat-bnb-4bit",
+    "adapter_path": "results/training/sft_lora",
+    "model_id": "hf:unsloth/tinyllama-chat-bnb-4bit?adapter=results/training/sft_lora",
+    "prompt_type": "single_turn_json",
+    "latency_ms": 125,
+    "generated_chars": 15,
+    "details": {
+      "provider": "hf",
+      "model_name": "unsloth/tinyllama-chat-bnb-4bit",
+      "adapter": "results/training/sft_lora",
+      "attn_impl": "default",
+      "load_label": "auto",
+      "usage": {
+        "input_tokens": 16,
+        "output_tokens": 6,
+        "total_tokens": 22
+      }
+    },
+    "reason": ""
+  },
   "command_config": {
     "sft": true,
     "dpo": false,

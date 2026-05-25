@@ -5,7 +5,7 @@
   "identity": {
     "id": "pilot-specialist",
     "name": "Pilot Specialist",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "domain": "pilot"
   },
   "mode": "dummy",
@@ -151,6 +151,7 @@
     "real_training_evidence": false,
     "parent_real_training_evidence": false,
     "require_real_training_evidence": false,
+    "adapter_smoke": {},
     "runs": {
       "sft": "results/release_candidate/training/sft_training_run.json",
       "dpo": "results/release_candidate/training/dpo_training_run.json"

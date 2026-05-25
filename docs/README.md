@@ -7,7 +7,8 @@ evaluation, trace-to-learning, and benchmarking.
 - `public_contracts.md`: public package, CLI, env, provider, and artifact boundaries.
 - `first_pilot.md`: PyPI-first offline pilot walkthrough for new users.
 - `provider_setup.md`: opt-in dummy, OpenAI, Ollama, and HF provider setup.
-- `release_checklist.md`: `v0.5.0` local, CI, TestPyPI, PyPI, and release gates.
+- `release_checklist.md`: `v0.6.0` local, CI, TestPyPI, PyPI, and release gates.
+- `v0_6_real_sft_evidence.md`: manual Linux/HF real SFT release evidence gate.
 - `post_0_5_training_evidence.md`: post-0.5 real SFT/DPO evidence scope.
 - `model_exchange.md`: specialist model registry/exchange contract and lifecycle.
 - `pilot_readiness_sample.md`: example output from the production-pilot readiness check.
@@ -90,20 +91,21 @@ signalforgeai-release-candidate-check \
 ```
 
 In Linux release environments with `[train]` installed, the gate can run bounded
-SFT evidence itself and use the trained adapter as the candidate model:
+SFT evidence itself while keeping downstream evidence deterministic:
 
 ```bash
 signalforgeai-release-candidate-check \
-  --work-dir results/release_candidate_real \
+  --work-dir results/v0_6_real_sft \
   --run-training \
-  --training-base-model hf/org/base \
+  --final-training-stage sft \
+  --candidate-model-id dummy_good \
+  --training-base-model unsloth/tinyllama-chat-bnb-4bit \
   --training-max-steps 1 \
   --require-real-training-evidence
 ```
 
-Use `--run-dpo` to add a DPO stage and package the DPO adapter as final
-evidence. Without an explicit `--candidate-model-id`, the candidate becomes
-`hf:<base>?adapter=<final-adapter-dir>`.
+This is the v0.6 release evidence path. It proves real SFT artifacts and adapter
+load/generate smoke; DPO and adapter quality thresholds are v0.7 scope.
 
 ## Training readiness
 
@@ -126,11 +128,11 @@ signalforgeai-learn train --base-model dummy/base --sft --dpo \
 ```
 
 Release environments can optionally run one bounded SFT smoke step and record
-`training_run.v0`. In `v0.5.0`, actual SFT/DPO execution and the `[train]`
+`training_run.v0`. In `v0.6.0`, actual SFT/DPO execution and the `[train]`
 extra are Linux-only; use dry-run preflight on other platforms:
 
 ```bash
-signalforgeai-learn train --base-model hf/org/base --sft \
+signalforgeai-learn train --base-model unsloth/tinyllama-chat-bnb-4bit --sft \
   --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
   --sft-out results/training/sft_lora \
   --quality-gate --logs-root results/pilot_check/logs \
@@ -144,7 +146,7 @@ DPO smoke evidence is also optional. It requires the successful SFT
 the DPO adapter the final exchange artifact:
 
 ```bash
-signalforgeai-learn train --base-model hf/org/base --dpo \
+signalforgeai-learn train --base-model unsloth/tinyllama-chat-bnb-4bit --dpo \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --sft-run results/training/sft_training_run.json \
   --dpo-out results/training/dpo_lora \
@@ -185,7 +187,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.5.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.6.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -194,7 +196,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.5.0
+  --ollama-tag signalforgeai/pilot-specialist:0.6.0
 ```
 
 Attach packaging evidence, run the offline consumer smoke check, then validate

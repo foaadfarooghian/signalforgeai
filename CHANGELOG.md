@@ -13,6 +13,30 @@ No unreleased changes yet.
 
 ---
 
+## [0.6.0] — 2026-05-25
+
+### Added
+- Manual Linux/HF real SFT evidence gate using `unsloth/tinyllama-chat-bnb-4bit`
+  as the standard tiny smoke model.
+- Additive `adapter_smoke.v0` evidence inside `training_run.v0` for adapter
+  load/generate verification.
+- v0.6 real SFT evidence guide and release checklist.
+- GitHub milestone tracking for v0.6 real SFT work and v0.7 DPO/quality scope.
+
+### Changed
+- SFT smoke mode now applies low-risk settings for one-step release evidence:
+  short sequence length, batch size 1, deterministic seed, and automatic
+  precision.
+- Real training requests with placeholder `dummy/base` fail before launching
+  training and point users to a Hugging Face base model.
+- Release-candidate real training evidence now requires successful adapter
+  smoke evidence.
+
+### Breaking Changes
+- None.
+
+---
+
 ## [0.5.0] — 2026-05-25
 
 ### Added
