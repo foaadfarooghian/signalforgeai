@@ -11,7 +11,7 @@ Use Python 3.11 or newer:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install signalforgeai==0.4.0
+pip install signalforgeai==0.5.0
 ```
 
 ## Run the offline pilot check
@@ -97,6 +97,8 @@ SIGNALFORGEAI_MODEL_ID=ollama:ministral-3:8b python examples/quickstart_research
 
 Do not require provider-backed paths in public quickstarts unless the page is
 specifically about OpenAI, Ollama, or Hugging Face setup.
+
+For provider-specific setup details, see `docs/provider_setup.md`.
 
 ## Next release gate
 

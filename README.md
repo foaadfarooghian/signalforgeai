@@ -138,7 +138,7 @@ Good early domains:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install signalforgeai==0.4.0
+pip install signalforgeai==0.5.0
 ```
 
 Run the deterministic production-pilot readiness loop:
@@ -155,7 +155,8 @@ This quickstart is offline-safe by default and uses the deterministic
 - `results/pilot_check/datasets/manifest.json` plus SFT, preference, repair, and curriculum exports
 
 For a guided first-user path from install through artifact inspection, see
-`docs/first_pilot.md`.
+`docs/first_pilot.md`. Provider-backed runs are opt-in; see
+`docs/provider_setup.md` for OpenAI, Ollama, and HF setup.
 
 Validate and inspect the latest trace:
 
@@ -268,7 +269,10 @@ Add `--run-dpo` when the final candidate should be the DPO adapter. When
 `hf:<base>?adapter=<final-adapter-dir>` and uses it for distillation and
 benchmark evidence.
 
-Training remains experimental. In `v0.4.0`, the `[train]` extra and actual
+Real SFT/DPO evidence is not required for the `v0.5.0` onboarding gate. See
+`docs/post_0_5_training_evidence.md` for the post-0.5 scope.
+
+Training remains experimental. In `v0.5.0`, the `[train]` extra and actual
 SFT/DPO execution are Linux-only because the Torch/Triton/Unsloth dependency
 stack is not portable across all supported core platforms. Preflight evidence
 is still available without loading models:
@@ -351,7 +355,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.4.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.5.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -360,7 +364,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.4.0
+  --ollama-tag signalforgeai/pilot-specialist:0.5.0
 
 signalforgeai-exchange package-check \
   --manifest results/exchange/pilot-specialist.unit.json \
@@ -406,3 +410,4 @@ See `manifesto.md` for principles and `roadmap.md` for the focused build plan.
 
 - `prod` -> protected, tagged releases
 - `dev` -> integration branch for ongoing work
+- `docs/release_checklist.md` -> release gate for `v0.5.0`

@@ -6,6 +6,9 @@ evaluation, trace-to-learning, and benchmarking.
 - `design_principles.md`: core principles for runtime, eval, data, and learning.
 - `public_contracts.md`: public package, CLI, env, provider, and artifact boundaries.
 - `first_pilot.md`: PyPI-first offline pilot walkthrough for new users.
+- `provider_setup.md`: opt-in dummy, OpenAI, Ollama, and HF provider setup.
+- `release_checklist.md`: `v0.5.0` local, CI, TestPyPI, PyPI, and release gates.
+- `post_0_5_training_evidence.md`: post-0.5 real SFT/DPO evidence scope.
 - `model_exchange.md`: specialist model registry/exchange contract and lifecycle.
 - `pilot_readiness_sample.md`: example output from the production-pilot readiness check.
 - `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
@@ -123,7 +126,7 @@ signalforgeai-learn train --base-model dummy/base --sft --dpo \
 ```
 
 Release environments can optionally run one bounded SFT smoke step and record
-`training_run.v0`. In `v0.4.0`, actual SFT/DPO execution and the `[train]`
+`training_run.v0`. In `v0.5.0`, actual SFT/DPO execution and the `[train]`
 extra are Linux-only; use dry-run preflight on other platforms:
 
 ```bash
@@ -182,7 +185,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.4.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.5.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -191,7 +194,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.4.0
+  --ollama-tag signalforgeai/pilot-specialist:0.5.0
 ```
 
 Attach packaging evidence, run the offline consumer smoke check, then validate
