@@ -97,7 +97,168 @@ def _as_dict(check: ProviderCheck) -> Dict[str, Any]:
     return asdict(check)
 
 
+def _md_cell(value: Any) -> str:
+    return str(value or "").replace("\n", " ").replace("|", "\\|")
+
+
+def _provider_status(check: Dict[str, Any]) -> str:
+    if bool(check.get("ok")):
+        return "pass"
+    if bool(check.get("skipped")):
+        return "optional skip"
+    if bool(check.get("required")):
+        return "hard failure"
+    return "failure"
+
+
+def _provider_next_action(check: Dict[str, Any]) -> str:
+    if bool(check.get("ok")):
+        return "No action."
+    provider = str(check.get("provider") or "")
+    if provider == "openai":
+        return "Set OPENAI_API_KEY, or keep hosted provider checks optional."
+    if provider == "ollama":
+        return "Start Ollama and pull the model, or keep local provider checks optional."
+    if provider == "hf":
+        return "Verify the HF model id and adapter path before requiring this provider."
+    if bool(check.get("required")):
+        return "Fix the required provider configuration or remove the required provider gate."
+    return "Optional provider path skipped; no action is needed for offline pilots."
+
+
+def _dataset_row_class(kind: str) -> str:
+    return {
+        "sft": "SFT training rows",
+        "prefs": "preference pair rows",
+        "dpo": "DPO preference rows",
+        "repairs": "repair trajectory rows",
+        "curriculum": "curriculum rows",
+    }.get(kind, f"{kind} rows")
+
+
+def _dataset_issue_text(dataset: Dict[str, Any]) -> str:
+    issues: List[str] = []
+    for key in ("issues", "quality_issues", "missing_artifact_refs"):
+        value = dataset.get(key)
+        if isinstance(value, list):
+            issues.extend(str(item) for item in value[:2])
+    if int(dataset.get("rows") or 0) <= 0:
+        issues.insert(0, "dataset has no rows")
+    if not issues:
+        return "Dataset failed validation."
+    suffix = " ..." if len(issues) > 2 else ""
+    return "; ".join(issues[:2]) + suffix
+
+
+def _dataset_remediation(dataset: Dict[str, Any]) -> str:
+    issue_parts: List[str] = []
+    for key in ("issues", "quality_issues", "missing_artifact_refs"):
+        value = dataset.get(key)
+        if isinstance(value, list):
+            issue_parts.extend(str(item) for item in value)
+    issues = " ".join(issue_parts)
+    if int(dataset.get("rows") or 0) <= 0 or "dataset has no rows" in issues:
+        return "Regenerate pilot outputs; the export produced no usable rows."
+    if "missing artifact ref" in issues:
+        return "Rerun with the original logs present, or validate with the correct logs root."
+    if "duplicate training payloads" in issues:
+        return "Inspect duplicate payloads and adjust export filters before training."
+    if "split" in issues:
+        return "Regenerate exports so split metadata is deterministic and non-leaking."
+    if "missing key" in issues or "must be" in issues:
+        return "Fix the exporter/schema for this row class, then rerun the pilot check."
+    return "Run signalforgeai-dataset-validate on this file with --quality-gate."
+
+
+def _dataset_failure_details(payload: Dict[str, Any]) -> List[Dict[str, str]]:
+    failures: List[Dict[str, str]] = []
+    for dataset in payload.get("datasets", []):
+        if not isinstance(dataset, dict):
+            continue
+        failed = (
+            not bool(dataset.get("ok"))
+            or int(dataset.get("rows") or 0) <= 0
+            or bool(dataset.get("issues"))
+            or bool(dataset.get("quality_issues"))
+            or bool(dataset.get("missing_artifact_refs"))
+        )
+        if not failed:
+            continue
+        kind = str(dataset.get("kind") or "unknown")
+        failures.append(
+            {
+                "kind": kind,
+                "path": str(dataset.get("path") or ""),
+                "row_class": _dataset_row_class(kind),
+                "issue": _dataset_issue_text(dataset),
+                "remediation": _dataset_remediation(dataset),
+            }
+        )
+    return failures
+
+
+def _first_failing_gate(payload: Dict[str, Any]) -> tuple[str, str]:
+    for check in payload.get("providers", []):
+        if isinstance(check, dict) and not bool(check.get("ok")) and not bool(check.get("skipped")):
+            provider = str(check.get("provider") or "provider")
+            model = str(check.get("model_id") or "unknown")
+            return (
+                "Provider readiness",
+                f"Fix required {provider} configuration for `{model}`. {_provider_next_action(check)}",
+            )
+    for suite in payload.get("suites", []):
+        if isinstance(suite, dict) and int(suite.get("failed") or 0) > 0:
+            return (
+                "Evaluation suite",
+                "Open Case Failures and inspect the first failing trace/reward artifact.",
+            )
+    dataset_failures = _dataset_failure_details(payload)
+    if dataset_failures:
+        first = dataset_failures[0]
+        return (
+            "Dataset validation",
+            f"Open Dataset Failure Details for `{first['kind']}` and rerun the validator.",
+        )
+    training = payload.get("training_preflight")
+    if isinstance(training, dict) and not bool(training.get("ok")):
+        return (
+            "Training preflight",
+            "Open Training Preflight and fix the reported dataset, dependency, or output issue.",
+        )
+    regression = payload.get("regression")
+    if isinstance(regression, dict) and not bool(regression.get("ok")):
+        return (
+            "Regression gate",
+            "Open the regression report and inspect changed, regressed, or missing cases.",
+        )
+    issues = payload.get("issues")
+    if isinstance(issues, list) and issues:
+        return ("Artifact validation", "Open Issues and fix the first validation issue.")
+    skipped = [
+        check
+        for check in payload.get("providers", [])
+        if isinstance(check, dict) and bool(check.get("skipped"))
+    ]
+    if skipped:
+        return (
+            "None",
+            "No blocking action. Optional provider skips are expected for offline pilots.",
+        )
+    return ("None", "No action required.")
+
+
 def _write_report(payload: Dict[str, Any], report_md: Path) -> None:
+    first_gate, next_action = _first_failing_gate(payload)
+    optional_provider_skips = sum(
+        1
+        for check in payload.get("providers", [])
+        if isinstance(check, dict) and bool(check.get("skipped"))
+    )
+    hard_provider_failures = sum(
+        1
+        for check in payload.get("providers", [])
+        if isinstance(check, dict) and not bool(check.get("ok")) and not bool(check.get("skipped"))
+    )
     lines = [
         "# SignalForge AI Pilot Readiness",
         "",
@@ -106,15 +267,24 @@ def _write_report(payload: Dict[str, Any], report_md: Path) -> None:
         f"- Suites run: `{len(payload['suites'])}`",
         f"- Dataset manifest: `{payload['dataset_manifest']}`",
         "",
+        "## Readiness Summary",
+        "",
+        f"- Status: `{'pass' if payload['ok'] else 'fail'}`",
+        f"- First failing gate: `{first_gate}`",
+        f"- Next action: {_md_cell(next_action)}",
+        f"- Required provider failures: `{hard_provider_failures}`",
+        f"- Optional provider skips: `{optional_provider_skips}`",
+        "",
         "## Providers",
         "",
-        "| provider | model | ok | required | skipped | reason |",
-        "|---|---|---:|---:|---:|---|",
+        "| provider | model | status | required | next action | reason |",
+        "|---|---|---|---:|---|---|",
     ]
     for c in payload["providers"]:
         lines.append(
-            f"| {c['provider']} | `{c['model_id']}` | {str(c['ok']).lower()} | "
-            f"{str(c['required']).lower()} | {str(c['skipped']).lower()} | {c.get('reason') or ''} |"
+            f"| {_md_cell(c['provider'])} | `{_md_cell(c['model_id'])}` | "
+            f"{_provider_status(c)} | {str(c['required']).lower()} | "
+            f"{_md_cell(_provider_next_action(c))} | {_md_cell(c.get('reason') or '')} |"
         )
     lines.extend(["", "## Datasets", "", "| kind | rows | ok | path |", "|---|---:|---:|---|"])
     for d in payload["datasets"]:
@@ -139,6 +309,23 @@ def _write_report(payload: Dict[str, Any], report_md: Path) -> None:
             f"{len(d.get('missing_artifact_refs') or [])} | "
             f"{len(d.get('quality_issues') or [])} |"
         )
+    dataset_failures = _dataset_failure_details(payload)
+    if dataset_failures:
+        lines.extend(
+            [
+                "",
+                "## Dataset Failure Details",
+                "",
+                "| kind | file | row class | issue summary | likely remediation |",
+                "|---|---|---|---|---|",
+            ]
+        )
+        for failure in dataset_failures:
+            lines.append(
+                f"| {_md_cell(failure['kind'])} | `{_md_cell(failure['path'])}` | "
+                f"{_md_cell(failure['row_class'])} | {_md_cell(failure['issue'])} | "
+                f"{_md_cell(failure['remediation'])} |"
+            )
     regression = payload.get("regression")
     if isinstance(regression, dict):
         summary_raw = regression.get("summary")

@@ -5,13 +5,21 @@
 - Suites run: `2`
 - Dataset manifest: `results/pilot_check/datasets/manifest.json`
 
+## Readiness Summary
+
+- Status: `pass`
+- First failing gate: `None`
+- Next action: No blocking action. Optional provider skips are expected for offline pilots.
+- Required provider failures: `0`
+- Optional provider skips: `2`
+
 ## Providers
 
-| provider | model | ok | required | skipped | reason |
-|---|---|---:|---:|---:|---|
-| dummy | `dummy_good` | true | true | false |  |
-| openai | `openai:gpt-5-mini` | false | false | true | OPENAI_API_KEY is not set |
-| ollama | `ollama:ministral-3:8b` | false | false | true | Ollama is not reachable |
+| provider | model | status | required | next action | reason |
+|---|---|---|---:|---|---|
+| dummy | `dummy_good` | pass | true | No action. |  |
+| openai | `openai:gpt-5-mini` | optional skip | false | Set OPENAI_API_KEY, or keep hosted provider checks optional. | OPENAI_API_KEY is not set |
+| ollama | `ollama:ministral-3:8b` | optional skip | false | Start Ollama and pull the model, or keep local provider checks optional. | Ollama is not reachable |
 
 ## Datasets
 

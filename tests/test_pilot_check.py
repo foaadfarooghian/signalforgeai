@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from signalforgeai.pilot_check import DEFAULT_SUITE, run_pilot_check
+from signalforgeai.pilot_check import DEFAULT_SUITE, _write_report, run_pilot_check
 
 
 def test_pilot_check_dummy_mode_produces_readiness_artifacts(tmp_path: Path) -> None:
@@ -26,6 +26,7 @@ def test_pilot_check_dummy_mode_produces_readiness_artifacts(tmp_path: Path) -> 
     assert all(d["provenance_checked"] is True for d in payload["datasets"])
     assert all(d["duplicate_count"] == 0 for d in payload["datasets"])
     assert all(not d["quality_issues"] for d in payload["datasets"])
+    assert "Readiness Summary" in Path(payload["report_md"]).read_text(encoding="utf-8")
     assert "Dataset Quality" in Path(payload["report_md"]).read_text(encoding="utf-8")
     assert "regression" not in payload
     assert "training_preflight" not in payload
@@ -130,3 +131,67 @@ def test_pilot_check_training_preflight_writes_evidence(tmp_path: Path) -> None:
     full_report = json.loads(Path(training["report_json"]).read_text(encoding="utf-8"))
     assert full_report["artifact_manifest"]["dataset_hashes"]["dpo"]
     assert "Training Preflight" in Path(payload["report_md"]).read_text(encoding="utf-8")
+
+
+def test_pilot_report_highlights_provider_and_dataset_failures(tmp_path: Path) -> None:
+    report = tmp_path / "pilot_readiness.md"
+    payload = {
+        "ok": False,
+        "work_dir": str(tmp_path),
+        "suites": [],
+        "dataset_manifest": str(tmp_path / "datasets" / "manifest.json"),
+        "providers": [
+            {
+                "provider": "dummy",
+                "model_id": "dummy_good",
+                "ok": True,
+                "required": True,
+                "skipped": False,
+                "reason": "",
+            },
+            {
+                "provider": "openai",
+                "model_id": "openai:gpt-5-mini",
+                "ok": False,
+                "required": False,
+                "skipped": True,
+                "reason": "OPENAI_API_KEY is not set",
+            },
+            {
+                "provider": "ollama",
+                "model_id": "ollama:missing",
+                "ok": False,
+                "required": True,
+                "skipped": False,
+                "reason": "Ollama is not reachable | connection refused",
+            },
+        ],
+        "datasets": [
+            {
+                "kind": "sft",
+                "rows": 0,
+                "ok": False,
+                "path": str(tmp_path / "datasets" / "pilot.sft.jsonl"),
+                "issues": ["dataset has no rows"],
+                "content_sha256": "",
+                "split_counts": {},
+                "duplicate_count": 0,
+                "provenance_checked": True,
+                "missing_artifact_refs": [],
+                "quality_issues": ["line 1: missing meta.split"],
+            }
+        ],
+        "issues": ["dataset sft: dataset has no rows"],
+    }
+
+    _write_report(payload, report)
+
+    text = report.read_text(encoding="utf-8")
+    assert "First failing gate: `Provider readiness`" in text
+    assert "Fix required ollama configuration" in text
+    assert "optional skip" in text
+    assert "hard failure" in text
+    assert "Dataset Failure Details" in text
+    assert "SFT training rows" in text
+    assert "Regenerate pilot outputs" in text
+    assert "Ollama is not reachable \\| connection refused" in text
