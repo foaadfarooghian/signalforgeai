@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible problem in SignalForge AI.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not include secrets, API keys, private logs, or vulnerability details here.
+  - type: input
+    id: version
+    attributes:
+      label: SignalForge AI version
+      description: Run `python -c "import signalforgeai; print(signalforgeai.__version__)"`.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_source
+    attributes:
+      label: Install source
+      options:
+        - PyPI
+        - TestPyPI
+        - Editable source checkout
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest command sequence or code sample that reproduces the issue.
+      placeholder: |
+        1. pip install signalforgeai==0.4.0
+        2. signalforgeai-pilot-check --mode dummy
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Paste error output if it is safe to share.
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version and OS
+      placeholder: "Python 3.12 on macOS 15 / Ubuntu 24.04"
+    validations:
+      required: true

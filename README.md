@@ -16,6 +16,7 @@
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-purple" />
   <img alt="license" src="https://img.shields.io/badge/License-Apache%202.0-green.svg" />
   <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/foaadfarooghian/signalforgeai/ci.yml?branch=prod" />
+  <a href="https://pypi.org/project/signalforgeai/"><img alt="pypi" src="https://img.shields.io/pypi/v/signalforgeai" /></a>
 </p>
 
 ---
@@ -132,34 +133,38 @@ Good early domains:
 ## Quickstart
 
 ```bash
-git clone https://github.com/foaadfarooghian/signalforgeai.git
-cd signalforgeai
-
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install signalforgeai==0.4.0
 ```
 
-Run a reference agent example:
+Run the deterministic production-pilot readiness loop:
 
 ```bash
-python examples/quickstart_research_agent.py
+signalforgeai-pilot-check --mode dummy --work-dir results/pilot_check
 ```
 
-The quickstart is offline-safe by default and uses the deterministic
-`dummy_good` provider. To run against a configured local or hosted model, set
-`SIGNALFORGEAI_MODEL_ID` explicitly:
-
-```bash
-SIGNALFORGEAI_MODEL_ID=ollama:ministral-3:8b python examples/quickstart_research_agent.py
-SIGNALFORGEAI_MODEL_ID=openai:gpt-5-mini python examples/quickstart_research_agent.py
-```
+This quickstart is offline-safe by default and uses the deterministic
+`dummy_good` provider. It writes:
+- `results/pilot_check/pilot_readiness.md`
+- `results/pilot_check/pilot_readiness.json`
+- `results/pilot_check/logs/` with `trace.v0` and `reward.v0` artifacts
+- `results/pilot_check/datasets/manifest.json` plus SFT, preference, repair, and curriculum exports
 
 Validate and inspect the latest trace:
 
 ```bash
-python -m signalforgeai.logging.validate logs/$(ls -t logs | head -n 1)
-python -m signalforgeai.logging.inspect logs/$(ls -t logs | head -n 1)
+python -m signalforgeai.logging.validate results/pilot_check/logs/$(ls -t results/pilot_check/logs | head -n 1)
+python -m signalforgeai.logging.inspect results/pilot_check/logs/$(ls -t results/pilot_check/logs | head -n 1)
+```
+
+To run the repository examples, clone the source checkout and install editable:
+
+```bash
+git clone https://github.com/foaadfarooghian/signalforgeai.git
+cd signalforgeai
+pip install -e ".[dev]"
+python examples/quickstart_research_agent.py
 ```
 
 Run evaluation suites:
@@ -169,17 +174,13 @@ python -m signalforgeai.evaluation.run src/signalforgeai/evaluation/suites/quick
 python -m signalforgeai.evaluation.run src/signalforgeai/evaluation/suites/research_quickstart.json
 ```
 
-Run the deterministic production-pilot readiness loop:
+To run against a configured local or hosted model, set `SIGNALFORGEAI_MODEL_ID`
+explicitly:
 
 ```bash
-signalforgeai-pilot-check --mode dummy --work-dir results/pilot_check
+SIGNALFORGEAI_MODEL_ID=ollama:ministral-3:8b python examples/quickstart_research_agent.py
+SIGNALFORGEAI_MODEL_ID=openai:gpt-5-mini python examples/quickstart_research_agent.py
 ```
-
-This writes:
-- `results/pilot_check/pilot_readiness.md`
-- `results/pilot_check/pilot_readiness.json`
-- `results/pilot_check/logs/` with `trace.v0` and `reward.v0` artifacts
-- `results/pilot_check/datasets/manifest.json` plus SFT, preference, repair, and curriculum exports
 
 Pilot datasets are strict-gated by default: exported rows include deterministic
 split metadata, provenance links back to trace/reward artifacts, file hashes,

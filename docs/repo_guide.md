@@ -47,9 +47,19 @@ The project is packaged via `pyproject.toml` and requires Python 3.11 or newer.
 Use the dev extra for linting/tests, and the train extra only if you need local
 model training.
 
-Example setup:
+Public package setup:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install signalforgeai==0.4.0
+```
+
+Development checkout setup:
+
+```bash
+git clone https://github.com/foaadfarooghian/signalforgeai.git
+cd signalforgeai
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"

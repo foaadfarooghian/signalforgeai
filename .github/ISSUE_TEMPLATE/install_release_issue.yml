@@ -1,0 +1,44 @@
+name: Install or release issue
+description: Report package installation, CLI entry point, or release metadata problems.
+title: "[Install]: "
+labels:
+  - bug
+body:
+  - type: input
+    id: command
+    attributes:
+      label: Install command
+      placeholder: "pip install signalforgeai==0.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: package_index
+    attributes:
+      label: Package index
+      options:
+        - PyPI
+        - TestPyPI
+        - Local wheel or sdist
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version and OS
+      placeholder: "Python 3.12 on macOS 15 / Ubuntu 24.04"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Error output
+      description: Paste the relevant pip or CLI output. Remove tokens, private URLs, and credentials.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Include whether this affects core install, `[dev]`, or `[train]`.

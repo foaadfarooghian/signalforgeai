@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/foaadfarooghian/signalforgeai/security/advisories/new
+    about: Please report vulnerabilities privately through GitHub Security Advisories.
+  - name: PyPI package
+    url: https://pypi.org/project/signalforgeai/
+    about: Install the published package and inspect release metadata.
