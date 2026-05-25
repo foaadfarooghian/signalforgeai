@@ -26,19 +26,22 @@ Read these files first to get the intent and scope:
 - `README.md` for the product overview and quickstart.
 - `manifesto.md` for philosophy and non-goals.
 - `roadmap.md` for phased direction.
+- `docs/public_contracts.md` for current public surfaces and experimental areas.
+- `docs/first_pilot.md` for the PyPI-first offline pilot walkthrough.
 - `docs/design_principles.md` for architectural principles.
 
 ## Where To Start (New Developer Path)
 
 1. Skim `README.md`, `manifesto.md`, and `roadmap.md`.
-2. Run an example to see end-to-end logging:
+2. Follow `docs/first_pilot.md` to run the public offline pilot path.
+3. Run an example from a development checkout to see end-to-end logging:
    - `python examples/quickstart_research_agent.py`
-3. Validate and inspect the generated trace:
+4. Validate and inspect the generated trace:
    - `python -m signalforgeai.logging.validate logs/<trace_id>.jsonl`
    - `python -m signalforgeai.logging.inspect logs/<trace_id>.jsonl`
-4. Run a minimal evaluation suite:
+5. Run a minimal evaluation suite:
    - `python -m signalforgeai.evaluation.run src/signalforgeai/evaluation/suites/quickstart.json`
-5. Export datasets from logs (optional, but shows the learning loop):
+6. Export datasets from logs (optional, but shows the learning loop):
    - `signalforgeai-learn export --logs-root logs --out-dir datasets/examples --sft --prefs --curriculum`
 
 ## Setup and Dependencies

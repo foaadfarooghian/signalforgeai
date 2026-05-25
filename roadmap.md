@@ -213,23 +213,34 @@ offline gate.
 
 ---
 
-## Active Phase — Real Specialist Candidate Evidence
+## Active Phase — v0.5.0 Public Onboarding and Contract Clarity
 
-**Goal:** Run opt-in non-mock training evidence through the same release-candidate
-gate and evaluate/package the trained adapter as the candidate specialist.
+**Goal:** Make the first public post-release milestone easy to evaluate by new
+users and downstream contributors, without changing the `0.4.0` package
+behavior or requiring hosted/local model providers.
 
 ### Deliverables
-- `signalforgeai-release-candidate-check --run-training` for real SFT evidence
-- Optional `--run-dpo` second stage using the SFT run as parent evidence
-- Derived HF adapter candidate id for distillation and benchmark evidence
-- Release-candidate reports that record training mode, final stage, adapter refs,
-  checksums, provider status, and candidate model id
+- Public contract inventory for current stable and experimental surfaces:
+  package/import names, CLIs, environment variables, provider defaults, and
+  artifact families
+- First-pilot walkthrough from PyPI install to offline readiness artifacts,
+  trace inspection, dataset validation, and provider-backed next steps
+- Provider setup guidance that keeps `dummy_good` as the default and makes
+  Ollama/OpenAI/HF opt-in
+- Pilot-report interpretability issue for making first-user failures easier to
+  understand
+- `v0.5.0` release gate and acceptance checklist
+- Explicit post-0.5 scope issue for real specialist training evidence
 
 ### Exit criteria
-- Offline mock release-candidate behavior remains unchanged
-- Release environments can run bounded SFT evidence without shelling out
-- The trained adapter is used as the distillation and benchmark candidate by default
-- Training or provider failures make the release-candidate gate fail clearly
+- Fresh public users can install the latest public package and complete the
+  offline pilot walkthrough without networked model providers
+- Public contracts identify what is stable enough to build against and what
+  remains experimental before v1.0
+- Existing offline defaults and `0.4.0` public interfaces remain unchanged
+- GitHub milestone/issues and tracked docs tell the same 0.5.0 story
+- Real SFT/DPO training evidence is scoped as follow-up work, not the main
+  onboarding gate
 
 ---
 

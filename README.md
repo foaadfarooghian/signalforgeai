@@ -29,6 +29,9 @@
 - Breaking changes are expected while core runtime contracts are stabilized
 - Best fit today: internal platforms, research, and production pilots with pinned versions
 
+See `docs/public_contracts.md` for the current public surface and experimental
+boundaries.
+
 ---
 
 ## Narrowed product scope
@@ -150,6 +153,9 @@ This quickstart is offline-safe by default and uses the deterministic
 - `results/pilot_check/pilot_readiness.json`
 - `results/pilot_check/logs/` with `trace.v0` and `reward.v0` artifacts
 - `results/pilot_check/datasets/manifest.json` plus SFT, preference, repair, and curriculum exports
+
+For a guided first-user path from install through artifact inspection, see
+`docs/first_pilot.md`.
 
 Validate and inspect the latest trace:
 
