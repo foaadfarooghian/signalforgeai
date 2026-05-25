@@ -4,6 +4,8 @@ Concepts and design notes for SignalForge AI's narrowed scope: agent runtime,
 evaluation, trace-to-learning, and benchmarking.
 
 - `design_principles.md`: core principles for runtime, eval, data, and learning.
+- `public_contracts.md`: public package, CLI, env, provider, and artifact boundaries.
+- `first_pilot.md`: PyPI-first offline pilot walkthrough for new users.
 - `model_exchange.md`: specialist model registry/exchange contract and lifecycle.
 - `pilot_readiness_sample.md`: example output from the production-pilot readiness check.
 - `training_preflight_sample.json`: example `training_preflight.v0` evidence report.
