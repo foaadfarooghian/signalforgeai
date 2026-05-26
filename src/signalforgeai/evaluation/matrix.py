@@ -168,11 +168,30 @@ def resolve_suite_path(config: BenchmarkMatrixConfig, value: str) -> Path:
         return path
 
     aliases = _builtin_suite_aliases()
-    found = aliases.get(raw) or aliases.get(raw.removesuffix(".json"))
+    found = _resolve_builtin_suite_alias(aliases, raw, path)
     if found is not None:
         return found
 
     raise ValueError(f"unknown suite alias or path: {value}")
+
+
+def resolve_suite_value(value: str, *, source_path: str | Path | None = None) -> Path:
+    """Resolve a single suite alias or path without requiring a matrix config."""
+
+    config = BenchmarkMatrixConfig(
+        version=BENCHMARK_MATRIX_VERSION,
+        id="suite-resolution",
+        suites=[value],
+        model_ids=["dummy_good"],
+        metric_weights=MetricWeights(),
+        require_providers=[],
+        source_path=str(
+            Path(source_path)
+            if source_path is not None
+            else Path.cwd() / "suite_resolution.json"
+        ),
+    )
+    return resolve_suite_path(config, value)
 
 
 def run_benchmark_matrix(
@@ -740,6 +759,31 @@ def _builtin_suite_aliases() -> Dict[str, Path]:
         if isinstance(suite_name, str) and suite_name:
             aliases[suite_name] = suite_path
     return aliases
+
+
+def _resolve_builtin_suite_alias(
+    aliases: Dict[str, Path],
+    raw: str,
+    path: Path,
+) -> Optional[Path]:
+    candidates = [raw, raw.removesuffix(".json")]
+    if _looks_like_builtin_suite_path(path):
+        candidates.append(path.stem)
+    for candidate in candidates:
+        found = aliases.get(candidate)
+        if found is not None:
+            return found
+    return None
+
+
+def _looks_like_builtin_suite_path(path: Path) -> bool:
+    parts = path.parts
+    return (
+        path.suffix == ".json"
+        and "signalforgeai" in parts
+        and "evaluation" in parts
+        and "benchmarks" in parts
+    )
 
 
 def _suite_name(suite_path: Path) -> str:

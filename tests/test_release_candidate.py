@@ -122,6 +122,43 @@ def test_real_sft_final_evidence_can_be_required(tmp_path: Path) -> None:
     assert not (tmp_path / "override" / "dpo_lora").exists()
 
 
+def test_real_sft_final_evidence_requires_file_checksums(tmp_path: Path) -> None:
+    preflight_path = _write_preflight(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    real_sft_run = _write_real_sft_run_without_checksums(tmp_path, preflight_path)
+
+    with pytest.raises(ValueError, match="file checksums"):
+        write_release_training_evidence(
+            preflight=preflight,
+            preflight_path=preflight_path,
+            training_dir=tmp_path / "override",
+            base_model=REAL_SMOKE_MODEL,
+            sft_run=real_sft_run,
+            final_training_stage="sft",
+            require_real_training_evidence=True,
+        )
+
+
+def test_training_run_success_requires_file_checksums(tmp_path: Path) -> None:
+    out_dir = tmp_path / "empty_adapter"
+    out_dir.mkdir()
+
+    payload = build_training_run(
+        base_model=REAL_SMOKE_MODEL,
+        preflight=None,
+        preflight_path=None,
+        outputs={"sft_out": str(out_dir), "dpo_out": None, "sft_dir": None},
+        optional_dependencies={},
+        config={"source": "test", "sft": True, "dpo": False, "smoke": True, "max_steps": 1},
+        status="succeeded",
+        started_at=utc_now(),
+        duration_seconds=0.0,
+    )
+
+    assert payload["ok"] is False
+    assert any("file checksums" in issue for issue in payload["issues"])
+
+
 def test_release_candidate_requires_real_training_evidence(tmp_path: Path) -> None:
     code = release_main(
         [
@@ -193,6 +230,24 @@ def test_release_candidate_check_runs_offline_and_writes_bundle(tmp_path: Path) 
         "smoke_run",
         "registry_index",
     }
+
+
+def test_release_candidate_default_suite_runs_from_arbitrary_cwd(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cwd = tmp_path / "elsewhere"
+    cwd.mkdir()
+    work_dir = tmp_path / "release"
+    monkeypatch.chdir(cwd)
+
+    code = release_main(["--work-dir", str(work_dir)])
+
+    payload = json.loads((work_dir / "release_candidate.json").read_text(encoding="utf-8"))
+    assert code == 0
+    assert payload["ok"] is True
+    assert payload["command_config"]["suites"] == ["decision_v0"]
+    assert Path(payload["evidence_paths"]["benchmark_matrix"]).exists()
 
 
 def test_release_candidate_degraded_candidate_exits_nonzero(tmp_path: Path) -> None:
@@ -300,6 +355,36 @@ def test_release_candidate_run_training_rejects_placeholder_base_model(tmp_path:
             run_training=True,
             require_real_training_evidence=True,
         )
+
+
+def test_release_candidate_run_training_rejects_padded_placeholder_base_model(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="Hugging Face base model"):
+        run_release_candidate_check(
+            work_dir=tmp_path,
+            training_base_model=" dummy/base ",
+            run_training=True,
+            require_real_training_evidence=True,
+        )
+
+
+def test_release_candidate_cli_rejects_placeholder_base_model_before_run(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        release_main(
+            [
+                "--work-dir",
+                str(tmp_path),
+                "--run-training",
+                "--training-base-model",
+                " dummy/base ",
+            ]
+        )
+
+    assert exc.value.code == 2
+    assert not (tmp_path / "release_candidate.json").exists()
 
 
 def test_release_candidate_run_training_failure_fails_gate(
@@ -418,6 +503,15 @@ def _write_real_sft_run(tmp_path: Path, preflight_path: Path) -> Path:
         },
     )
     return write_training_run(payload, tmp_path / "real_sft_training_run.json")
+
+
+def _write_real_sft_run_without_checksums(tmp_path: Path, preflight_path: Path) -> Path:
+    path = _write_real_sft_run(tmp_path, preflight_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["file_checksums"] = {}
+    payload["output_artifacts"] = []
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
 
 
 def _install_real_training_fakes(tmp_path: Path, monkeypatch, captured: dict[str, str]) -> None:

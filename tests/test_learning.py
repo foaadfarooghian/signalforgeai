@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,7 +11,7 @@ import pytest
 from signalforgeai.export.quality import split_meta
 from signalforgeai.learning.bandits import RoutingBanditsV0, candidate_models_from_env
 from signalforgeai.learning.build_policy import build_routing_policy_v0
-from signalforgeai.learning.learn import main as learn_main
+from signalforgeai.learning.learn import _adapter_smoke_subprocess, main as learn_main
 from signalforgeai.learning.model_stats import RoutingStatsV0
 from signalforgeai.learning.routing_policy import RoutingPolicyV0
 from signalforgeai.training.readiness import (
@@ -313,6 +315,37 @@ def test_train_sft_run_writes_training_run_evidence(
     assert payload["preflight_path"] == str(report)
     assert payload["artifact_refs"]["adapters"] == [str(sft_out)]
     assert str(sft_out / "adapter_model.safetensors") in payload["file_checksums"]
+
+
+def test_adapter_smoke_subprocess_parses_last_json_line(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs["env"]
+        payload = {
+            "version": ADAPTER_SMOKE_VERSION,
+            "ok": True,
+            "base_model": REAL_SMOKE_MODEL,
+            "adapter_path": "/tmp/adapter",
+            "prompt_type": "single_turn_json",
+            "latency_ms": 1,
+            "details": {},
+            "reason": "",
+        }
+        return subprocess.CompletedProcess(cmd, 0, stdout="note\n" + json.dumps(payload) + "\n", stderr="")
+
+    monkeypatch.setattr("signalforgeai.learning.learn.subprocess.run", fake_run)
+
+    payload = _adapter_smoke_subprocess(
+        argparse.Namespace(base_model=REAL_SMOKE_MODEL),
+        "/tmp/adapter",
+    )
+
+    assert payload is not None
+    assert payload["ok"] is True
+    assert captured["env"]["SIGNALFORGEAI_ADAPTER_SMOKE_IN_PROCESS"] == "1"
+    assert captured["env"]["SIGNALFORGEAI_HF_LOG_DEVICE_MAP"] == "0"
 
 
 def test_train_dpo_run_uses_successful_sft_run_parent(

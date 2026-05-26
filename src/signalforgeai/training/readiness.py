@@ -234,6 +234,12 @@ def build_training_run(
         run_issues.append("training preflight is not ok")
     if status == "succeeded" and not artifact_scan["artifact_refs"]["adapters"]:
         run_issues.append("no training output artifacts found")
+    if (
+        status == "succeeded"
+        and artifact_scan["artifact_refs"]["adapters"]
+        and not artifact_scan["file_checksums"]
+    ):
+        run_issues.append("no training output file checksums found")
     if adapter_smoke is not None and adapter_smoke.get("ok") is not True:
         reason = str(adapter_smoke.get("reason") or "adapter smoke failed")
         run_issues.append(f"adapter smoke failed: {reason}")

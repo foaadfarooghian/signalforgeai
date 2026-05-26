@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from signalforgeai.distillation.check import (
     compare_distillation_results,
     load_training_preflight,
@@ -203,6 +205,25 @@ def test_distillation_check_writes_reports_for_dummy_recipe(tmp_path: Path) -> N
     assert payload["version"] == "distillation_eval.v0"
     assert Path(payload["report_json"]).exists()
     assert Path(payload["report_md"]).exists()
+
+
+def test_distillation_check_default_suite_runs_from_arbitrary_cwd(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    preflight = _write_preflight(tmp_path)
+    recipe = _write_recipe(tmp_path, preflight)
+    cwd = tmp_path / "outside-repo"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+
+    payload = run_distillation_check(
+        recipe_path=recipe,
+        work_dir=tmp_path / "distill",
+    )
+
+    assert payload["ok"] is True
+    assert Path(payload["report_json"]).exists()
 
 
 def test_distillation_check_degraded_candidate_exits_nonzero(tmp_path: Path) -> None:

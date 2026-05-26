@@ -17,6 +17,7 @@ from signalforgeai.distillation.recipe import (
 )
 from signalforgeai.evaluation.diagnosis import failure_mode_severity, normalize_failure_mode
 from signalforgeai.evaluation.harness import SuiteResult, run_suite
+from signalforgeai.evaluation.matrix import resolve_suite_value
 from signalforgeai.training.readiness import TRAINING_PREFLIGHT_VERSION
 
 
@@ -67,15 +68,16 @@ def run_distillation_check(
     candidate_suite: Optional[SuiteResult] = None
     comparison = empty_comparison(recipe.thresholds)
     if training_preflight is not None:
+        resolved_suite = str(resolve_suite_value(recipe.suite, source_path=recipe.source_path))
         baseline_suite = _run_model_suite(
             model_id=recipe.baseline_model_id,
-            suite_path=recipe.suite,
+            suite_path=resolved_suite,
             output_dir=work_dir / "results" / "baseline",
             logs_dir=work_dir / "logs" / "baseline",
         )
         candidate_suite = _run_model_suite(
             model_id=recipe.candidate_model_id,
-            suite_path=recipe.suite,
+            suite_path=resolved_suite,
             output_dir=work_dir / "results" / "candidate",
             logs_dir=work_dir / "logs" / "candidate",
         )

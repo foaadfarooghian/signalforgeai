@@ -66,6 +66,36 @@ def test_suite_aliases_resolve_to_packaged_suites(tmp_path: Path) -> None:
     assert suite_path.exists()
 
 
+def test_suite_aliases_resolve_from_arbitrary_cwd(tmp_path: Path, monkeypatch) -> None:
+    config = load_benchmark_matrix_config(_write_config(tmp_path / "matrix.json"))
+    cwd = tmp_path / "elsewhere"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+
+    suite_path = resolve_suite_path(config, "decision_v0")
+
+    assert suite_path.name == "decision_v0.json"
+    assert suite_path.exists()
+
+
+def test_legacy_builtin_suite_path_resolves_from_arbitrary_cwd(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config = load_benchmark_matrix_config(_write_config(tmp_path / "matrix.json"))
+    cwd = tmp_path / "elsewhere"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+
+    suite_path = resolve_suite_path(
+        config,
+        "src/signalforgeai/evaluation/benchmarks/v0/suites/decision_v0.json",
+    )
+
+    assert suite_path.name == "decision_v0.json"
+    assert suite_path.exists()
+
+
 def test_matrix_overrides_filter_suites_and_models(tmp_path: Path) -> None:
     config = load_benchmark_matrix_config(_write_config(tmp_path / "matrix.json"))
 

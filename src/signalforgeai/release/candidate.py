@@ -88,7 +88,7 @@ def run_release_candidate_check(
         raise ValueError("--final-training-stage dpo requires --run-dpo")
     if run_training and run_dpo and final_training_stage == "sft":
         raise ValueError("--final-training-stage sft cannot be combined with --run-dpo")
-    if run_training and training_base_model in PLACEHOLDER_TRAINING_BASE_MODELS:
+    if run_training and _is_placeholder_training_base_model(training_base_model):
         raise ValueError(_invalid_training_base_model_issue())
     root = Path(work_dir).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -424,7 +424,7 @@ def write_release_training_evidence(
     mode = "external" if sft_run or dpo_run else "mock"
 
     if run_training:
-        if base_model in PLACEHOLDER_TRAINING_BASE_MODELS:
+        if _is_placeholder_training_base_model(base_model):
             return {
                 "ok": False,
                 "mode": "run",
@@ -453,7 +453,7 @@ def write_release_training_evidence(
 
     if dpo_run is not None:
         payload = load_training_run_report(dpo_run)
-        _require_adapter_refs(payload, str(dpo_run))
+        _require_adapter_evidence(payload, str(dpo_run))
         real = _is_real_training_run(payload)
         if require_real_training_evidence and not real:
             issues.append(_real_training_required_issue())
@@ -474,7 +474,7 @@ def write_release_training_evidence(
 
     if sft_run is not None:
         sft_payload = load_training_run_report(sft_run)
-        _require_adapter_refs(sft_payload, str(sft_run))
+        _require_adapter_evidence(sft_payload, str(sft_run))
         parent = summarize_dpo_parent_run(sft_run)
         sft_path = Path(sft_run).resolve()
         runs["sft"] = str(sft_path)
@@ -606,7 +606,7 @@ def _write_real_training_evidence(
             issues.append(f"SFT training exited nonzero: {sft_code}")
         try:
             sft_payload = load_training_run_report(sft_report)
-            _require_adapter_refs(sft_payload, str(sft_report))
+            _require_adapter_evidence(sft_payload, str(sft_report))
         except Exception as exc:
             issues.append(str(exc))
 
@@ -670,7 +670,7 @@ def _write_real_training_evidence(
             issues.append(f"DPO training exited nonzero: {dpo_code}")
         try:
             dpo_payload = load_training_run_report(dpo_report)
-            _require_adapter_refs(dpo_payload, str(dpo_report))
+            _require_adapter_evidence(dpo_payload, str(dpo_report))
         except Exception as exc:
             issues.append(str(exc))
 
@@ -1035,16 +1035,18 @@ def _optional_dependencies(preflight: Mapping[str, Any]) -> Dict[str, bool]:
     return {str(key): bool(item) for key, item in value.items()}
 
 
-def _require_adapter_refs(payload: Mapping[str, Any], path: str) -> None:
+def _require_adapter_evidence(payload: Mapping[str, Any], path: str) -> None:
     if not _adapter_refs(payload):
         raise ValueError(f"training run has no adapter refs: {path}")
+    if not _file_checksums(payload):
+        raise ValueError(f"training run has no file checksums: {path}")
 
 
 def _is_real_training_run(payload: Mapping[str, Any]) -> bool:
     config = payload.get("command_config")
     adapter_smoke = payload.get("adapter_smoke")
     smoke_ok = isinstance(adapter_smoke, Mapping) and adapter_smoke.get("ok") is True
-    return smoke_ok and not (
+    return bool(_adapter_refs(payload)) and bool(_file_checksums(payload)) and smoke_ok and not (
         isinstance(config, Mapping)
         and str(config.get("training_evidence_mode") or "").lower() == "mock"
     )
@@ -1065,6 +1067,10 @@ def _invalid_training_base_model_issue() -> str:
     )
 
 
+def _is_placeholder_training_base_model(base_model: str) -> bool:
+    return str(base_model or "").strip() in PLACEHOLDER_TRAINING_BASE_MODELS
+
+
 def _adapter_refs(payload: Mapping[str, Any]) -> List[str]:
     final_refs = payload.get("final_adapter_refs")
     if isinstance(final_refs, list) and final_refs:
@@ -1075,6 +1081,21 @@ def _adapter_refs(payload: Mapping[str, Any]) -> List[str]:
         if isinstance(adapters, list):
             return [str(value) for value in adapters if str(value)]
     return []
+
+
+def _file_checksums(payload: Mapping[str, Any]) -> Dict[str, str]:
+    checksums = payload.get("file_checksums")
+    if not isinstance(checksums, Mapping):
+        return {}
+    out: Dict[str, str] = {}
+    for key, value in checksums.items():
+        if key is None or value is None:
+            continue
+        key_text = str(key).strip()
+        value_text = str(value).strip()
+        if key_text and value_text:
+            out[key_text] = value_text
+    return out
 
 
 def _first_adapter_ref(parent: Mapping[str, Any]) -> str:
@@ -1182,6 +1203,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         parser.error("--final-training-stage dpo requires --run-dpo")
     if args.run_training and args.run_dpo and args.final_training_stage == "sft":
         parser.error("--final-training-stage sft cannot be combined with --run-dpo")
+    if args.run_training and _is_placeholder_training_base_model(args.training_base_model):
+        parser.error(_invalid_training_base_model_issue())
 
     payload = run_release_candidate_check(
         work_dir=args.work_dir,

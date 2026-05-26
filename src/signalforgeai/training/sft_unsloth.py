@@ -77,6 +77,16 @@ def _precision_flags():
     return False, False
 
 
+def _response_mask_parts():
+    instruction_part = os.environ.get("INSTRUCTION_PART", "").strip("\r")
+    response_part = os.environ.get("RESPONSE_PART", "").strip("\r")
+    if instruction_part or response_part:
+        return instruction_part or "<|user|>\n", response_part or "<|assistant|>\n"
+    if "tinyllama" in BASE_MODEL.lower():
+        return "<|user|>\n", "<|assistant|>\n"
+    return "<|im_start|>user\n", "<|im_start|>assistant\n"
+
+
 def main():
     bf16, fp16 = _precision_flags()
     model, tokenizer = FastLanguageModel.from_pretrained(
@@ -134,17 +144,14 @@ def main():
         max_seq_length=MAX_SEQ_LENGTH,
         packing=False,
     )
-    try:
-        trainer = train_on_responses_only(trainer, num_proc=1)
-    except ValueError:
-        instruction_part = os.environ.get("INSTRUCTION_PART", "<|im_start|>user\n")
-        response_part = os.environ.get("RESPONSE_PART", "<|im_start|>assistant\n")
-        trainer = train_on_responses_only(
-            trainer,
-            instruction_part=instruction_part,
-            response_part=response_part,
-            num_proc=1,
-        )
+    instruction_part, response_part = _response_mask_parts()
+    trainer = train_on_responses_only(
+        trainer,
+        instruction_part=instruction_part,
+        response_part=response_part,
+        force_match=False,
+        num_proc=1,
+    )
 
     trainer.train()
     trainer.save_model(OUT_DIR)

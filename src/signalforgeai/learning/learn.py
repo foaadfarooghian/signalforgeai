@@ -6,6 +6,8 @@ import argparse
 import json
 import os
 import platform
+import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional, Set
@@ -506,6 +508,73 @@ def _run_dpo_training() -> None:
 
 
 def _adapter_load_generate_smoke(
+    args: argparse.Namespace,
+    adapter_path: str,
+) -> dict[str, object]:
+    if os.getenv("SIGNALFORGEAI_ADAPTER_SMOKE_IN_PROCESS", "0").lower() in {"1", "true", "yes"}:
+        return _adapter_load_generate_smoke_in_process(args, adapter_path)
+    payload = _adapter_smoke_subprocess(args, adapter_path)
+    if payload is not None:
+        return payload
+    return _adapter_load_generate_smoke_in_process(args, adapter_path)
+
+
+def _adapter_smoke_subprocess(
+    args: argparse.Namespace,
+    adapter_path: str,
+) -> dict[str, object] | None:
+    code = (
+        "import argparse, json; "
+        "from signalforgeai.learning.learn import _adapter_load_generate_smoke_in_process; "
+        "args = argparse.Namespace(base_model=__import__('sys').argv[1]); "
+        "print(json.dumps(_adapter_load_generate_smoke_in_process(args, __import__('sys').argv[2])))"
+    )
+    env = dict(os.environ)
+    env["SIGNALFORGEAI_ADAPTER_SMOKE_IN_PROCESS"] = "1"
+    env.setdefault("SIGNALFORGEAI_HF_LOG_DEVICE_MAP", "0")
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code, str(args.base_model), str(adapter_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=int(os.getenv("SIGNALFORGEAI_ADAPTER_SMOKE_TIMEOUT_SECONDS", "180")),
+            env=env,
+        )
+    except Exception as exc:
+        return {
+            "version": ADAPTER_SMOKE_VERSION,
+            "created_at": utc_now(),
+            "ok": False,
+            "base_model": str(args.base_model),
+            "adapter_path": str(adapter_path),
+            "model_id": f"hf:{args.base_model}?adapter={adapter_path}",
+            "prompt_type": "single_turn_json",
+            "latency_ms": 0,
+            "details": {},
+            "reason": f"adapter smoke subprocess failed: {exc}",
+        }
+    if result.returncode != 0:
+        reason = (result.stderr or result.stdout or f"exit code {result.returncode}").strip()
+        return {
+            "version": ADAPTER_SMOKE_VERSION,
+            "created_at": utc_now(),
+            "ok": False,
+            "base_model": str(args.base_model),
+            "adapter_path": str(adapter_path),
+            "model_id": f"hf:{args.base_model}?adapter={adapter_path}",
+            "prompt_type": "single_turn_json",
+            "latency_ms": 0,
+            "details": {},
+            "reason": reason[-1000:],
+        }
+    try:
+        return json.loads(result.stdout.strip().splitlines()[-1])
+    except Exception:
+        return None
+
+
+def _adapter_load_generate_smoke_in_process(
     args: argparse.Namespace,
     adapter_path: str,
 ) -> dict[str, object]:
