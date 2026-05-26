@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set
 
 from signalforgeai.distillation.recipe import DISTILLATION_RECIPE_VERSION
 from signalforgeai.evaluation.harness import run_suite
+from signalforgeai.evaluation.matrix import resolve_suite_value
 from signalforgeai.evaluation.regression import (
     RegressionPolicy,
     compare_pilot_readiness,
@@ -33,7 +34,7 @@ from signalforgeai.training.readiness import (
 )
 
 
-DEFAULT_SUITE = "src/signalforgeai/evaluation/benchmarks/v0/suites/decision_v0.json"
+DEFAULT_SUITE = "decision_v0"
 
 
 def _iter_jsonl_files(root: Path) -> Iterable[Path]:
@@ -524,11 +525,15 @@ def run_pilot_check(
     old_model = os.environ.get("SIGNALFORGEAI_MODEL_ID")
     old_provider = os.environ.get("SIGNALFORGEAI_PROVIDER")
     suite_results = []
+    resolved_suites = [
+        str(resolve_suite_value(suite, source_path=work_dir / "pilot_suites.json"))
+        for suite in suites
+    ]
     try:
         os.environ["SIGNALFORGEAI_PROVIDER"] = "dummy"
         for model_id in ("dummy_good", "dummy_bad"):
             os.environ["SIGNALFORGEAI_MODEL_ID"] = model_id
-            for suite in suites:
+            for suite in resolved_suites:
                 result = run_suite(suite_path=suite, output_dir=results_dir, logs_dir=logs_dir)
                 suite_results.append(asdict(result))
     finally:

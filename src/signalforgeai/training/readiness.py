@@ -16,6 +16,7 @@ TRAINING_PREFLIGHT_VERSION = "training_preflight.v0"
 TRAINING_ARTIFACT_VERSION = "training_artifact.v0"
 TRAINING_SMOKE_VERSION = "training_smoke.v0"
 TRAINING_RUN_VERSION = "training_run.v0"
+ADAPTER_SMOKE_VERSION = "adapter_smoke.v0"
 TRAINING_DEPENDENCIES = ("torch", "datasets", "transformers", "trl", "unsloth")
 TRAINING_OUTPUT_SUFFIXES = (".safetensors", ".bin", ".json", ".model", ".txt")
 
@@ -221,6 +222,7 @@ def build_training_run(
     started_at: str,
     duration_seconds: float,
     issues: Sequence[str] = (),
+    adapter_smoke: Mapping[str, Any] | None = None,
     completed_at: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build `training_run.v0` evidence for an attempted training execution."""
@@ -232,6 +234,15 @@ def build_training_run(
         run_issues.append("training preflight is not ok")
     if status == "succeeded" and not artifact_scan["artifact_refs"]["adapters"]:
         run_issues.append("no training output artifacts found")
+    if (
+        status == "succeeded"
+        and artifact_scan["artifact_refs"]["adapters"]
+        and not artifact_scan["file_checksums"]
+    ):
+        run_issues.append("no training output file checksums found")
+    if adapter_smoke is not None and adapter_smoke.get("ok") is not True:
+        reason = str(adapter_smoke.get("reason") or "adapter smoke failed")
+        run_issues.append(f"adapter smoke failed: {reason}")
     stage = _training_stage(config)
     deps = dict(optional_dependencies)
     missing_dependencies = sorted(name for name, ok in deps.items() if not ok)
@@ -262,6 +273,7 @@ def build_training_run(
         "dependencies_ok": not missing_dependencies,
         "missing_dependencies": missing_dependencies,
         "smoke_bounded": bool(config.get("smoke") and int(config.get("max_steps") or 0) == 1),
+        "adapter_smoke": dict(adapter_smoke) if isinstance(adapter_smoke, Mapping) else None,
         "command_config": dict(config),
         "issues": run_issues,
     }

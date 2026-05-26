@@ -55,7 +55,7 @@ Example:
   "schema_version": "specialist_model_unit.v0",
   "id": "nutrition-extractor-mini",
   "name": "Nutrition Extractor Mini",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "domain": "nutrition",
   "model": {
     "family": "llama",
@@ -98,7 +98,7 @@ Example:
     "gguf": ["s3://tf-models/nutrition-mini/model-q4.gguf"],
     "ollama": {
       "modelfile": "artifacts/ollama/Modelfile",
-      "tag": "tf/nutrition-mini:0.5.0"
+      "tag": "tf/nutrition-mini:0.6.0"
     }
   }
 }
@@ -115,7 +115,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.5.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.6.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -124,7 +124,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.5.0
+  --ollama-tag signalforgeai/pilot-specialist:0.6.0
 ```
 
 Attach package evidence, run a consumer smoke check, then validate and index

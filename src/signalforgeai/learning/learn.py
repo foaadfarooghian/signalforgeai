@@ -6,6 +6,8 @@ import argparse
 import json
 import os
 import platform
+import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional, Set
@@ -16,6 +18,7 @@ from signalforgeai.export.repairs import export_repairs
 from signalforgeai.export.validate import validate_dataset_jsonl
 from signalforgeai.learning.curriculum import export_curriculum
 from signalforgeai.training.readiness import (
+    ADAPTER_SMOKE_VERSION,
     TrainingDatasetCheck,
     build_training_run,
     build_training_preflight,
@@ -29,6 +32,8 @@ from signalforgeai.training.readiness import (
 )
 
 SUPPORTED_TRAINING_PLATFORM = "Linux"
+DEFAULT_REAL_SFT_SMOKE_MODEL = "unsloth/tinyllama-chat-bnb-4bit"
+PLACEHOLDER_TRAINING_BASE_MODELS = {"dummy/base", "YOUR_HF_BASE_MODEL_ID_HERE"}
 
 
 @dataclass(frozen=True)
@@ -197,6 +202,7 @@ def _train_cmd(args: argparse.Namespace) -> int:
         raise SystemExit("--base-model is required for training")
     platform_issue = _training_platform_issue()
 
+    _configure_training_environment(args)
     os.environ["BASE_MODEL"] = args.base_model
     if args.max_steps > 0:
         os.environ["MAX_STEPS"] = str(args.max_steps)
@@ -227,6 +233,30 @@ def _train_cmd(args: argparse.Namespace) -> int:
             write_training_run(run_payload, args.run_report_out)
         print(json.dumps(payload, indent=2))
         return 0 if payload["ok"] else 2
+
+    base_model_issue = _training_base_model_issue(args)
+    if base_model_issue:
+        if args.quality_gate or args.report_out or args.run_report_out or args.smoke:
+            payload = _training_preflight_payload(args, dry_run=False)
+            payload["ok"] = False
+            payload["issues"] = _payload_issues(payload) + [base_model_issue]
+            preflight_path = None
+            if args.report_out:
+                preflight_path = write_training_preflight(payload, args.report_out)
+            if args.run_report_out:
+                run_payload = _training_run_payload(
+                    args,
+                    preflight_payload=payload,
+                    preflight_path=preflight_path,
+                    status="blocked_invalid_base_model",
+                    started_at=utc_now(),
+                    duration_seconds=0.0,
+                    issues=_payload_issues(payload),
+                )
+                write_training_run(run_payload, args.run_report_out)
+            print(json.dumps(payload, indent=2))
+            return 2
+        raise SystemExit(base_model_issue)
 
     if platform_issue:
         if args.quality_gate or args.report_out or args.run_report_out or args.smoke:
@@ -302,6 +332,12 @@ def _train_cmd(args: argparse.Namespace) -> int:
         except (Exception, SystemExit) as exc:
             issues.append(_training_exception_message(exc))
 
+    adapter_smoke = None
+    if args.smoke and not issues:
+        adapter_smoke = _adapter_load_generate_smoke(args, _final_adapter_path(args, dpo_parent_run))
+        if adapter_smoke.get("ok") is not True:
+            issues.append(f"adapter smoke failed: {adapter_smoke.get('reason')}")
+
     if args.run_report_out:
         status = "failed" if issues else "succeeded"
         run_payload = _training_run_payload(
@@ -313,6 +349,7 @@ def _train_cmd(args: argparse.Namespace) -> int:
             started_at=started_at,
             duration_seconds=monotonic_seconds() - started,
             issues=issues,
+            adapter_smoke=adapter_smoke,
         )
         write_training_run(run_payload, args.run_report_out)
         if not run_payload["ok"]:
@@ -398,6 +435,7 @@ def _training_run_payload(
     duration_seconds: float,
     issues: list[str],
     dpo_parent_run: dict[str, object] | None = None,
+    adapter_smoke: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return build_training_run(
         base_model=args.base_model,
@@ -429,6 +467,27 @@ def _training_run_payload(
         started_at=started_at,
         duration_seconds=duration_seconds,
         issues=issues,
+        adapter_smoke=adapter_smoke,
+    )
+
+
+def _configure_training_environment(args: argparse.Namespace) -> None:
+    os.environ["SIGNALFORGEAI_TRAINING_SMOKE"] = "1" if args.smoke else "0"
+    if args.smoke and int(args.max_steps or 0) == 1:
+        os.environ.setdefault("SIGNALFORGEAI_TRAINING_MAX_SEQ_LENGTH", "512")
+        os.environ.setdefault("SIGNALFORGEAI_TRAINING_BATCH_SIZE", "1")
+        os.environ.setdefault("SIGNALFORGEAI_TRAINING_GRADIENT_ACCUMULATION_STEPS", "1")
+        os.environ.setdefault("SIGNALFORGEAI_TRAINING_SEED", "42")
+        os.environ.setdefault("SIGNALFORGEAI_TRAINING_PRECISION", "auto")
+
+
+def _training_base_model_issue(args: argparse.Namespace) -> str | None:
+    base_model = str(args.base_model or "").strip()
+    if base_model not in PLACEHOLDER_TRAINING_BASE_MODELS:
+        return None
+    return (
+        "Real training requires a Hugging Face base model; pass --base-model "
+        f"{DEFAULT_REAL_SFT_SMOKE_MODEL} or another valid HF model id."
     )
 
 
@@ -448,6 +507,133 @@ def _run_dpo_training() -> None:
     dpo_main()
 
 
+def _adapter_load_generate_smoke(
+    args: argparse.Namespace,
+    adapter_path: str,
+) -> dict[str, object]:
+    if os.getenv("SIGNALFORGEAI_ADAPTER_SMOKE_IN_PROCESS", "0").lower() in {"1", "true", "yes"}:
+        return _adapter_load_generate_smoke_in_process(args, adapter_path)
+    payload = _adapter_smoke_subprocess(args, adapter_path)
+    if payload is not None:
+        return payload
+    return _adapter_load_generate_smoke_in_process(args, adapter_path)
+
+
+def _adapter_smoke_subprocess(
+    args: argparse.Namespace,
+    adapter_path: str,
+) -> dict[str, object] | None:
+    code = (
+        "import argparse, json; "
+        "from signalforgeai.learning.learn import _adapter_load_generate_smoke_in_process; "
+        "args = argparse.Namespace(base_model=__import__('sys').argv[1]); "
+        "print(json.dumps(_adapter_load_generate_smoke_in_process(args, __import__('sys').argv[2])))"
+    )
+    env = dict(os.environ)
+    env["SIGNALFORGEAI_ADAPTER_SMOKE_IN_PROCESS"] = "1"
+    env.setdefault("SIGNALFORGEAI_HF_LOG_DEVICE_MAP", "0")
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code, str(args.base_model), str(adapter_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=int(os.getenv("SIGNALFORGEAI_ADAPTER_SMOKE_TIMEOUT_SECONDS", "180")),
+            env=env,
+        )
+    except Exception as exc:
+        return {
+            "version": ADAPTER_SMOKE_VERSION,
+            "created_at": utc_now(),
+            "ok": False,
+            "base_model": str(args.base_model),
+            "adapter_path": str(adapter_path),
+            "model_id": f"hf:{args.base_model}?adapter={adapter_path}",
+            "prompt_type": "single_turn_json",
+            "latency_ms": 0,
+            "details": {},
+            "reason": f"adapter smoke subprocess failed: {exc}",
+        }
+    if result.returncode != 0:
+        reason = (result.stderr or result.stdout or f"exit code {result.returncode}").strip()
+        return {
+            "version": ADAPTER_SMOKE_VERSION,
+            "created_at": utc_now(),
+            "ok": False,
+            "base_model": str(args.base_model),
+            "adapter_path": str(adapter_path),
+            "model_id": f"hf:{args.base_model}?adapter={adapter_path}",
+            "prompt_type": "single_turn_json",
+            "latency_ms": 0,
+            "details": {},
+            "reason": reason[-1000:],
+        }
+    try:
+        return json.loads(result.stdout.strip().splitlines()[-1])
+    except Exception:
+        return None
+
+
+def _adapter_load_generate_smoke_in_process(
+    args: argparse.Namespace,
+    adapter_path: str,
+) -> dict[str, object]:
+    started = monotonic_seconds()
+    payload: dict[str, object] = {
+        "version": ADAPTER_SMOKE_VERSION,
+        "created_at": utc_now(),
+        "ok": False,
+        "base_model": str(args.base_model),
+        "adapter_path": str(adapter_path),
+        "model_id": f"hf:{args.base_model}?adapter={adapter_path}",
+        "prompt_type": "single_turn_json",
+        "latency_ms": 0,
+        "details": {},
+        "reason": "",
+    }
+    if not adapter_path:
+        payload["reason"] = "no adapter path available"
+        return payload
+    try:
+        from signalforgeai.models.providers.hf import HFProvider
+
+        provider = HFProvider(load_in_4bit=True, max_new_tokens_default=32, temperature_default=0.0)
+        output = provider.generate(
+            prompt="Return a short JSON object with key status and value ok.",
+            model_id=str(payload["model_id"]),
+            task_type="training_adapter_smoke",
+        )
+        extra = dict(output.metrics.extra or {})
+        payload.update(
+            {
+                "ok": True,
+                "latency_ms": output.metrics.latency_ms,
+                "generated_chars": len(output.text),
+                "details": {
+                    "provider": extra.get("provider"),
+                    "model_name": extra.get("model_name"),
+                    "adapter": extra.get("adapter"),
+                    "attn_impl": extra.get("attn_impl"),
+                    "load_label": extra.get("load_label"),
+                    "usage": extra.get("usage"),
+                },
+                "reason": "",
+            }
+        )
+    except Exception as exc:
+        payload["latency_ms"] = int((monotonic_seconds() - started) * 1000)
+        payload["reason"] = str(exc)
+    return payload
+
+
+def _final_adapter_path(args: argparse.Namespace, dpo_parent_run: dict[str, object] | None) -> str:
+    if args.dpo:
+        return args.dpo_out
+    if args.sft:
+        return args.sft_out
+    return _dpo_parent_adapter(dpo_parent_run)
+
+
 def _training_platform_issue() -> str | None:
     if os.getenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM") == "1":
         return None
@@ -455,7 +641,7 @@ def _training_platform_issue() -> str | None:
     if current == SUPPORTED_TRAINING_PLATFORM:
         return None
     return (
-        "Training execution is Linux-only in SignalForge AI v0.5.0. "
+        "Training execution is Linux-only in SignalForge AI v0.6.0. "
         f"Current platform: {current}. Use --dry-run for preflight here, "
         "or run inside Linux with: pip install -e '.[train]'."
     )
@@ -463,7 +649,7 @@ def _training_platform_issue() -> str | None:
 
 def _training_dependency_message() -> str:
     return (
-        "Training deps missing or unsupported. SignalForge AI v0.5.0 training is Linux-only; "
+        "Training deps missing or unsupported. SignalForge AI v0.6.0 training is Linux-only; "
         "install inside Linux with: pip install -e '.[train]'."
     )
 

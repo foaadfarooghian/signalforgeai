@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,13 +11,16 @@ import pytest
 from signalforgeai.export.quality import split_meta
 from signalforgeai.learning.bandits import RoutingBanditsV0, candidate_models_from_env
 from signalforgeai.learning.build_policy import build_routing_policy_v0
-from signalforgeai.learning.learn import main as learn_main
+from signalforgeai.learning.learn import _adapter_smoke_subprocess, main as learn_main
 from signalforgeai.learning.model_stats import RoutingStatsV0
 from signalforgeai.learning.routing_policy import RoutingPolicyV0
 from signalforgeai.training.readiness import (
+    ADAPTER_SMOKE_VERSION,
     load_training_preflight_report,
     scan_training_output_artifacts,
 )
+
+REAL_SMOKE_MODEL = "unsloth/tinyllama-chat-bnb-4bit"
 
 
 def test_bandits_update_from_rewards_creates_arm() -> None:
@@ -176,7 +181,7 @@ def test_train_dry_run_quality_gate_fails_duplicate_payloads(tmp_path: Path) -> 
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--sft",
             "--sft-data",
             str(sft),
@@ -215,7 +220,7 @@ def test_train_dry_run_smoke_reports_missing_optional_deps(
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--sft",
             "--sft-data",
             str(sft),
@@ -246,21 +251,41 @@ def test_train_sft_run_writes_training_run_evidence(
     sft_out = tmp_path / "sft_lora"
     deps = {name: True for name in ("torch", "datasets", "transformers", "trl", "unsloth")}
     monkeypatch.setenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
+    monkeypatch.delenv("SIGNALFORGEAI_TRAINING_MAX_SEQ_LENGTH", raising=False)
+    monkeypatch.delenv("SIGNALFORGEAI_TRAINING_BATCH_SIZE", raising=False)
+    monkeypatch.delenv("SIGNALFORGEAI_TRAINING_GRADIENT_ACCUMULATION_STEPS", raising=False)
 
     def fake_sft_training() -> None:
+        assert os.environ["SIGNALFORGEAI_TRAINING_SMOKE"] == "1"
+        assert os.environ["SIGNALFORGEAI_TRAINING_MAX_SEQ_LENGTH"] == "512"
+        assert os.environ["SIGNALFORGEAI_TRAINING_BATCH_SIZE"] == "1"
+        assert os.environ["SIGNALFORGEAI_TRAINING_GRADIENT_ACCUMULATION_STEPS"] == "1"
         out = Path(os.environ["OUT_DIR"])
         out.mkdir(parents=True, exist_ok=True)
         (out / "adapter_model.safetensors").write_text("weights", encoding="utf-8")
         (out / "adapter_config.json").write_text("{}", encoding="utf-8")
 
+    def fake_adapter_smoke(_args, adapter_path: str) -> dict[str, object]:
+        return {
+            "version": ADAPTER_SMOKE_VERSION,
+            "ok": True,
+            "base_model": REAL_SMOKE_MODEL,
+            "adapter_path": adapter_path,
+            "prompt_type": "single_turn_json",
+            "latency_ms": 1,
+            "details": {"load_label": "test"},
+            "reason": "",
+        }
+
     monkeypatch.setattr("signalforgeai.learning.learn._run_sft_training", fake_sft_training)
+    monkeypatch.setattr("signalforgeai.learning.learn._adapter_load_generate_smoke", fake_adapter_smoke)
     monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--sft",
             "--sft-data",
             str(sft),
@@ -285,9 +310,42 @@ def test_train_sft_run_writes_training_run_evidence(
     assert payload["ok"] is True
     assert payload["status"] == "succeeded"
     assert payload["smoke_bounded"] is True
+    assert payload["adapter_smoke"]["ok"] is True
+    assert payload["adapter_smoke"]["adapter_path"] == str(sft_out)
     assert payload["preflight_path"] == str(report)
     assert payload["artifact_refs"]["adapters"] == [str(sft_out)]
     assert str(sft_out / "adapter_model.safetensors") in payload["file_checksums"]
+
+
+def test_adapter_smoke_subprocess_parses_last_json_line(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs["env"]
+        payload = {
+            "version": ADAPTER_SMOKE_VERSION,
+            "ok": True,
+            "base_model": REAL_SMOKE_MODEL,
+            "adapter_path": "/tmp/adapter",
+            "prompt_type": "single_turn_json",
+            "latency_ms": 1,
+            "details": {},
+            "reason": "",
+        }
+        return subprocess.CompletedProcess(cmd, 0, stdout="note\n" + json.dumps(payload) + "\n", stderr="")
+
+    monkeypatch.setattr("signalforgeai.learning.learn.subprocess.run", fake_run)
+
+    payload = _adapter_smoke_subprocess(
+        argparse.Namespace(base_model=REAL_SMOKE_MODEL),
+        "/tmp/adapter",
+    )
+
+    assert payload is not None
+    assert payload["ok"] is True
+    assert captured["env"]["SIGNALFORGEAI_ADAPTER_SMOKE_IN_PROCESS"] == "1"
+    assert captured["env"]["SIGNALFORGEAI_HF_LOG_DEVICE_MAP"] == "0"
 
 
 def test_train_dpo_run_uses_successful_sft_run_parent(
@@ -309,18 +367,31 @@ def test_train_dpo_run_uses_successful_sft_run_parent(
         out.mkdir(parents=True, exist_ok=True)
         (out / "adapter_model.safetensors").write_text("dpo-weights", encoding="utf-8")
 
+    def fake_adapter_smoke(_args, adapter_path: str) -> dict[str, object]:
+        return {
+            "version": ADAPTER_SMOKE_VERSION,
+            "ok": True,
+            "base_model": REAL_SMOKE_MODEL,
+            "adapter_path": adapter_path,
+            "prompt_type": "single_turn_json",
+            "latency_ms": 1,
+            "details": {"load_label": "test"},
+            "reason": "",
+        }
+
     def fail_sft_training() -> None:
         raise AssertionError("SFT should not run for DPO-only execution")
 
     monkeypatch.setattr("signalforgeai.learning.learn._run_sft_training", fail_sft_training)
     monkeypatch.setattr("signalforgeai.learning.learn._run_dpo_training", fake_dpo_training)
+    monkeypatch.setattr("signalforgeai.learning.learn._adapter_load_generate_smoke", fake_adapter_smoke)
     monkeypatch.setattr("signalforgeai.learning.learn.check_optional_training_dependencies", lambda: deps)
 
     code = learn_main(
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--dpo",
             "--dpo-data",
             str(dpo),
@@ -343,6 +414,8 @@ def test_train_dpo_run_uses_successful_sft_run_parent(
     payload = json.loads(run_report.read_text(encoding="utf-8"))
     assert payload["training_stage"] == "dpo"
     assert payload["dpo_parent_run"]["path"] == str(sft_run)
+    assert payload["adapter_smoke"]["ok"] is True
+    assert payload["adapter_smoke"]["adapter_path"] == str(dpo_out)
     assert payload["artifact_refs"]["adapters"] == [str(dpo_out)]
     assert payload["final_adapter_refs"] == [str(dpo_out)]
     assert str(dpo_out / "adapter_model.safetensors") in payload["file_checksums"]
@@ -380,7 +453,7 @@ def test_train_dpo_run_report_requires_sft_run_parent(
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--dpo",
             "--dpo-data",
             str(dpo),
@@ -427,7 +500,7 @@ def test_train_dpo_run_report_rejects_failed_sft_parent(
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--dpo",
             "--dpo-data",
             str(dpo),
@@ -442,6 +515,54 @@ def test_train_dpo_run_report_rejects_failed_sft_parent(
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert payload["status"] == "blocked_dpo_parent_run"
     assert any("training run is not ok" in issue for issue in payload["issues"])
+
+
+def test_train_sft_run_report_requires_real_base_model(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sft = tmp_path / "sft.jsonl"
+    sft.write_text(
+        json.dumps(
+            {
+                "version": "sft.v0",
+                "instruction": "Task: train",
+                "prompt": "Task: train",
+                "response": "A training response",
+                "meta": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "training_run.json"
+    monkeypatch.setenv("SIGNALFORGEAI_ALLOW_UNSUPPORTED_TRAINING_PLATFORM", "1")
+
+    def fail_if_called() -> None:
+        raise AssertionError("trainer should not launch for placeholder base models")
+
+    monkeypatch.setattr("signalforgeai.learning.learn._run_sft_training", fail_if_called)
+
+    code = learn_main(
+        [
+            "train",
+            "--base-model",
+            "dummy/base",
+            "--sft",
+            "--sft-data",
+            str(sft),
+            "--smoke",
+            "--max-steps",
+            "1",
+            "--run-report-out",
+            str(report),
+        ]
+    )
+
+    assert code == 2
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["status"] == "blocked_invalid_base_model"
+    assert any("Hugging Face base model" in issue for issue in payload["issues"])
 
 
 def test_train_sft_run_smoke_missing_deps_writes_blocked_report(
@@ -476,7 +597,7 @@ def test_train_sft_run_smoke_missing_deps_writes_blocked_report(
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--sft",
             "--sft-data",
             str(sft),
@@ -528,7 +649,7 @@ def test_train_sft_run_blocks_unsupported_platform(
         [
             "train",
             "--base-model",
-            "dummy/base",
+            REAL_SMOKE_MODEL,
             "--sft",
             "--sft-data",
             str(sft),

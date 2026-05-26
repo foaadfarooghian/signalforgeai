@@ -8,12 +8,6 @@ from urllib.parse import parse_qs, urlsplit
 
 from signalforgeai.models.types import ModelMetrics, ModelOutput
 
-try:
-    from peft import PeftModel
-except Exception:
-    PeftModel = None
-
-
 def _parse_hf_model_id(model_id: str) -> Tuple[str, Optional[str]]:
     """
     model_id forms:
@@ -125,8 +119,10 @@ class HFProvider:
         model.eval()
 
         if adapter:
-            if PeftModel is None:
-                raise RuntimeError("peft is not installed but adapter= was provided.")
+            try:
+                from peft import PeftModel
+            except Exception as exc:
+                raise RuntimeError("peft is not installed but adapter= was provided.") from exc
             model = PeftModel.from_pretrained(model, adapter)
             model.eval()
 

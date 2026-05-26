@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from signalforgeai.pilot_check import DEFAULT_SUITE, _write_report, run_pilot_check
 
 
@@ -40,6 +42,26 @@ def test_pilot_check_dummy_mode_produces_readiness_artifacts(tmp_path: Path) -> 
     )
     assert repeated["ok"] is True
     assert all(d["duplicate_count"] == 0 for d in repeated["datasets"])
+
+
+def test_pilot_check_default_suite_runs_from_arbitrary_cwd(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cwd = tmp_path / "outside-repo"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+
+    payload = run_pilot_check(
+        work_dir=tmp_path / "pilot",
+        suites=[DEFAULT_SUITE],
+        require_provider=set(),
+        hosted_model_id="dummy_hosted",
+        local_model_id="dummy_local",
+    )
+
+    assert payload["ok"] is True
+    assert Path(payload["report_json"]).exists()
 
 
 def test_pilot_check_with_equivalent_baseline_succeeds(tmp_path: Path) -> None:
