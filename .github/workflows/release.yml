@@ -44,7 +44,7 @@ jobs:
           python -m venv /tmp/signalforgeai-wheel-smoke
           /tmp/signalforgeai-wheel-smoke/bin/python -m pip install --upgrade pip
           /tmp/signalforgeai-wheel-smoke/bin/python -m pip install dist/*.whl
-          /tmp/signalforgeai-wheel-smoke/bin/python -c "import signalforgeai; assert signalforgeai.__version__ == '0.5.0'"
+          /tmp/signalforgeai-wheel-smoke/bin/python -c "import signalforgeai; assert signalforgeai.__version__ == '0.6.0'"
           /tmp/signalforgeai-wheel-smoke/bin/signalforgeai-pricing-validate --require gpt-5-mini
 
       - name: Upload distributions

@@ -14,12 +14,15 @@ from signalforgeai.release.candidate import (
     write_release_training_evidence,
 )
 from signalforgeai.training.readiness import (
+    ADAPTER_SMOKE_VERSION,
     build_training_run,
     load_training_run_report,
     summarize_dpo_parent_run,
     utc_now,
     write_training_run,
 )
+
+REAL_SMOKE_MODEL = "unsloth/tinyllama-chat-bnb-4bit"
 
 
 def test_mock_training_evidence_writes_sft_and_dpo_runs(tmp_path: Path) -> None:
@@ -105,7 +108,7 @@ def test_real_sft_final_evidence_can_be_required(tmp_path: Path) -> None:
         preflight=preflight,
         preflight_path=preflight_path,
         training_dir=tmp_path / "override",
-        base_model="dummy/base",
+        base_model=REAL_SMOKE_MODEL,
         sft_run=real_sft_run,
         final_training_stage="sft",
         require_real_training_evidence=True,
@@ -219,16 +222,17 @@ def test_release_candidate_run_training_derives_hf_candidate_model_id(
 
     payload = run_release_candidate_check(
         work_dir=tmp_path,
-        training_base_model="dummy/base",
+        training_base_model=REAL_SMOKE_MODEL,
         run_training=True,
         require_real_training_evidence=True,
     )
 
-    expected = f"hf:dummy/base?adapter={tmp_path / 'training' / 'sft_lora'}"
+    expected = f"hf:{REAL_SMOKE_MODEL}?adapter={tmp_path / 'training' / 'sft_lora'}"
     assert payload["ok"] is True
     assert payload["command_config"]["candidate_model_id"] == expected
     assert payload["training_evidence"]["mode"] == "run"
     assert payload["training_evidence"]["final_stage"] == "sft"
+    assert payload["training_evidence"]["adapter_smoke"]["ok"] is True
     assert payload["training_evidence"]["derived_candidate_model_id"] == expected
     assert captured["distill_candidate_model_id"] == expected
     assert captured["matrix_model_ids"].split(",").count(expected) == 1
@@ -244,13 +248,13 @@ def test_release_candidate_run_dpo_selects_dpo_as_final_training_evidence(
 
     payload = run_release_candidate_check(
         work_dir=tmp_path,
-        training_base_model="dummy/base",
+        training_base_model=REAL_SMOKE_MODEL,
         run_training=True,
         run_dpo=True,
         require_real_training_evidence=True,
     )
 
-    expected = f"hf:dummy/base?adapter={tmp_path / 'training' / 'dpo_lora'}"
+    expected = f"hf:{REAL_SMOKE_MODEL}?adapter={tmp_path / 'training' / 'dpo_lora'}"
     assert payload["ok"] is True
     assert payload["command_config"]["candidate_model_id"] == expected
     assert payload["training_evidence"]["final_stage"] == "dpo"
@@ -267,7 +271,7 @@ def test_release_candidate_run_training_respects_explicit_candidate_model_id(
 
     payload = run_release_candidate_check(
         work_dir=tmp_path,
-        training_base_model="dummy/base",
+        training_base_model=REAL_SMOKE_MODEL,
         candidate_model_id="dummy_good",
         run_training=True,
         require_real_training_evidence=True,
@@ -275,7 +279,7 @@ def test_release_candidate_run_training_respects_explicit_candidate_model_id(
 
     assert payload["ok"] is True
     assert payload["command_config"]["candidate_model_id"] == "dummy_good"
-    assert payload["training_evidence"]["derived_candidate_model_id"].startswith("hf:dummy/base")
+    assert payload["training_evidence"]["derived_candidate_model_id"].startswith(f"hf:{REAL_SMOKE_MODEL}")
     assert captured["distill_candidate_model_id"] == "dummy_good"
 
 
@@ -285,6 +289,16 @@ def test_release_candidate_run_training_rejects_external_training_reports(tmp_pa
             work_dir=tmp_path,
             run_training=True,
             sft_run=tmp_path / "sft_training_run.json",
+        )
+
+
+def test_release_candidate_run_training_rejects_placeholder_base_model(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Hugging Face base model"):
+        run_release_candidate_check(
+            work_dir=tmp_path,
+            training_base_model="dummy/base",
+            run_training=True,
+            require_real_training_evidence=True,
         )
 
 
@@ -301,7 +315,7 @@ def test_release_candidate_run_training_failure_fails_gate(
 
     payload = run_release_candidate_check(
         work_dir=tmp_path,
-        training_base_model="dummy/base",
+        training_base_model=REAL_SMOKE_MODEL,
         run_training=True,
         require_real_training_evidence=True,
     )
@@ -376,7 +390,7 @@ def _write_real_sft_run(tmp_path: Path, preflight_path: Path) -> Path:
     out_dir.mkdir(parents=True)
     (out_dir / "adapter_model.safetensors").write_text("real-sft-weights", encoding="utf-8")
     payload = build_training_run(
-        base_model="dummy/base",
+        base_model=REAL_SMOKE_MODEL,
         preflight=preflight,
         preflight_path=preflight_path,
         outputs={"sft_out": str(out_dir), "dpo_out": None, "sft_dir": None},
@@ -392,6 +406,16 @@ def _write_real_sft_run(tmp_path: Path, preflight_path: Path) -> Path:
         status="succeeded",
         started_at=utc_now(),
         duration_seconds=0.0,
+        adapter_smoke={
+            "version": ADAPTER_SMOKE_VERSION,
+            "ok": True,
+            "base_model": REAL_SMOKE_MODEL,
+            "adapter_path": str(out_dir),
+            "prompt_type": "single_turn_json",
+            "latency_ms": 1,
+            "details": {"load_label": "test"},
+            "reason": "",
+        },
     )
     return write_training_run(payload, tmp_path / "real_sft_training_run.json")
 
@@ -439,6 +463,16 @@ def _install_real_training_fakes(tmp_path: Path, monkeypatch, captured: dict[str
             status="succeeded",
             started_at=utc_now(),
             duration_seconds=0.0,
+            adapter_smoke={
+                "version": ADAPTER_SMOKE_VERSION,
+                "ok": True,
+                "base_model": config.base_model,
+                "adapter_path": str(out_dir),
+                "prompt_type": "single_turn_json",
+                "latency_ms": 1,
+                "details": {"load_label": "test"},
+                "reason": "",
+            },
         )
         write_training_run(payload, config.run_report_out)
         return 0

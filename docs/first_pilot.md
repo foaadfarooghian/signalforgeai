@@ -11,7 +11,7 @@ Use Python 3.11 or newer:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install signalforgeai==0.5.0
+pip install signalforgeai==0.6.0
 ```
 
 ## Run the offline pilot check

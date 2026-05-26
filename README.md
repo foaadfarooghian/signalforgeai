@@ -138,7 +138,7 @@ Good early domains:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install signalforgeai==0.5.0
+pip install signalforgeai==0.6.0
 ```
 
 Run the deterministic production-pilot readiness loop:
@@ -253,26 +253,25 @@ signalforgeai-release-candidate-check \
 ```
 
 Linux release environments with `[train]` installed can let the release-candidate
-gate run bounded SFT evidence and evaluate the trained adapter directly:
+gate run bounded SFT evidence while keeping downstream distillation/benchmark
+checks deterministic:
 
 ```bash
 signalforgeai-release-candidate-check \
-  --work-dir results/release_candidate_real \
+  --work-dir results/v0_6_real_sft \
   --run-training \
-  --training-base-model hf/org/base \
+  --final-training-stage sft \
+  --candidate-model-id dummy_good \
+  --training-base-model unsloth/tinyllama-chat-bnb-4bit \
   --training-max-steps 1 \
   --require-real-training-evidence
 ```
 
-Add `--run-dpo` when the final candidate should be the DPO adapter. When
-`--candidate-model-id` is omitted in this mode, SignalForge AI derives
-`hf:<base>?adapter=<final-adapter-dir>` and uses it for distillation and
-benchmark evidence.
+The v0.6 gate proves real SFT artifacts and adapter load/generate smoke, not
+quality improvement. DPO and quality thresholds are v0.7 scope. See
+`docs/v0_6_real_sft_evidence.md` for the manual evidence checklist.
 
-Real SFT/DPO evidence is not required for the `v0.5.0` onboarding gate. See
-`docs/post_0_5_training_evidence.md` for the post-0.5 scope.
-
-Training remains experimental. In `v0.5.0`, the `[train]` extra and actual
+Training remains experimental. In `v0.6.0`, the `[train]` extra and actual
 SFT/DPO execution are Linux-only because the Torch/Triton/Unsloth dependency
 stack is not portable across all supported core platforms. Preflight evidence
 is still available without loading models:
@@ -289,7 +288,7 @@ Release environments with `[train]` dependencies installed can opt into a
 bounded SFT smoke run and record `training_run.v0` evidence:
 
 ```bash
-signalforgeai-learn train --base-model hf/org/base --sft \
+signalforgeai-learn train --base-model unsloth/tinyllama-chat-bnb-4bit --sft \
   --sft-data results/pilot_check/datasets/pilot.sft.jsonl \
   --sft-out results/training/sft_lora \
   --quality-gate --logs-root results/pilot_check/logs \
@@ -303,7 +302,7 @@ When a DPO run is present, pass its run report to exchange packaging so the
 final adapter refs and checksums describe the preference-optimized artifact:
 
 ```bash
-signalforgeai-learn train --base-model hf/org/base --dpo \
+signalforgeai-learn train --base-model unsloth/tinyllama-chat-bnb-4bit --dpo \
   --dpo-data results/pilot_check/datasets/pilot.dpo.jsonl \
   --sft-run results/training/sft_training_run.json \
   --dpo-out results/training/dpo_lora \
@@ -355,7 +354,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.5.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.6.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -364,7 +363,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.5.0
+  --ollama-tag signalforgeai/pilot-specialist:0.6.0
 
 signalforgeai-exchange package-check \
   --manifest results/exchange/pilot-specialist.unit.json \
@@ -410,4 +409,4 @@ See `manifesto.md` for principles and `roadmap.md` for the focused build plan.
 
 - `prod` -> protected, tagged releases
 - `dev` -> integration branch for ongoing work
-- `docs/release_checklist.md` -> release gate for `v0.5.0`
+- `docs/release_checklist.md` -> release gate for `v0.6.0`
