@@ -62,7 +62,7 @@ def run_release_candidate_check(
     mode: str = "dummy",
     unit_id: str = "pilot-specialist",
     name: str = "Pilot Specialist",
-    version: str = "0.6.0",
+    version: str = "0.7.0",
     domain: str = "pilot",
     baseline_model_id: str = "dummy_good",
     candidate_model_id: str | None = None,
@@ -452,21 +452,41 @@ def write_release_training_evidence(
         )
 
     if dpo_run is not None:
-        payload = load_training_run_report(dpo_run)
-        _require_adapter_evidence(payload, str(dpo_run))
+        dpo_path = Path(dpo_run).resolve()
+        payload = load_training_run_report(dpo_path)
+        try:
+            _require_adapter_evidence(payload, str(dpo_path))
+        except ValueError as exc:
+            issues.append(str(exc))
+        parent_payload, parent_path, parent_issues = _load_dpo_parent_training_run(
+            payload,
+            explicit_sft_run=sft_run,
+        )
+        issues.extend(parent_issues)
+        parent_real = _is_real_training_run(parent_payload) if parent_payload else None
         real = _is_real_training_run(payload)
-        if require_real_training_evidence and not real:
-            issues.append(_real_training_required_issue())
+        if require_real_training_evidence:
+            issues.extend(
+                _real_dpo_evidence_issues(
+                    dpo_payload=payload,
+                    dpo_path=dpo_path,
+                    parent_payload=parent_payload,
+                    parent_path=parent_path,
+                )
+            )
+        runs["dpo"] = str(dpo_path)
+        if parent_path:
+            runs["sft"] = str(parent_path)
         return {
             "ok": not issues,
             "mode": "external_dpo",
             "final_stage": str(payload.get("training_stage") or "unknown"),
-            "final_run_path": str(Path(dpo_run).resolve()),
-            "sft_run_path": str(Path(sft_run).resolve()) if sft_run is not None else None,
-            "dpo_run_path": str(Path(dpo_run).resolve()),
-            "runs": {"dpo": str(Path(dpo_run).resolve())},
+            "final_run_path": str(dpo_path),
+            "sft_run_path": str(parent_path) if parent_path else None,
+            "dpo_run_path": str(dpo_path),
+            "runs": runs,
             "real_training_evidence": real,
-            "parent_real_training_evidence": None,
+            "parent_real_training_evidence": parent_real,
             "require_real_training_evidence": bool(require_real_training_evidence),
             "adapter_smoke": _dict(payload.get("adapter_smoke")),
             "issues": issues,
@@ -957,6 +977,17 @@ def format_release_candidate_markdown(payload: Mapping[str, Any]) -> str:
         for key, path in sorted(evidence.items()):
             lines.append(f"- {key}: `{path}`")
 
+    training = _dict(payload.get("training_evidence"))
+    if training:
+        lines.extend(["", "## Training Evidence", ""])
+        lines.append(f"- Final stage: `{training.get('final_stage')}`")
+        lines.append(f"- Real training evidence: `{str(training.get('real_training_evidence')).lower()}`")
+        parent_real = training.get("parent_real_training_evidence")
+        if parent_real is not None:
+            lines.append(f"- Parent real training evidence: `{str(parent_real).lower()}`")
+        lines.append(f"- Final adapter refs: `{training.get('adapter_ref_count', 0)}`")
+        lines.append(f"- File checksums: `{training.get('file_checksum_count', 0)}`")
+
     if payload.get("issues"):
         lines.extend(["", "## Issues", ""])
         lines.extend(f"- {issue}" for issue in _list(payload.get("issues")))
@@ -967,7 +998,7 @@ def format_release_candidate_markdown(payload: Mapping[str, Any]) -> str:
 
 
 def _training_summary(payload: Mapping[str, Any]) -> Dict[str, Any]:
-    return {
+    summary = {
         "ok": bool(payload.get("ok")),
         "mode": payload.get("mode"),
         "final_stage": payload.get("final_stage"),
@@ -982,6 +1013,8 @@ def _training_summary(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "runs": _dict(payload.get("runs")),
         "issues": _list(payload.get("issues")),
     }
+    summary.update(_training_run_details(str(payload.get("final_run_path") or "")))
+    return summary
 
 
 def _candidate_model_id_from_training(payload: Mapping[str, Any], *, base_model: str) -> str:
@@ -1046,9 +1079,16 @@ def _is_real_training_run(payload: Mapping[str, Any]) -> bool:
     config = payload.get("command_config")
     adapter_smoke = payload.get("adapter_smoke")
     smoke_ok = isinstance(adapter_smoke, Mapping) and adapter_smoke.get("ok") is True
-    return bool(_adapter_refs(payload)) and bool(_file_checksums(payload)) and smoke_ok and not (
-        isinstance(config, Mapping)
-        and str(config.get("training_evidence_mode") or "").lower() == "mock"
+    return (
+        payload.get("ok") is True
+        and str(payload.get("status") or "") == "succeeded"
+        and bool(_adapter_refs(payload))
+        and bool(_file_checksums(payload))
+        and smoke_ok
+        and not (
+            isinstance(config, Mapping)
+            and str(config.get("training_evidence_mode") or "").lower() == "mock"
+        )
     )
 
 
@@ -1060,11 +1100,115 @@ def _real_training_required_issue() -> str:
     )
 
 
+def _real_dpo_required_issue() -> str:
+    return (
+        "real DPO evidence required; final DPO training_run.v0 must be non-mock, "
+        "successful, and include adapter refs, file checksums, and successful "
+        "adapter_smoke evidence"
+    )
+
+
+def _real_dpo_parent_required_issue() -> str:
+    return (
+        "real DPO evidence requires a non-mock successful parent SFT training_run.v0 "
+        "with adapter refs, file checksums, and successful adapter_smoke evidence"
+    )
+
+
 def _invalid_training_base_model_issue() -> str:
     return (
         "real training requires a Hugging Face base model; pass --training-base-model "
         f"{DEFAULT_REAL_SFT_SMOKE_MODEL} or another valid HF model id"
     )
+
+
+def _real_dpo_evidence_issues(
+    *,
+    dpo_payload: Mapping[str, Any],
+    dpo_path: Path,
+    parent_payload: Mapping[str, Any],
+    parent_path: Path | None,
+) -> List[str]:
+    issues: List[str] = []
+    if str(dpo_payload.get("training_stage") or "") != "dpo":
+        issues.append(f"real DPO evidence requires training_stage 'dpo': {dpo_path}")
+    if not _is_real_training_run(dpo_payload):
+        issues.append(_real_dpo_required_issue())
+    if not parent_payload:
+        issues.append(
+            "real DPO evidence requires a successful parent SFT training_run.v0"
+            + (f": {parent_path}" if parent_path else "")
+        )
+        return issues
+    if str(parent_payload.get("training_stage") or "") != "sft":
+        issues.append(f"real DPO parent must have training_stage 'sft': {parent_path}")
+    if not _is_real_training_run(parent_payload):
+        issues.append(_real_dpo_parent_required_issue())
+    return issues
+
+
+def _load_dpo_parent_training_run(
+    dpo_payload: Mapping[str, Any],
+    *,
+    explicit_sft_run: str | Path | None,
+) -> tuple[Dict[str, Any], Path | None, List[str]]:
+    parent_path = _dpo_parent_path(dpo_payload, explicit_sft_run=explicit_sft_run)
+    if parent_path is None:
+        return {}, None, ["DPO training run has no parent SFT run path"]
+    try:
+        parent_payload = load_training_run_report(parent_path)
+    except Exception as exc:
+        return {}, parent_path, [f"DPO parent SFT run is not valid: {exc}"]
+    try:
+        _require_adapter_evidence(parent_payload, str(parent_path))
+    except ValueError as exc:
+        return parent_payload, parent_path, [f"DPO parent SFT run is not valid: {exc}"]
+    return parent_payload, parent_path, []
+
+
+def _dpo_parent_path(
+    dpo_payload: Mapping[str, Any],
+    *,
+    explicit_sft_run: str | Path | None,
+) -> Path | None:
+    if explicit_sft_run is not None:
+        return Path(explicit_sft_run).resolve()
+    parent = dpo_payload.get("dpo_parent_run")
+    if isinstance(parent, Mapping):
+        value = parent.get("path")
+        if value:
+            return Path(str(value)).resolve()
+    return None
+
+
+def _training_run_details(path: str) -> Dict[str, Any]:
+    out: Dict[str, Any] = {
+        "training_stage": None,
+        "training_status": None,
+        "final_adapter_refs": [],
+        "adapter_ref_count": 0,
+        "file_checksum_count": 0,
+        "dpo_parent_run": {},
+    }
+    if not path:
+        return out
+    try:
+        payload = _load_json(Path(path))
+    except Exception:
+        return out
+    refs = _adapter_refs(payload)
+    checksums = _file_checksums(payload)
+    out.update(
+        {
+            "training_stage": payload.get("training_stage"),
+            "training_status": payload.get("status"),
+            "final_adapter_refs": refs,
+            "adapter_ref_count": len(refs),
+            "file_checksum_count": len(checksums),
+            "dpo_parent_run": _dict(payload.get("dpo_parent_run")),
+        }
+    )
+    return out
 
 
 def _is_placeholder_training_base_model(base_model: str) -> bool:
@@ -1141,7 +1285,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--mode", default="dummy", choices=["dummy"], help="Release-candidate mode")
     parser.add_argument("--id", default="pilot-specialist", help="Specialist unit id")
     parser.add_argument("--name", default="Pilot Specialist", help="Specialist unit display name")
-    parser.add_argument("--version", default="0.6.0", help="Specialist unit version")
+    parser.add_argument("--version", default="0.7.0", help="Specialist unit version")
     parser.add_argument("--domain", default="pilot", help="Specialist unit domain")
     parser.add_argument("--baseline-model-id", default="dummy_good", help="Baseline/teacher model id")
     parser.add_argument(

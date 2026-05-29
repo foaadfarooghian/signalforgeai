@@ -244,7 +244,7 @@ behavior or requiring hosted/local model providers.
 
 ---
 
-## Active Phase — v0.6.0 Real SFT Evidence
+## Completed Phase — v0.6.0 Real SFT Evidence
 
 **Goal:** Prove that one Linux/HF-backed SFT smoke run can produce auditable
 non-mock `training_run.v0` evidence and flow into the release-candidate chain,
@@ -275,6 +275,41 @@ while core CI remains offline and dummy-first.
 
 ---
 
+## Active Phase — v0.7.0 Real DPO Evidence
+
+**Goal:** Prove that a Linux/HF-backed DPO smoke run can produce auditable
+non-mock `training_run.v0` evidence after a real SFT parent run, while keeping
+quality-improvement claims evidence-only instead of a hard release gate.
+
+### Deliverables
+- Linux-only `[train]` DPO smoke path from generated pilot DPO data and a real
+  parent SFT `training_run.v0`
+- Release-candidate gate that accepts real DPO evidence with
+  `--run-training --run-dpo --final-training-stage dpo`
+- Parent SFT enforcement for real DPO evidence:
+  non-mock, successful, adapter refs, file checksums, and successful adapter
+  smoke evidence
+- DPO final adapter evidence:
+  final adapter refs, file checksums, parent lineage, and successful adapter
+  smoke evidence
+- Manual v0.7 release evidence guide and checklist
+- Explicit follow-up scope for hard model quality thresholds, deeper MCP runtime
+  execution semantics, and critique/rubric dataset exports
+
+### Exit criteria
+- The v0.7 manual release command produces an OK release-candidate bundle with
+  `training_evidence.final_stage == "dpo"`
+- `training_evidence.real_training_evidence == true` and
+  `training_evidence.parent_real_training_evidence == true`
+- External DPO reports used with `--require-real-training-evidence` must satisfy
+  the same non-mock DPO and parent SFT checks
+- Core CI and public first-run flows remain deterministic and provider-safe
+  without `[train]`
+- Distillation and benchmark reports still surface score/cost/latency movement,
+  but quality improvement is not required for this milestone
+
+---
+
 ## Current baseline (already present in repo)
 
 - Structured trace emission and validation
@@ -287,6 +322,7 @@ while core CI remains offline and dummy-first.
 - Strict dataset quality gates for provenance, splits, duplicates, and leakage
 - Training dry-run preflight for SFT/DPO inputs
 - Optional SFT and DPO `training_run.v0` evidence for exchange packaging
+- Real SFT -> DPO evidence-first release gate with parent lineage checks
 - Evidence-only distillation eval gate for candidate specialists
 - Benchmark matrix and frontier reports
 - Specialist exchange unit validation, package evidence, smoke evidence, and registry index

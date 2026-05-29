@@ -4,9 +4,10 @@ Real SFT/DPO training evidence remains visible after `v0.5.0`, but it is not
 part of the `v0.5.0` onboarding acceptance gate. The mandatory public path stays
 offline and deterministic.
 
-`v0.6.0` takes the SFT portion of this scope as a manual Linux/HF release gate.
-See `v0_6_real_sft_evidence.md` for the current command and acceptance checks.
-DPO and quality-improvement thresholds remain post-v0.6 scope.
+`v0.6.0` took the SFT portion of this scope as a manual Linux/HF release gate.
+`v0.7.0` takes the DPO evidence portion as a manual Linux/HF release gate.
+See `v0_7_real_dpo_evidence.md` for the current command and acceptance checks.
+Quality-improvement thresholds remain post-v0.7 scope.
 
 ## Intended follow-up path
 

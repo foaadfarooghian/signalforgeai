@@ -138,7 +138,7 @@ Good early domains:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install signalforgeai==0.6.0
+pip install signalforgeai==0.7.0
 ```
 
 Run the deterministic production-pilot readiness loop:
@@ -252,26 +252,32 @@ signalforgeai-release-candidate-check \
   --require-real-training-evidence
 ```
 
+When real evidence is required, the DPO report must include parent SFT lineage
+that resolves to a successful non-mock SFT `training_run.v0` with adapter refs,
+file checksums, and successful adapter smoke evidence.
+
 Linux release environments with `[train]` installed can let the release-candidate
-gate run bounded SFT evidence while keeping downstream distillation/benchmark
-checks deterministic:
+gate run bounded SFT -> DPO evidence while keeping downstream
+distillation/benchmark checks deterministic:
 
 ```bash
 signalforgeai-release-candidate-check \
-  --work-dir results/v0_6_real_sft \
+  --work-dir results/v0_7_real_dpo \
   --run-training \
-  --final-training-stage sft \
+  --run-dpo \
+  --final-training-stage dpo \
   --candidate-model-id dummy_good \
   --training-base-model unsloth/tinyllama-chat-bnb-4bit \
   --training-max-steps 1 \
   --require-real-training-evidence
 ```
 
-The v0.6 gate proves real SFT artifacts and adapter load/generate smoke, not
-quality improvement. DPO and quality thresholds are v0.7 scope. See
-`docs/v0_6_real_sft_evidence.md` for the manual evidence checklist.
+The v0.7 gate proves real SFT parent evidence, DPO final adapter evidence,
+parent lineage, and adapter load/generate smoke. It does not claim quality
+improvement. See `docs/v0_7_real_dpo_evidence.md` for the manual evidence
+checklist.
 
-Training remains experimental. In `v0.6.0`, the `[train]` extra and actual
+Training remains experimental. In `v0.7.0`, the `[train]` extra and actual
 SFT/DPO execution are Linux-only because the Torch/Triton/Unsloth dependency
 stack is not portable across all supported core platforms. Preflight evidence
 is still available without loading models:
@@ -354,7 +360,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.6.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.7.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -363,7 +369,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.6.0
+  --ollama-tag signalforgeai/pilot-specialist:0.7.0
 
 signalforgeai-exchange package-check \
   --manifest results/exchange/pilot-specialist.unit.json \
@@ -409,4 +415,4 @@ See `manifesto.md` for principles and `roadmap.md` for the focused build plan.
 
 - `prod` -> protected, tagged releases
 - `dev` -> integration branch for ongoing work
-- `docs/release_checklist.md` -> release gate for `v0.6.0`
+- `docs/release_checklist.md` -> release gate for `v0.7.0`

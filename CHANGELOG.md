@@ -13,6 +13,28 @@ No unreleased changes yet.
 
 ---
 
+## [0.7.0] — 2026-05-29
+
+### Added
+- Manual Linux/HF real DPO evidence gate for the SFT -> DPO release path.
+- Release-candidate training summaries now expose final adapter refs, checksum
+  counts, DPO parent lineage, and parent real-training status.
+- v0.7 real DPO evidence guide and release checklist.
+
+### Changed
+- Release-candidate real DPO evidence now requires a successful non-mock parent
+  SFT `training_run.v0` with adapter refs, file checksums, and successful
+  adapter smoke evidence.
+- Real DPO final evidence now requires successful DPO adapter smoke evidence
+  and recorded parent SFT lineage.
+- Quality improvement remains reported through distillation and benchmark
+  evidence, but it is not a hard release-candidate gate in v0.7.0.
+
+### Breaking Changes
+- None.
+
+---
+
 ## [0.6.0] — 2026-05-25
 
 ### Added

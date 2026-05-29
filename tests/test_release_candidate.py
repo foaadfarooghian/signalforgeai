@@ -99,6 +99,117 @@ def test_dpo_run_override_is_selected_as_final(tmp_path: Path) -> None:
     assert not (tmp_path / "override" / "dpo_lora").exists()
 
 
+def test_external_real_dpo_final_evidence_can_be_required(tmp_path: Path) -> None:
+    preflight_path = _write_preflight(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    real_sft_run = _write_real_sft_run(tmp_path, preflight_path)
+    real_dpo_run = _write_real_dpo_run(tmp_path, preflight_path, real_sft_run)
+
+    payload = write_release_training_evidence(
+        preflight=preflight,
+        preflight_path=preflight_path,
+        training_dir=tmp_path / "override",
+        base_model=REAL_SMOKE_MODEL,
+        dpo_run=real_dpo_run,
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is True
+    assert payload["mode"] == "external_dpo"
+    assert payload["final_stage"] == "dpo"
+    assert payload["real_training_evidence"] is True
+    assert payload["parent_real_training_evidence"] is True
+    assert payload["sft_run_path"] == str(real_sft_run.resolve())
+    assert payload["final_run_path"] == str(real_dpo_run.resolve())
+
+
+def test_external_real_dpo_final_evidence_requires_parent_lineage(tmp_path: Path) -> None:
+    preflight_path = _write_preflight(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    real_dpo_run = _write_real_dpo_run(tmp_path, preflight_path, sft_run_path=None)
+
+    payload = write_release_training_evidence(
+        preflight=preflight,
+        preflight_path=preflight_path,
+        training_dir=tmp_path / "override",
+        base_model=REAL_SMOKE_MODEL,
+        dpo_run=real_dpo_run,
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is False
+    assert payload["parent_real_training_evidence"] is None
+    assert any("parent SFT" in issue for issue in payload["issues"])
+
+
+@pytest.mark.parametrize(
+    ("variant", "expected_issue"),
+    [
+        ("mock", "parent SFT training_run.v0"),
+        ("failed", "training run is not ok"),
+        ("missing_adapter_refs", "no adapter refs"),
+        ("missing_checksums", "no file checksums"),
+        ("missing_smoke", "parent SFT training_run.v0"),
+    ],
+)
+def test_external_real_dpo_final_evidence_requires_real_parent_sft(
+    tmp_path: Path,
+    variant: str,
+    expected_issue: str,
+) -> None:
+    preflight_path = _write_preflight(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    real_sft_run = _write_real_sft_run(tmp_path, preflight_path)
+    real_dpo_run = _write_real_dpo_run(tmp_path, preflight_path, real_sft_run)
+    _mutate_training_run(real_sft_run, variant)
+
+    payload = write_release_training_evidence(
+        preflight=preflight,
+        preflight_path=preflight_path,
+        training_dir=tmp_path / "override",
+        base_model=REAL_SMOKE_MODEL,
+        dpo_run=real_dpo_run,
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is False
+    assert payload["parent_real_training_evidence"] is not True
+    assert any(expected_issue in issue for issue in payload["issues"])
+
+
+@pytest.mark.parametrize(
+    ("variant", "expected_issue"),
+    [
+        ("missing_adapter_refs", "no adapter refs"),
+        ("missing_checksums", "no file checksums"),
+        ("missing_smoke", "real DPO evidence required"),
+    ],
+)
+def test_external_real_dpo_final_evidence_requires_real_dpo_artifact(
+    tmp_path: Path,
+    variant: str,
+    expected_issue: str,
+) -> None:
+    preflight_path = _write_preflight(tmp_path)
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    real_sft_run = _write_real_sft_run(tmp_path, preflight_path)
+    real_dpo_run = _write_real_dpo_run(tmp_path, preflight_path, real_sft_run)
+    _mutate_training_run(real_dpo_run, variant)
+
+    payload = write_release_training_evidence(
+        preflight=preflight,
+        preflight_path=preflight_path,
+        training_dir=tmp_path / "override",
+        base_model=REAL_SMOKE_MODEL,
+        dpo_run=real_dpo_run,
+        require_real_training_evidence=True,
+    )
+
+    assert payload["ok"] is False
+    assert payload["real_training_evidence"] is False
+    assert any(expected_issue in issue for issue in payload["issues"])
+
+
 def test_real_sft_final_evidence_can_be_required(tmp_path: Path) -> None:
     preflight_path = _write_preflight(tmp_path)
     preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
@@ -313,7 +424,13 @@ def test_release_candidate_run_dpo_selects_dpo_as_final_training_evidence(
     assert payload["ok"] is True
     assert payload["command_config"]["candidate_model_id"] == expected
     assert payload["training_evidence"]["final_stage"] == "dpo"
+    assert payload["training_evidence"]["real_training_evidence"] is True
+    assert payload["training_evidence"]["parent_real_training_evidence"] is True
     assert payload["training_evidence"]["derived_candidate_model_id"] == expected
+    assert payload["training_evidence"]["adapter_smoke"]["ok"] is True
+    assert payload["training_evidence"]["adapter_ref_count"] == 1
+    assert payload["training_evidence"]["file_checksum_count"] >= 1
+    assert payload["training_evidence"]["dpo_parent_run"]["training_stage"] == "sft"
     assert payload["artifact_refs"]["adapters"] == [str(tmp_path / "training" / "dpo_lora")]
 
 
@@ -344,6 +461,16 @@ def test_release_candidate_run_training_rejects_external_training_reports(tmp_pa
             work_dir=tmp_path,
             run_training=True,
             sft_run=tmp_path / "sft_training_run.json",
+        )
+
+
+def test_release_candidate_final_training_stage_dpo_requires_run_dpo(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="final-training-stage dpo requires --run-dpo"):
+        run_release_candidate_check(
+            work_dir=tmp_path,
+            training_base_model=REAL_SMOKE_MODEL,
+            run_training=True,
+            final_training_stage="dpo",
         )
 
 
@@ -510,6 +637,76 @@ def _write_real_sft_run_without_checksums(tmp_path: Path, preflight_path: Path) 
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["file_checksums"] = {}
     payload["output_artifacts"] = []
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def _write_real_dpo_run(
+    tmp_path: Path,
+    preflight_path: Path,
+    sft_run_path: Path | None,
+) -> Path:
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    out_dir = tmp_path / "real_dpo_lora"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "adapter_model.safetensors").write_text("real-dpo-weights", encoding="utf-8")
+    parent = summarize_dpo_parent_run(sft_run_path) if sft_run_path is not None else None
+    payload = build_training_run(
+        base_model=REAL_SMOKE_MODEL,
+        preflight=preflight,
+        preflight_path=preflight_path,
+        outputs={
+            "sft_out": None,
+            "dpo_out": str(out_dir),
+            "sft_dir": parent["adapter_refs"][0] if parent else None,
+        },
+        optional_dependencies={},
+        config={
+            "source": "test-real-dpo",
+            "sft": False,
+            "dpo": True,
+            "sft_run": str(sft_run_path) if sft_run_path is not None else None,
+            "smoke": True,
+            "max_steps": 1,
+            "quality_gate": True,
+        },
+        dpo_parent_run=parent,
+        status="succeeded",
+        started_at=utc_now(),
+        duration_seconds=0.0,
+        adapter_smoke={
+            "version": ADAPTER_SMOKE_VERSION,
+            "ok": True,
+            "base_model": REAL_SMOKE_MODEL,
+            "adapter_path": str(out_dir),
+            "prompt_type": "single_turn_json",
+            "latency_ms": 1,
+            "details": {"load_label": "test"},
+            "reason": "",
+        },
+    )
+    return write_training_run(payload, tmp_path / "real_dpo_training_run.json")
+
+
+def _mutate_training_run(path: Path, variant: str) -> Path:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if variant == "mock":
+        command_config = payload.setdefault("command_config", {})
+        command_config["training_evidence_mode"] = "mock"
+    elif variant == "failed":
+        payload["ok"] = False
+        payload["status"] = "failed"
+        payload["issues"] = ["training failed"]
+    elif variant == "missing_adapter_refs":
+        payload["final_adapter_refs"] = []
+        payload["artifact_refs"] = {"adapters": []}
+    elif variant == "missing_checksums":
+        payload["file_checksums"] = {}
+        payload["output_artifacts"] = []
+    elif variant == "missing_smoke":
+        payload["adapter_smoke"] = None
+    else:
+        raise AssertionError(f"unknown training run variant: {variant}")
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
 

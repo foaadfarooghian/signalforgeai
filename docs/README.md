@@ -7,7 +7,8 @@ evaluation, trace-to-learning, and benchmarking.
 - `public_contracts.md`: public package, CLI, env, provider, and artifact boundaries.
 - `first_pilot.md`: PyPI-first offline pilot walkthrough for new users.
 - `provider_setup.md`: opt-in dummy, OpenAI, Ollama, and HF provider setup.
-- `release_checklist.md`: `v0.6.0` local, CI, TestPyPI, PyPI, and release gates.
+- `release_checklist.md`: `v0.7.0` local, CI, TestPyPI, PyPI, and release gates.
+- `v0_7_real_dpo_evidence.md`: manual Linux/HF real DPO release evidence gate.
 - `v0_6_real_sft_evidence.md`: manual Linux/HF real SFT release evidence gate.
 - `post_0_5_training_evidence.md`: post-0.5 real SFT/DPO evidence scope.
 - `model_exchange.md`: specialist model registry/exchange contract and lifecycle.
@@ -90,22 +91,28 @@ signalforgeai-release-candidate-check \
   --require-real-training-evidence
 ```
 
+When real evidence is required, the DPO report must include parent SFT lineage
+that resolves to a successful non-mock SFT `training_run.v0` with adapter refs,
+file checksums, and successful adapter smoke evidence.
+
 In Linux release environments with `[train]` installed, the gate can run bounded
-SFT evidence itself while keeping downstream evidence deterministic:
+SFT -> DPO evidence itself while keeping downstream evidence deterministic:
 
 ```bash
 signalforgeai-release-candidate-check \
-  --work-dir results/v0_6_real_sft \
+  --work-dir results/v0_7_real_dpo \
   --run-training \
-  --final-training-stage sft \
+  --run-dpo \
+  --final-training-stage dpo \
   --candidate-model-id dummy_good \
   --training-base-model unsloth/tinyllama-chat-bnb-4bit \
   --training-max-steps 1 \
   --require-real-training-evidence
 ```
 
-This is the v0.6 release evidence path. It proves real SFT artifacts and adapter
-load/generate smoke; DPO and adapter quality thresholds are v0.7 scope.
+This is the v0.7 release evidence path. It proves real SFT parent evidence,
+DPO final adapter evidence, parent lineage, and adapter load/generate smoke.
+Quality-improvement thresholds remain follow-up work.
 
 ## Training readiness
 
@@ -128,7 +135,7 @@ signalforgeai-learn train --base-model dummy/base --sft --dpo \
 ```
 
 Release environments can optionally run one bounded SFT smoke step and record
-`training_run.v0`. In `v0.6.0`, actual SFT/DPO execution and the `[train]`
+`training_run.v0`. In `v0.7.0`, actual SFT/DPO execution and the `[train]`
 extra are Linux-only; use dry-run preflight on other platforms:
 
 ```bash
@@ -187,7 +194,7 @@ signalforgeai-exchange build-unit \
   --distillation-eval results/distillation_gate/distillation_eval.json \
   --benchmark-matrix results/benchmark_matrix/benchmark_matrix.json \
   --out results/exchange/pilot-specialist.unit.json \
-  --id pilot-specialist --name "Pilot Specialist" --version 0.6.0 --domain pilot \
+  --id pilot-specialist --name "Pilot Specialist" --version 0.7.0 --domain pilot \
   --model-family dummy --model-size 0B --model-format safetensors \
   --model-license Apache-2.0 --dataset-license CC-BY-4.0 \
   --usage-constraint "not for production decisions without review" \
@@ -196,7 +203,7 @@ signalforgeai-exchange build-unit \
   --failure-mitigation "Replace dummy refs before release." \
   --safetensors-ref hf://signalforgeai/pilot-specialist/model.safetensors \
   --ollama-modelfile hf://signalforgeai/pilot-specialist/Modelfile \
-  --ollama-tag signalforgeai/pilot-specialist:0.6.0
+  --ollama-tag signalforgeai/pilot-specialist:0.7.0
 ```
 
 Attach packaging evidence, run the offline consumer smoke check, then validate
